@@ -66,10 +66,19 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.request_context.RequestContextMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
 
 
 ROOT_URLCONF = "config.urls"
+
+ENVIRONMENT_NAME = config(
+    "DJANGO_ENV",
+    default="development",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +116,10 @@ DATABASES = {
         conn_health_checks=True,
         ssl_require=True,
     )
+}
+
+DATABASES["default"]["OPTIONS"] = {
+    "connect_timeout": 10,
 }
 
 
@@ -208,7 +221,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ],
     "DEFAULT_PAGINATION_CLASS": (
-        "rest_framework.pagination.PageNumberPagination"
+        "apps.core.api.pagination.StandardResultsSetPagination"
     ),
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": (
@@ -217,9 +230,19 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": (
         "apps.core.api.exceptions.custom_exception_handler"
     ),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/hour",
+        "user": "1000/hour",
+    },
 }
 
-
+CORS_EXPOSE_HEADERS = [
+    "X-Request-ID",
+]
 # ---------------------------------------------------------------------------
 # JWT
 # ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+from django.contrib.auth import get_user_model
 
 
 @pytest.mark.django_db
@@ -48,3 +49,25 @@ def test_system_information_rejects_anonymous_user():
         response.data["error_code"]
         == "NOT_AUTHENTICATED"
     )
+
+@pytest.mark.django_db
+def test_staff_user_can_access_system_information():
+    user_model = get_user_model()
+
+    staff_user = user_model.objects.create_user(
+        username="technical-admin",
+        password="TemporaryPassword123!",
+        is_staff=True,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=staff_user)
+
+    response = client.get(
+        reverse("core-api:system-information"),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["success"] is True
+    assert "python_version" in response.data["data"]
+    assert "django_version" in response.data["data"]

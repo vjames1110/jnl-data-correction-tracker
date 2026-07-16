@@ -1,6 +1,9 @@
 from django.urls import path
 
-from .views import HealthCheckAPIView
+from apps.core.api.views import (
+    HealthCheckAPIView,
+    SystemInformationAPIView,
+)
 
 
 app_name = "core-api"
@@ -10,5 +13,10 @@ urlpatterns = [
         "health/",
         HealthCheckAPIView.as_view(),
         name="health-check",
+    ),
+    path(
+        "system/",
+        SystemInformationAPIView.as_view(),
+        name="system-information",
     ),
 ]

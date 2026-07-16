@@ -14,7 +14,7 @@ urlpatterns = [
 
     path(
         "api/v1/",
-        include("apps.core.api.urls"),
+    include("apps.core.api.router"),
     ),
 
     path(
