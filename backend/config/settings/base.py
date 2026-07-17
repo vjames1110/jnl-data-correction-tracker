@@ -10,6 +10,16 @@ LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
 
+def normalize_origins(origins):
+    return [
+        origin
+        if origin.startswith(("http://", "https://"))
+        else f"https://{origin}"
+        for origin in origins
+        if origin
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Core security configuration
 # ---------------------------------------------------------------------------
@@ -294,18 +304,22 @@ SIMPLE_JWT = {
 # CORS
 # ---------------------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:5173,http://127.0.0.1:5173",
-    cast=Csv(),
+CORS_ALLOWED_ORIGINS = normalize_origins(
+    config(
+        "CORS_ALLOWED_ORIGINS",
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        cast=Csv(),
+    )
 )
 
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = config(
-    "CSRF_TRUSTED_ORIGINS",
-    default="http://localhost:5173,http://127.0.0.1:5173",
-    cast=Csv(),
+CSRF_TRUSTED_ORIGINS = normalize_origins(
+    config(
+        "CSRF_TRUSTED_ORIGINS",
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        cast=Csv(),
+    )
 )
 
 
