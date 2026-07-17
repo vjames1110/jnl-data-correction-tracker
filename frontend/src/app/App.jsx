@@ -1,5 +1,9 @@
-import { EnvironmentCheckPage } from "../pages/EnvironmentCheckPage";
+import {
+  RouterProvider,
+} from "react-router-dom";
+
+import { router } from "./router";
 
 export default function App() {
-  return <EnvironmentCheckPage />;
+  return <RouterProvider router={router} />;
 }

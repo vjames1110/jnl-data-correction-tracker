@@ -3,9 +3,16 @@ import { createRoot } from "react-dom/client";
 
 import App from "./app/App";
 import { AppProviders } from "./app/providers";
-import "./styles/global.css";
 
-createRoot(document.getElementById("root")).render(
+import "./styles/tokens.css";
+import "./styles/global.css";
+import "./styles/components.css";
+import "./styles/auth.css";
+import "./styles/admin.css";
+
+createRoot(
+  document.getElementById("root"),
+).render(
   <StrictMode>
     <AppProviders>
       <App />
