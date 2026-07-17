@@ -55,7 +55,8 @@ def test_staff_user_can_access_system_information():
     user_model = get_user_model()
 
     staff_user = user_model.objects.create_user(
-        username="technical-admin",
+        employee_id="TECHADMIN001",
+        first_name="Technical",
         password="TemporaryPassword123!",
         is_staff=True,
     )

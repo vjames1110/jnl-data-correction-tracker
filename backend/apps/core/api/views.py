@@ -1,9 +1,17 @@
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from apps.core.api.permissions import IsStaffUser
 from apps.core.api.responses import success_response
+from apps.core.api.serializers import (
+    HealthResponseSerializer,
+    SystemInformationResponseSerializer,
+)
 from apps.core.services.system import (
     get_internal_system_information,
     get_public_health_information,
@@ -19,6 +27,14 @@ class HealthCheckAPIView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=["Core"],
+        responses={
+            200: HealthResponseSerializer,
+            503: HealthResponseSerializer,
+        },
+        summary="Health check",
+    )
     def get(self, request):
         health_data = get_public_health_information()
 
@@ -48,6 +64,19 @@ class SystemInformationAPIView(APIView):
 
     permission_classes = [IsStaffUser]
 
+    @extend_schema(
+        tags=["Core"],
+        responses={
+            200: SystemInformationResponseSerializer,
+            401: OpenApiResponse(
+                description="Authentication credentials were not provided.",
+            ),
+            403: OpenApiResponse(
+                description="The authenticated user is not staff.",
+            ),
+        },
+        summary="Get system information",
+    )
     def get(self, request):
         return success_response(
             message="System information retrieved successfully.",

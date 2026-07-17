@@ -47,6 +47,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "apps.core",
+    "apps.authentication",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -200,6 +201,8 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+AUTH_USER_MODEL = "authentication.User"
+
 
 # ---------------------------------------------------------------------------
 # Django REST Framework
@@ -208,9 +211,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         (
-            "rest_framework_simplejwt.authentication."
-            "JWTAuthentication"
-        ),
+        "apps.authentication.api.authentication."
+        "ApplicationJWTAuthentication"
+    ),
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -233,10 +236,13 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",
         "user": "1000/hour",
+        "login": "10/minute",
+        "password_reset": "5/hour",
     },
 }
 
@@ -264,8 +270,11 @@ SIMPLE_JWT = {
     ),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": True,
+    "UPDATE_LAST_LOGIN": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "CHECK_REVOKE_TOKEN": True,
 }
 
 
