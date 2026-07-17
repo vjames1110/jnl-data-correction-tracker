@@ -6,6 +6,8 @@ from decouple import Csv, config
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -68,10 +70,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.request_context.RequestContextMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
 ]
 
 
@@ -111,19 +110,26 @@ ASGI_APPLICATION = "config.asgi.application"
 # Database
 # ---------------------------------------------------------------------------
 
+DATABASE_URL = config(
+    "DATABASE_URL",
+    default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+)
+
 DATABASES = {
-    "default": dj_database_url.config(
-        default=config("DATABASE_URL"),
+    "default": dj_database_url.parse(
+        DATABASE_URL,
         conn_max_age=600,
         conn_health_checks=True,
-        ssl_require=True,
+        ssl_require=DATABASE_URL.startswith(
+            ("postgres://", "postgresql://")
+        ),
     )
 }
 
-DATABASES["default"]["OPTIONS"] = {
-    "connect_timeout": 10,
-}
-
+if DATABASES["default"]["ENGINE"].endswith("postgresql"):
+    DATABASES["default"]["OPTIONS"] = {
+        "connect_timeout": 10,
+    }
 
 # ---------------------------------------------------------------------------
 # Password validation
@@ -292,6 +298,12 @@ CORS_ALLOWED_ORIGINS = config(
 
 CORS_ALLOW_CREDENTIALS = True
 
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="http://localhost:5173,http://127.0.0.1:5173",
+    cast=Csv(),
+)
+
 
 # ---------------------------------------------------------------------------
 # API documentation
@@ -335,7 +347,7 @@ LOGGING = {
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": BASE_DIR / "logs" / "django.log",
+            "filename": LOGS_DIR / "django.log",
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
             "formatter": "verbose",
