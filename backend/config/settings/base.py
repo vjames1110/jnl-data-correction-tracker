@@ -48,6 +48,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.core",
     "apps.authentication",
+    "apps.administration",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -243,6 +244,7 @@ REST_FRAMEWORK = {
         "user": "1000/hour",
         "login": "10/minute",
         "password_reset": "5/hour",
+        "admin_dashboard": "300/hour",
     },
 }
 

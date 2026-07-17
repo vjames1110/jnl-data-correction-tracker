@@ -12,4 +12,10 @@ urlpatterns = [
             "apps.authentication.api.urls"
         ),
     ),
+    path(
+        "admin-portal/",
+        include(
+            "apps.administration.api.urls"
+        ),
+    ),
 ]

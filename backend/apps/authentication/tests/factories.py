@@ -33,3 +33,33 @@ def UserFactory(**kwargs):
         password=password,
         **defaults,
     )
+
+def AdminUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.ADMIN)
+    kwargs.setdefault("is_staff", True)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
+
+
+def SuperAdminUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.SUPER_ADMIN)
+    kwargs.setdefault("is_staff", True)
+    kwargs.setdefault("is_superuser", True)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
+
+
+def DirectorUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.DIRECTOR)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
+
+
+def ResponsiblePersonUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.RESPONSIBLE_PERSON)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
