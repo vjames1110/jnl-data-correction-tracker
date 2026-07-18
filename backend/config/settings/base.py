@@ -20,6 +20,10 @@ def normalize_origins(origins):
     ]
 
 
+def merge_unique(values, defaults):
+    return list(dict.fromkeys([*values, *defaults]))
+
+
 # ---------------------------------------------------------------------------
 # Core security configuration
 # ---------------------------------------------------------------------------
@@ -28,10 +32,15 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config(
-    "DJANGO_ALLOWED_HOSTS",
-    default="localhost,127.0.0.1",
-    cast=Csv(),
+ALLOWED_HOSTS = merge_unique(
+    config(
+        "DJANGO_ALLOWED_HOSTS",
+        default="localhost,127.0.0.1",
+        cast=Csv(),
+    ),
+    [
+        "jnl-data-correction-tracker-backend.onrender.com",
+    ],
 )
 
 
