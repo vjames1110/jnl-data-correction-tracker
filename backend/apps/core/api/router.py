@@ -18,4 +18,10 @@ urlpatterns = [
             "apps.administration.api.urls"
         ),
     ),
+    path(
+        "organization/",
+        include(
+            "apps.organization.api.urls"
+        ),
+    ),
 ]
