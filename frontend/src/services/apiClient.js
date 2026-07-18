@@ -1,5 +1,8 @@
 import axios from "axios";
 
+import {
+  SESSION_END_REASONS,
+} from "../constants/auth";
 import { env } from "../config/env";
 import { tokenStorage } from "./tokenStorage";
 
@@ -128,6 +131,12 @@ apiClient.interceptors.response.use(
         window.dispatchEvent(
           new CustomEvent(
             "jnl:authentication-expired",
+            {
+              detail: {
+                reason:
+                  SESSION_END_REASONS.REFRESH_FAILED,
+              },
+            },
           ),
         );
 

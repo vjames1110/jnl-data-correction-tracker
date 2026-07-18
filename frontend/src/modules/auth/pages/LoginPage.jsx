@@ -13,6 +13,7 @@ import {
 
 import {
   AUTH_ROUTES,
+  SESSION_END_REASONS,
 } from "../../../constants/auth";
 import {
   isAdminRole,
@@ -44,6 +45,27 @@ export function LoginPage() {
           "Password changed successfully. Please sign in again."
         : "",
     );
+  const [infoMessage, setInfoMessage] =
+    useState(() => {
+      if (!location.state?.sessionEnded) {
+        return "";
+      }
+
+      const reason = location.state?.reason;
+
+      if (
+        reason ===
+          SESSION_END_REASONS.SESSION_EXPIRED ||
+        reason ===
+          SESSION_END_REASONS.REFRESH_FAILED ||
+        reason ===
+          SESSION_END_REASONS.RESTORE_FAILED
+      ) {
+        return "Your session has ended. Please sign in again.";
+      }
+
+      return "";
+    });
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
@@ -61,6 +83,7 @@ export function LoginPage() {
 
     setErrorMessage("");
     setSuccessMessage("");
+    setInfoMessage("");
     setIsSubmitting(true);
 
     try {
@@ -138,6 +161,14 @@ export function LoginPage() {
           variant="success"
           title="Password changed"
           message={successMessage}
+        />
+      ) : null}
+
+      {infoMessage ? (
+        <InlineAlert
+          variant="info"
+          title="Session ended"
+          message={infoMessage}
         />
       ) : null}
 

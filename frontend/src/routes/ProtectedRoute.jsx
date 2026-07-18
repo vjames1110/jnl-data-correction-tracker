@@ -15,6 +15,7 @@ export function ProtectedRoute() {
   const {
     isAuthenticated,
     isInitializing,
+    sessionEndReason,
   } = useAuth();
 
   if (isInitializing) {
@@ -33,6 +34,12 @@ export function ProtectedRoute() {
         replace
         state={{
           from: location.pathname,
+          ...(sessionEndReason
+            ? {
+                sessionEnded: true,
+                reason: sessionEndReason,
+              }
+            : {}),
         }}
       />
     );

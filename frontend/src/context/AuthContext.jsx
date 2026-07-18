@@ -22,6 +22,8 @@ export function AuthProvider({ children }) {
         : AUTH_STATUS.UNAUTHENTICATED,
   );
   const [user, setUser] = useState(null);
+  const [sessionEndReason, setSessionEndReason] =
+    useState(null);
 
   const terminateLocalSession = useCallback((
     reason = SESSION_END_REASONS.LOCAL_CLEAR,
@@ -30,6 +32,7 @@ export function AuthProvider({ children }) {
     queryClient.clear();
     setUser(null);
     setStatus(AUTH_STATUS.UNAUTHENTICATED);
+    setSessionEndReason(reason);
 
     window.dispatchEvent(
       new CustomEvent("jnl:session-ended", {
@@ -83,9 +86,10 @@ export function AuthProvider({ children }) {
   }, [terminateLocalSession]);
 
   useEffect(() => {
-    function handleAuthenticationExpired() {
+    function handleAuthenticationExpired(event) {
       terminateLocalSession(
-        SESSION_END_REASONS.SESSION_EXPIRED,
+        event.detail?.reason ??
+          SESSION_END_REASONS.SESSION_EXPIRED,
       );
     }
 
@@ -113,6 +117,7 @@ export function AuthProvider({ children }) {
       });
 
       setUser(loginData.user);
+      setSessionEndReason(null);
       setStatus(
         AUTH_STATUS.AUTHENTICATED,
       );
@@ -159,6 +164,7 @@ export function AuthProvider({ children }) {
         status === AUTH_STATUS.INITIALIZING,
       isAuthenticated:
         status === AUTH_STATUS.AUTHENTICATED,
+      sessionEndReason,
       login,
       logout,
       clearSession,
@@ -168,6 +174,7 @@ export function AuthProvider({ children }) {
     [
       status,
       user,
+      sessionEndReason,
       login,
       logout,
       clearSession,
