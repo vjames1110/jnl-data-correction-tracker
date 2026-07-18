@@ -15,3 +15,12 @@ export const AUTH_STATUS = Object.freeze({
   AUTHENTICATED: "authenticated",
   UNAUTHENTICATED: "unauthenticated",
 });
+
+export const SESSION_END_REASONS = Object.freeze({
+  PASSWORD_CHANGED: "password_changed",
+  SESSION_EXPIRED: "session_expired",
+  REFRESH_FAILED: "refresh_failed",
+  MANUAL_SIGNOUT: "manual_signout",
+  RESTORE_FAILED: "restore_failed",
+  LOCAL_CLEAR: "local_clear",
+});

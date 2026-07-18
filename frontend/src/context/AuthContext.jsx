@@ -7,6 +7,7 @@ import {
 
 import {
   AUTH_STATUS,
+  SESSION_END_REASONS,
 } from "../constants/auth";
 import { queryClient } from "../app/queryClient";
 import { authService } from "../services/authService";
@@ -22,12 +23,30 @@ export function AuthProvider({ children }) {
   );
   const [user, setUser] = useState(null);
 
-  const clearSession = useCallback(() => {
+  const terminateLocalSession = useCallback((
+    reason = SESSION_END_REASONS.LOCAL_CLEAR,
+  ) => {
     tokenStorage.clearTokens();
     queryClient.clear();
     setUser(null);
     setStatus(AUTH_STATUS.UNAUTHENTICATED);
+
+    window.dispatchEvent(
+      new CustomEvent("jnl:session-ended", {
+        detail: {
+          reason,
+        },
+      }),
+    );
   }, []);
+
+  const clearSession = useCallback(
+    () =>
+      terminateLocalSession(
+        SESSION_END_REASONS.LOCAL_CLEAR,
+      ),
+    [terminateLocalSession],
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -49,7 +68,9 @@ export function AuthProvider({ children }) {
         }
       } catch {
         if (isCurrent) {
-          clearSession();
+          terminateLocalSession(
+            SESSION_END_REASONS.RESTORE_FAILED,
+          );
         }
       }
     }
@@ -59,11 +80,13 @@ export function AuthProvider({ children }) {
     return () => {
       isCurrent = false;
     };
-  }, [clearSession]);
+  }, [terminateLocalSession]);
 
   useEffect(() => {
     function handleAuthenticationExpired() {
-      clearSession();
+      terminateLocalSession(
+        SESSION_END_REASONS.SESSION_EXPIRED,
+      );
     }
 
     window.addEventListener(
@@ -77,7 +100,7 @@ export function AuthProvider({ children }) {
         handleAuthenticationExpired,
       );
     };
-  }, [clearSession]);
+  }, [terminateLocalSession]);
 
   const login = useCallback(
     async (credentials) => {
@@ -122,9 +145,11 @@ export function AuthProvider({ children }) {
       // Local session clearing remains mandatory
       // even when the API is unavailable.
     } finally {
-      clearSession();
+      terminateLocalSession(
+        SESSION_END_REASONS.MANUAL_SIGNOUT,
+      );
     }
-  }, [clearSession]);
+  }, [terminateLocalSession]);
 
   const value = useMemo(
     () => ({
@@ -137,6 +162,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
       clearSession,
+      terminateLocalSession,
       refreshCurrentUser,
     }),
     [
@@ -145,6 +171,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
       clearSession,
+      terminateLocalSession,
       refreshCurrentUser,
     ],
   );

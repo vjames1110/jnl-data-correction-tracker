@@ -37,6 +37,13 @@ export function LoginPage() {
     useState(false);
   const [errorMessage, setErrorMessage] =
     useState("");
+  const [successMessage, setSuccessMessage] =
+    useState(() =>
+      location.state?.passwordChanged
+        ? location.state?.message ??
+          "Password changed successfully. Please sign in again."
+        : "",
+    );
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
@@ -53,6 +60,7 @@ export function LoginPage() {
     event.preventDefault();
 
     setErrorMessage("");
+    setSuccessMessage("");
     setIsSubmitting(true);
 
     try {
@@ -122,6 +130,14 @@ export function LoginPage() {
           variant="error"
           title="Sign-in failed"
           message={errorMessage}
+        />
+      ) : null}
+
+      {successMessage ? (
+        <InlineAlert
+          variant="success"
+          title="Password changed"
+          message={successMessage}
         />
       ) : null}
 

@@ -10,6 +10,7 @@ import {
 
 import {
   AUTH_ROUTES,
+  SESSION_END_REASONS,
 } from "../../../constants/auth";
 import { InlineAlert } from "../../../components/feedback/InlineAlert";
 import { useAuth } from "../../../hooks/useAuth";
@@ -23,7 +24,7 @@ export function ChangePasswordPage() {
   const {
     user,
     logout,
-    refreshCurrentUser,
+    terminateLocalSession,
   } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -72,19 +73,16 @@ export function ChangePasswordPage() {
           formData,
         );
 
-      setSuccessMessage(response.message);
-
-      await refreshCurrentUser();
-
-      window.setTimeout(async () => {
-        await logout();
-        navigate(AUTH_ROUTES.LOGIN, {
-          replace: true,
-          state: {
-            passwordChanged: true,
-          },
-        });
-      }, 1000);
+      terminateLocalSession(
+        SESSION_END_REASONS.PASSWORD_CHANGED,
+      );
+      navigate(AUTH_ROUTES.LOGIN, {
+        replace: true,
+        state: {
+          passwordChanged: true,
+          message: response.message,
+        },
+      });
     } catch (error) {
       setErrorMessage(
         getApiErrorMessage(
@@ -185,6 +183,7 @@ export function ChangePasswordPage() {
             type="button"
             className="button button--tertiary button--full"
             onClick={logout}
+            disabled={isSubmitting}
           >
             <LogOut size={18} />
             Sign out
