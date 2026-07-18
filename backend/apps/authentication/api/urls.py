@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenVerifyView
 
 from apps.authentication.api.views import (
     ChangePasswordAPIView,
@@ -7,6 +6,7 @@ from apps.authentication.api.views import (
     LoginAPIView,
     LogoutAPIView,
     TokenRefreshAPIView,
+    TokenVerifyAPIView,
 )
 
 
@@ -25,7 +25,7 @@ urlpatterns = [
     ),
     path(
         "verify/",
-        TokenVerifyView.as_view(),
+        TokenVerifyAPIView.as_view(),
         name="token-verify",
     ),
     path(

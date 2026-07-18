@@ -19,6 +19,7 @@ from rest_framework_simplejwt.tokens import (
 
 from apps.authentication.api.serializers import (
     ApplicationTokenRefreshSerializer,
+    ApplicationTokenVerifySerializer,
     ChangePasswordSerializer,
     CurrentUserSerializer,
     CurrentUserResponseSerializer,
@@ -27,6 +28,7 @@ from apps.authentication.api.serializers import (
     LoginSerializer,
     LogoutSerializer,
     TokenRefreshResponseSerializer,
+    TokenVerifyResponseSerializer,
 )
 from apps.authentication.api.tokens import (
     ApplicationTokenSerializer,
@@ -200,6 +202,79 @@ class TokenRefreshAPIView(APIView):
                     "token_type"
                 ],
             },
+        )
+
+
+class TokenVerifyAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_scope = "token_verify"
+
+    @extend_schema(
+        tags=["Authentication"],
+        request=ApplicationTokenVerifySerializer,
+        responses={
+            200: TokenVerifyResponseSerializer,
+            400: OpenApiResponse(
+                description="Token verification validation failed.",
+            ),
+            401: OpenApiResponse(
+                description=(
+                    "The token is invalid, expired, or revoked."
+                ),
+            ),
+            429: OpenApiResponse(
+                description="Too many verification attempts.",
+            ),
+        },
+        summary="Verify authentication token",
+        description=(
+            "Verify that a JWT is structurally valid, unexpired "
+            "and not revoked."
+        ),
+    )
+    def post(self, request):
+        serializer = ApplicationTokenVerifySerializer(
+            data=request.data,
+        )
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except InvalidToken:
+            failure_code = getattr(
+                serializer,
+                "failure_code",
+                "INVALID_TOKEN",
+            )
+
+            error_messages = {
+                "TOKEN_EXPIRED": (
+                    "The token has expired."
+                ),
+                "TOKEN_REVOKED": (
+                    "The token has been revoked."
+                ),
+                "INVALID_TOKEN": (
+                    "The token is invalid."
+                ),
+            }
+
+            return error_response(
+                message=error_messages[failure_code],
+                errors={
+                    "token": [
+                        error_messages[failure_code]
+                    ]
+                },
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                error_code=failure_code,
+            )
+
+        return success_response(
+            message=(
+                "Authentication token verified successfully."
+            ),
+            data=serializer.validated_data,
         )
 
 

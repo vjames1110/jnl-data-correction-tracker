@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import (
@@ -9,10 +10,19 @@ from rest_framework_simplejwt.serializers import (
     TokenRefreshSerializer,
 )
 from rest_framework_simplejwt.exceptions import (
+    ExpiredTokenError,
     InvalidToken,
     TokenError,
 )
 from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import UntypedToken
+
+try:
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+    )
+except ImportError:  # pragma: no cover
+    BlacklistedToken = None
 
 from apps.authentication.models import (
     AccountStatus,
@@ -143,6 +153,31 @@ class TokenRefreshResponseSerializer(serializers.Serializer):
     )
 
 
+class TokenVerifyResponseDataSerializer(serializers.Serializer):
+    valid = serializers.BooleanField(
+        read_only=True,
+    )
+    token_type = serializers.CharField(
+        read_only=True,
+    )
+    user_id = serializers.CharField(
+        read_only=True,
+        allow_blank=True,
+    )
+
+
+class TokenVerifyResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField(
+        read_only=True,
+    )
+    message = serializers.CharField(
+        read_only=True,
+    )
+    data = TokenVerifyResponseDataSerializer(
+        read_only=True,
+    )
+
+
 class ApplicationTokenRefreshSerializer(
     TokenRefreshSerializer
 ):
@@ -196,6 +231,66 @@ class ApplicationTokenRefreshSerializer(
         data["token_type"] = "Bearer"
 
         return data
+
+
+class ApplicationTokenVerifySerializer(
+    serializers.Serializer
+):
+    token = serializers.CharField(
+        write_only=True,
+    )
+
+    def validate(self, attrs):
+        self.failure_code = "INVALID_TOKEN"
+        self.validated_token = None
+
+        try:
+            token = UntypedToken(attrs["token"])
+        except ExpiredTokenError as exc:
+            self.failure_code = "TOKEN_EXPIRED"
+            raise InvalidToken(exc.args[0]) from exc
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+
+        if self._is_blacklisted(token):
+            self.failure_code = "TOKEN_REVOKED"
+            raise InvalidToken("Token is blacklisted")
+
+        self.validated_token = token
+
+        return {
+            "valid": True,
+            "token_type": token.get(
+                api_settings.TOKEN_TYPE_CLAIM,
+                "",
+            ),
+            "user_id": str(
+                token.get(
+                    api_settings.USER_ID_CLAIM,
+                    "",
+                )
+            ),
+        }
+
+    def _is_blacklisted(self, token) -> bool:
+        if (
+            BlacklistedToken is None
+            or not api_settings.BLACKLIST_AFTER_ROTATION
+            or (
+                "rest_framework_simplejwt.token_blacklist"
+                not in settings.INSTALLED_APPS
+            )
+        ):
+            return False
+
+        jti = token.get(api_settings.JTI_CLAIM)
+
+        if not jti:
+            return False
+
+        return BlacklistedToken.objects.filter(
+            token__jti=jti,
+        ).exists()
 
 
 class LoginSerializer(serializers.Serializer):
