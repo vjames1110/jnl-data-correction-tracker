@@ -198,6 +198,7 @@
 }
 
 .error-state,
+.empty-state,
 .placeholder-page,
 .system-state-page {
   min-height: 320px;
@@ -210,17 +211,20 @@
 }
 
 .error-state svg,
+.empty-state svg,
 .system-state-page svg {
   color: var(--color-warning-600);
 }
 
 .error-state h3,
+.empty-state h3,
 .system-state-page h1,
 .placeholder-page h1 {
   margin: 16px 0 6px;
 }
 
 .error-state p,
+.empty-state p,
 .system-state-page p,
 .placeholder-page p {
   max-width: 520px;
@@ -245,4 +249,60 @@
 
 .chart-container--wide {
   height: 310px;
+}
+
+.dashboard-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-sm);
+}
+
+.dashboard-skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 62%),
+      transparent
+    );
+  animation: app-skeleton-shimmer 1100ms infinite;
+}
+
+.dashboard-skeleton--heading {
+  width: min(520px, 100%);
+  height: 64px;
+}
+
+.dashboard-skeleton--line {
+  width: 70%;
+  height: 14px;
+}
+
+.dashboard-skeleton--short {
+  width: 48%;
+}
+
+.dashboard-skeleton--value {
+  width: 44%;
+  height: 34px;
+  margin: 16px 0 10px;
+}
+
+.dashboard-skeleton--chart {
+  height: 320px;
+  margin: 20px;
+}
+
+@keyframes app-skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
 }

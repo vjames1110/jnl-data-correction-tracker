@@ -9,9 +9,20 @@ import {
   YAxis,
 } from "recharts";
 
+import { EmptyState } from "../common/EmptyState";
+
 export function LoginTrendChart({
   data = [],
 }) {
+  if (!data.length) {
+    return (
+      <EmptyState
+        title="No login trend"
+        message="Authentication trend data is not available for this period."
+      />
+    );
+  }
+
   return (
     <div className="chart-container chart-container--wide">
       <ResponsiveContainer

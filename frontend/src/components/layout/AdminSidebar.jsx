@@ -15,6 +15,7 @@ import {
 
 import { env } from "../../config/env";
 import { AppLoader } from "../common/AppLoader";
+import { ErrorState } from "../common/ErrorState";
 import {
   useAdminCapabilities,
 } from "../../hooks/useAdminCapabilities";
@@ -68,6 +69,29 @@ export function AdminSidebar({
 
         {capabilitiesQuery.isLoading ? (
           <AppLoader label="Loading menu..." />
+        ) : null}
+
+        {capabilitiesQuery.isError ? (
+          <div className="admin-sidebar__state">
+            <ErrorState
+              title="Menu unavailable"
+              message={
+                capabilitiesQuery.error?.message
+              }
+              onRetry={
+                capabilitiesQuery.refetch
+              }
+            />
+          </div>
+        ) : null}
+
+        {!capabilitiesQuery.isLoading &&
+        !capabilitiesQuery.isError &&
+        !capabilitiesQuery.data?.navigation
+          ?.length ? (
+          <div className="admin-sidebar__empty">
+            No menu items available.
+          </div>
         ) : null}
 
         {capabilitiesQuery.data?.navigation?.map(

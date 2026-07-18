@@ -7,6 +7,8 @@ import {
   Tooltip,
 } from "recharts";
 
+import { EmptyState } from "../common/EmptyState";
+
 const chartColors = [
   "#0A6ED1",
   "#107E3E",
@@ -18,6 +20,15 @@ const chartColors = [
 export function RoleDistributionChart({
   data = [],
 }) {
+  if (!data.length) {
+    return (
+      <EmptyState
+        title="No role data"
+        message="Role distribution will appear after user records are available."
+      />
+    );
+  }
+
   return (
     <div className="chart-container">
       <ResponsiveContainer

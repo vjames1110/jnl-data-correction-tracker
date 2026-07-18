@@ -569,3 +569,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+.admin-sidebar__state {
+  padding: 8px 0;
+}
+
+.admin-sidebar__state .error-state {
+  min-height: auto;
+  padding: 12px 6px;
+  color: rgb(255 255 255 / 72%);
+}
+
+.admin-sidebar__state .error-state svg {
+  width: 22px;
+  height: 22px;
+}
+
+.admin-sidebar__state .error-state h3 {
+  margin-top: 8px;
+  color: var(--color-white);
+  font-size: 13px;
+}
+
+.admin-sidebar__state .error-state p {
+  max-width: 190px;
+  color: rgb(255 255 255 / 62%);
+  font-size: 12px;
+}
+
+.admin-sidebar__empty {
+  padding: 12px 10px;
+  color: rgb(255 255 255 / 58%);
+  font-size: 12px;
+}

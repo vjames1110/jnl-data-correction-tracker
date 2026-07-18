@@ -14,6 +14,10 @@ import { RootRedirectPage } from "../pages/RootRedirectPage";
 import { AdminRoute } from "../routes/AdminRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
+import { CapabilityRoute } from "../routes/CapabilityRoute";
+import {
+  ADMIN_CAPABILITIES,
+} from "../constants/adminCapabilities";
 
 export const router = createBrowserRouter([
   {
@@ -74,13 +78,39 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/admin/audit",
-                element:
-                  <PlaceholderAdminPage />,
+                element: (
+                  <CapabilityRoute
+                    requiredCapability={
+                      ADMIN_CAPABILITIES
+                        .VIEW_AUDIT_LOGS
+                    }
+                  />
+                ),
+                children: [
+                  {
+                    index: true,
+                    element:
+                      <PlaceholderAdminPage />,
+                  },
+                ],
               },
               {
                 path: "/admin/settings",
-                element:
-                  <PlaceholderAdminPage />,
+                element: (
+                  <CapabilityRoute
+                    requiredCapability={
+                      ADMIN_CAPABILITIES
+                        .MANAGE_SYSTEM_SETTINGS
+                    }
+                  />
+                ),
+                children: [
+                  {
+                    index: true,
+                    element:
+                      <PlaceholderAdminPage />,
+                  },
+                ],
               },
             ],
           },

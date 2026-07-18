@@ -12,6 +12,7 @@ import { AccountStatusChart } from "../../../components/charts/AccountStatusChar
 import { LoginTrendChart } from "../../../components/charts/LoginTrendChart";
 import { RoleDistributionChart } from "../../../components/charts/RoleDistributionChart";
 import { ErrorState } from "../../../components/common/ErrorState";
+import { AppLoader } from "../../../components/common/AppLoader";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import {
   useDashboard,
@@ -19,6 +20,7 @@ import {
 } from "../../../hooks/useDashboard";
 import { KpiCard } from "../components/KpiCard";
 import { RecentActivityTable } from "../components/RecentActivityTable";
+import { DashboardSkeleton } from "../components/DashboardSkeleton";
 
 const dashboardPeriods = [
   {
@@ -44,6 +46,10 @@ export function AdminDashboardPage() {
 
   const activityQuery =
     useRecentActivity(10);
+
+  if (dashboardQuery.isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   if (dashboardQuery.isError) {
     return (
@@ -178,7 +184,9 @@ export function AdminDashboardPage() {
       </SurfaceCard>
 
       <SurfaceCard title="Recent Authentication Activity">
-        {activityQuery.isError ? (
+        {activityQuery.isLoading ? (
+          <AppLoader label="Loading activity..." />
+        ) : activityQuery.isError ? (
           <ErrorState
             message={
               activityQuery.error?.message

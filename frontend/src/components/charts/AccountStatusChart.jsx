@@ -8,9 +8,20 @@ import {
   YAxis,
 } from "recharts";
 
+import { EmptyState } from "../common/EmptyState";
+
 export function AccountStatusChart({
   data = [],
 }) {
+  if (!data.length) {
+    return (
+      <EmptyState
+        title="No status data"
+        message="Account status distribution will appear after user records are available."
+      />
+    );
+  }
+
   return (
     <div className="chart-container">
       <ResponsiveContainer

@@ -1,4 +1,3 @@
-from django.db import transaction
 from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
@@ -69,7 +68,6 @@ class LoginAPIView(APIView):
             "Returns JWT access and refresh tokens."
         ),
     )
-    @transaction.atomic
     def post(self, request):
         serializer = LoginSerializer(
             data=request.data,
