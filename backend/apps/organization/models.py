@@ -1,5 +1,6 @@
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.timezone import get_default_timezone_name
@@ -104,6 +105,151 @@ class Company(BusinessModel):
                     )
                 }
             ) from exc
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class Site(BusinessModel):
+    """
+    Physical or project site where correction requests originate.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="sites",
+    )
+    site_code = models.CharField(
+        max_length=30,
+        db_index=True,
+    )
+    site_name = models.CharField(
+        max_length=150,
+    )
+    project_name = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    state = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    district = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    address = models.TextField(
+        blank=True,
+    )
+    start_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+    site_director = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="director_sites",
+        null=True,
+        blank=True,
+    )
+    site_hod = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="hod_sites",
+        null=True,
+        blank=True,
+    )
+    cost_centre = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+    erp_site_code = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "organization_site"
+        ordering = ["site_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "site_code"],
+                name="org_site_company_code_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["company", "is_active"],
+                name="org_site_company_active_idx",
+            ),
+            models.Index(
+                fields=["site_code", "is_active"],
+                name="org_site_code_active_idx",
+            ),
+            models.Index(
+                fields=["state", "district"],
+                name="org_site_location_idx",
+            ),
+        ]
+        verbose_name = "Site"
+        verbose_name_plural = "Sites"
+
+    def __str__(self) -> str:
+        return f"{self.site_code} - {self.site_name}"
+
+    def clean(self):
+        super().clean()
+
+        self.site_code = normalize_code(
+            self.site_code
+        )
+        self.site_name = normalize_whitespace(
+            self.site_name
+        )
+
+        if self.project_name:
+            self.project_name = normalize_whitespace(
+                self.project_name
+            )
+
+        if self.state:
+            self.state = normalize_whitespace(
+                self.state
+            )
+
+        if self.district:
+            self.district = normalize_whitespace(
+                self.district
+            )
+
+        if self.cost_centre:
+            self.cost_centre = normalize_code(
+                self.cost_centre
+            )
+
+        if self.erp_site_code:
+            self.erp_site_code = normalize_code(
+                self.erp_site_code
+            )
+
+        if (
+            self.start_date
+            and self.end_date
+            and self.end_date < self.start_date
+        ):
+            raise ValidationError(
+                {
+                    "end_date": (
+                        "End date cannot be before start date."
+                    )
+                }
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
