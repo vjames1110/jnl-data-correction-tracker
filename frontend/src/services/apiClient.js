@@ -17,6 +17,49 @@ const apiClient = axios.create({
 
 let refreshPromise = null;
 
+const refreshExcludedEndpointSuffixes = [
+  "/auth/login/",
+  "/auth/logout/",
+  "/auth/refresh/",
+  "/auth/verify/",
+];
+
+function resolveRequestPath(url) {
+  if (!url) {
+    return "";
+  }
+
+  try {
+    return new URL(url, env.apiBaseUrl).pathname;
+  } catch {
+    return url;
+  }
+}
+
+function shouldSkipRefresh(originalRequest) {
+  const requestPath = resolveRequestPath(
+    originalRequest?.url,
+  );
+
+  return refreshExcludedEndpointSuffixes.some(
+    (endpointSuffix) =>
+      requestPath.endsWith(endpointSuffix),
+  );
+}
+
+function dispatchAuthenticationExpired(reason) {
+  window.dispatchEvent(
+    new CustomEvent(
+      "jnl:authentication-expired",
+      {
+        detail: {
+          reason,
+        },
+      },
+    ),
+  );
+}
+
 function normalizeApiError(error) {
   return {
     status: error.response?.status ?? null,
@@ -99,15 +142,11 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
 
-    const isRefreshRequest =
-      originalRequest?.url?.includes(
-        "/auth/refresh/",
-      );
-
     if (
       status === 401 &&
+      originalRequest &&
       !originalRequest?._retry &&
-      !isRefreshRequest &&
+      !shouldSkipRefresh(originalRequest) &&
       tokenStorage.hasRefreshToken()
     ) {
       originalRequest._retry = true;
@@ -121,6 +160,8 @@ apiClient.interceptors.response.use(
         const newAccessToken =
           await refreshPromise;
 
+        originalRequest.headers =
+          originalRequest.headers ?? {};
         originalRequest.headers.Authorization =
           `Bearer ${newAccessToken}`;
 
@@ -128,16 +169,8 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         tokenStorage.clearTokens();
 
-        window.dispatchEvent(
-          new CustomEvent(
-            "jnl:authentication-expired",
-            {
-              detail: {
-                reason:
-                  SESSION_END_REASONS.REFRESH_FAILED,
-              },
-            },
-          ),
+        dispatchAuthenticationExpired(
+          SESSION_END_REASONS.REFRESH_FAILED,
         );
 
         return Promise.reject(
