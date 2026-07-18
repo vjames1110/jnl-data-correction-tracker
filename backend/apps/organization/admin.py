@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from apps.organization.models import (
     Company,
+    Department,
     Site,
 )
 
@@ -156,6 +157,66 @@ class SiteAdmin(admin.ModelAdmin):
                 "fields": (
                     "cost_centre",
                     "erp_site_code",
+                )
+            },
+        ),
+        (
+            "Audit information",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = [
+        "department_code",
+        "department_name",
+        "company",
+        "department_hod",
+        "display_order",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter = [
+        "company",
+        "is_active",
+    ]
+    search_fields = [
+        "department_code",
+        "department_name",
+        "description",
+        "department_hod__employee_id",
+        "department_hod__first_name",
+        "department_hod__last_name",
+    ]
+    autocomplete_fields = [
+        "company",
+        "department_hod",
+    ]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+    ]
+    fieldsets = (
+        (
+            "Department details",
+            {
+                "fields": (
+                    "id",
+                    "company",
+                    "department_code",
+                    "department_name",
+                    "description",
+                    "department_hod",
+                    "display_order",
+                    "is_active",
                 )
             },
         ),

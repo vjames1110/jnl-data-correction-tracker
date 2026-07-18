@@ -254,3 +254,90 @@ class Site(BusinessModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class Department(BusinessModel):
+    """
+    Functional department used for ownership and approval routing.
+    """
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="departments",
+    )
+    department_code = models.CharField(
+        max_length=30,
+        db_index=True,
+    )
+    department_name = models.CharField(
+        max_length=150,
+    )
+    description = models.TextField(
+        blank=True,
+    )
+    department_hod = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="hod_departments",
+        null=True,
+        blank=True,
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "organization_department"
+        ordering = [
+            "display_order",
+            "department_name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "department_code"],
+                name="org_dept_company_code_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["company", "is_active"],
+                name="org_dept_company_active_idx",
+            ),
+            models.Index(
+                fields=["department_code", "is_active"],
+                name="org_dept_code_active_idx",
+            ),
+            models.Index(
+                fields=["display_order", "department_name"],
+                name="org_dept_display_name_idx",
+            ),
+        ]
+        verbose_name = "Department"
+        verbose_name_plural = "Departments"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.department_code} - "
+            f"{self.department_name}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        self.department_code = normalize_code(
+            self.department_code
+        )
+        self.department_name = normalize_whitespace(
+            self.department_name
+        )
+
+        if self.description:
+            self.description = normalize_whitespace(
+                self.description
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
