@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils.timezone import get_default_timezone_name
 
 from apps.core.models import BusinessModel
@@ -10,6 +11,11 @@ from apps.core.utils.text import (
     normalize_code,
     normalize_whitespace,
 )
+
+
+class ApprovalAuthorityType(models.TextChoices):
+    PRIMARY = "PRIMARY", "Primary"
+    BACKUP = "BACKUP", "Backup"
 
 
 class Company(BusinessModel):
@@ -409,6 +415,345 @@ class Designation(BusinessModel):
         self.designation_name = normalize_whitespace(
             self.designation_name
         )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class SiteDepartmentMapping(BusinessModel):
+    """
+    Link departments to sites for site-specific ownership.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="department_mappings",
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="site_mappings",
+    )
+    site_hod = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="site_department_hod_mappings",
+        null=True,
+        blank=True,
+    )
+    department_hod = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="department_site_hod_mappings",
+        null=True,
+        blank=True,
+    )
+    effective_date = models.DateField()
+
+    class Meta:
+        db_table = "organization_site_department_mapping"
+        ordering = [
+            "site__site_name",
+            "department__department_name",
+            "-effective_date",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "site",
+                    "department",
+                    "effective_date",
+                ],
+                name="org_site_dept_eff_date_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["site", "department"],
+                condition=Q(is_active=True),
+                name="org_active_site_dept_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["site", "is_active"],
+                name="org_sdm_site_active_idx",
+            ),
+            models.Index(
+                fields=["department", "is_active"],
+                name="org_sdm_dept_active_idx",
+            ),
+            models.Index(
+                fields=["effective_date"],
+                name="org_sdm_eff_date_idx",
+            ),
+        ]
+        verbose_name = "Site Department Mapping"
+        verbose_name_plural = "Site Department Mappings"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site.site_code} - "
+            f"{self.department.department_code}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if (
+            self.site_id
+            and self.department_id
+            and self.site.company_id
+            != self.department.company_id
+        ):
+            raise ValidationError(
+                {
+                    "department": (
+                        "Department must belong to the "
+                        "same company as the site."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class DirectorMapping(BusinessModel):
+    """
+    Assign a director as primary or backup authority.
+    """
+
+    director = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="director_authority_mappings",
+    )
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="director_mappings",
+        null=True,
+        blank=True,
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="director_mappings",
+        null=True,
+        blank=True,
+    )
+    effective_from = models.DateField()
+    effective_to = models.DateField(
+        null=True,
+        blank=True,
+    )
+    authority_type = models.CharField(
+        max_length=20,
+        choices=ApprovalAuthorityType.choices,
+        default=ApprovalAuthorityType.PRIMARY,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "organization_director_mapping"
+        ordering = [
+            "director__employee_id",
+            "-effective_from",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "director",
+                    "site",
+                    "department",
+                    "authority_type",
+                    "effective_from",
+                ],
+                name="org_director_mapping_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["director", "is_active"],
+                name="org_dir_director_active_idx",
+            ),
+            models.Index(
+                fields=["site", "is_active"],
+                name="org_dir_site_active_idx",
+            ),
+            models.Index(
+                fields=["department", "is_active"],
+                name="org_dir_dept_active_idx",
+            ),
+            models.Index(
+                fields=["authority_type", "is_active"],
+                name="org_dir_auth_active_idx",
+            ),
+        ]
+        verbose_name = "Director Mapping"
+        verbose_name_plural = "Director Mappings"
+
+    def __str__(self) -> str:
+        context = self.site or self.department
+        return (
+            f"{self.director.employee_id} - "
+            f"{self.authority_type} - {context}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if not self.site_id and not self.department_id:
+            errors["site"] = (
+                "Select a site or department."
+            )
+
+        if (
+            self.site_id
+            and self.department_id
+            and self.site.company_id
+            != self.department.company_id
+        ):
+            errors["department"] = (
+                "Department must belong to the "
+                "same company as the site."
+            )
+
+        if (
+            self.effective_from
+            and self.effective_to
+            and self.effective_to < self.effective_from
+        ):
+            errors["effective_to"] = (
+                "Effective-to date cannot be before "
+                "effective-from date."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ReportingManagerMapping(BusinessModel):
+    """
+    Store current and historical reporting manager relations.
+    """
+
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reporting_relations",
+    )
+    reporting_manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="direct_report_relations",
+    )
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="reporting_manager_mappings",
+        null=True,
+        blank=True,
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="reporting_manager_mappings",
+        null=True,
+        blank=True,
+    )
+    effective_from = models.DateField()
+    effective_to = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "organization_reporting_manager_mapping"
+        ordering = [
+            "employee__employee_id",
+            "-effective_from",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "employee",
+                    "reporting_manager",
+                    "site",
+                    "department",
+                    "effective_from",
+                ],
+                name="org_reporting_mapping_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["employee", "is_active"],
+                name="org_rm_employee_active_idx",
+            ),
+            models.Index(
+                fields=["reporting_manager", "is_active"],
+                name="org_rm_manager_active_idx",
+            ),
+            models.Index(
+                fields=["site", "department", "is_active"],
+                name="org_rm_context_active_idx",
+            ),
+        ]
+        verbose_name = "Reporting Manager Mapping"
+        verbose_name_plural = "Reporting Manager Mappings"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.employee.employee_id} -> "
+            f"{self.reporting_manager.employee_id}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if (
+            self.employee_id
+            and self.reporting_manager_id
+            and self.employee_id == self.reporting_manager_id
+        ):
+            errors["reporting_manager"] = (
+                "Employee cannot report to themselves."
+            )
+
+        if (
+            self.site_id
+            and self.department_id
+            and self.site.company_id
+            != self.department.company_id
+        ):
+            errors["department"] = (
+                "Department must belong to the "
+                "same company as the site."
+            )
+
+        if (
+            self.effective_from
+            and self.effective_to
+            and self.effective_to < self.effective_from
+        ):
+            errors["effective_to"] = (
+                "Effective-to date cannot be before "
+                "effective-from date."
+            )
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.full_clean()

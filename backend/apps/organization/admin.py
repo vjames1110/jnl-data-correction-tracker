@@ -1,10 +1,14 @@
 from django.contrib import admin
 
 from apps.organization.models import (
+    ApprovalAuthorityType,
     Company,
     Department,
     Designation,
+    DirectorMapping,
+    ReportingManagerMapping,
     Site,
+    SiteDepartmentMapping,
 )
 
 
@@ -273,6 +277,212 @@ class DesignationAdmin(admin.ModelAdmin):
                     "designation_code",
                     "designation_name",
                     "level",
+                    "is_active",
+                )
+            },
+        ),
+        (
+            "Audit information",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+
+@admin.register(SiteDepartmentMapping)
+class SiteDepartmentMappingAdmin(admin.ModelAdmin):
+    list_display = [
+        "site",
+        "department",
+        "site_hod",
+        "department_hod",
+        "effective_date",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter = [
+        "site__company",
+        "site",
+        "department",
+        "is_active",
+    ]
+    search_fields = [
+        "site__site_code",
+        "site__site_name",
+        "department__department_code",
+        "department__department_name",
+        "site_hod__employee_id",
+        "department_hod__employee_id",
+    ]
+    autocomplete_fields = [
+        "site",
+        "department",
+        "site_hod",
+        "department_hod",
+    ]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+    ]
+    fieldsets = (
+        (
+            "Mapping details",
+            {
+                "fields": (
+                    "id",
+                    "site",
+                    "department",
+                    "site_hod",
+                    "department_hod",
+                    "effective_date",
+                    "is_active",
+                )
+            },
+        ),
+        (
+            "Audit information",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+
+@admin.register(DirectorMapping)
+class DirectorMappingAdmin(admin.ModelAdmin):
+    list_display = [
+        "director",
+        "site",
+        "department",
+        "authority_type",
+        "effective_from",
+        "effective_to",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter = [
+        "authority_type",
+        "site__company",
+        "site",
+        "department",
+        "is_active",
+    ]
+    search_fields = [
+        "director__employee_id",
+        "director__first_name",
+        "director__last_name",
+        "site__site_code",
+        "site__site_name",
+        "department__department_code",
+        "department__department_name",
+    ]
+    autocomplete_fields = [
+        "director",
+        "site",
+        "department",
+    ]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+    ]
+    fieldsets = (
+        (
+            "Director authority",
+            {
+                "fields": (
+                    "id",
+                    "director",
+                    "site",
+                    "department",
+                    "authority_type",
+                    "effective_from",
+                    "effective_to",
+                    "is_active",
+                )
+            },
+        ),
+        (
+            "Audit information",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+    def get_changeform_initial_data(self, request):
+        initial_data = super().get_changeform_initial_data(
+            request
+        )
+        initial_data.setdefault(
+            "authority_type",
+            ApprovalAuthorityType.PRIMARY,
+        )
+        return initial_data
+
+
+@admin.register(ReportingManagerMapping)
+class ReportingManagerMappingAdmin(admin.ModelAdmin):
+    list_display = [
+        "employee",
+        "reporting_manager",
+        "site",
+        "department",
+        "effective_from",
+        "effective_to",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter = [
+        "site__company",
+        "site",
+        "department",
+        "is_active",
+    ]
+    search_fields = [
+        "employee__employee_id",
+        "employee__first_name",
+        "employee__last_name",
+        "reporting_manager__employee_id",
+        "reporting_manager__first_name",
+        "reporting_manager__last_name",
+        "site__site_code",
+        "department__department_code",
+    ]
+    autocomplete_fields = [
+        "employee",
+        "reporting_manager",
+        "site",
+        "department",
+    ]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+    ]
+    fieldsets = (
+        (
+            "Reporting relation",
+            {
+                "fields": (
+                    "id",
+                    "employee",
+                    "reporting_manager",
+                    "site",
+                    "department",
+                    "effective_from",
+                    "effective_to",
                     "is_active",
                 )
             },

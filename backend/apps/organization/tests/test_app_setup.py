@@ -19,4 +19,11 @@ def test_organization_api_url_module_is_registered():
     from apps.organization.api import urls
 
     assert urls.app_name == "organization-api"
-    assert urls.urlpatterns == []
+    route_names = {
+        getattr(pattern, "name", None)
+        for pattern in urls.urlpatterns
+        if getattr(pattern, "name", None)
+    }
+
+    assert "hierarchy" in route_names
+    assert urls.router.registry
