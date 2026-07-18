@@ -3,12 +3,14 @@ from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
 )
+from rest_framework import status
 from rest_framework.permissions import (
     AllowAny,
     IsAuthenticated,
 )
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import (
+    InvalidToken,
     TokenError,
 )
 from rest_framework_simplejwt.tokens import (
@@ -16,6 +18,7 @@ from rest_framework_simplejwt.tokens import (
 )
 
 from apps.authentication.api.serializers import (
+    ApplicationTokenRefreshSerializer,
     ChangePasswordSerializer,
     CurrentUserSerializer,
     CurrentUserResponseSerializer,
@@ -23,6 +26,7 @@ from apps.authentication.api.serializers import (
     LoginResponseSerializer,
     LoginSerializer,
     LogoutSerializer,
+    TokenRefreshResponseSerializer,
 )
 from apps.authentication.api.tokens import (
     ApplicationTokenSerializer,
@@ -120,6 +124,82 @@ class CurrentUserAPIView(APIView):
             data=CurrentUserSerializer(
                 request.user
             ).data,
+        )
+
+
+class TokenRefreshAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_scope = "token_refresh"
+
+    @extend_schema(
+        tags=["Authentication"],
+        request=ApplicationTokenRefreshSerializer,
+        responses={
+            200: TokenRefreshResponseSerializer,
+            400: OpenApiResponse(
+                description="Refresh token validation failed.",
+            ),
+            401: OpenApiResponse(
+                description="The refresh token is invalid or expired.",
+            ),
+            429: OpenApiResponse(
+                description="Too many refresh attempts.",
+            ),
+        },
+        summary="Refresh authentication token",
+        description=(
+            "Refresh an access token using a valid refresh token. "
+            "When refresh-token rotation is enabled, a replacement "
+            "refresh token is returned."
+        ),
+    )
+    def post(self, request):
+        serializer = ApplicationTokenRefreshSerializer(
+            data=request.data,
+        )
+        try:
+            serializer.is_valid(raise_exception=True)
+        except InvalidToken:
+            return error_response(
+                message=(
+                    "The refresh token is invalid or expired."
+                ),
+                errors={
+                    "refresh": [
+                        "The refresh token is invalid, expired, or revoked."
+                    ]
+                },
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                error_code="INVALID_REFRESH_TOKEN",
+            )
+
+        user = getattr(serializer, "user", None)
+
+        if user is not None:
+            record_login_event(
+                request=request,
+                user=user,
+                employee_id=user.employee_id,
+                event_type=LoginEventType.TOKEN_REFRESH,
+                was_successful=True,
+            )
+
+        return success_response(
+            message=(
+                "Authentication token refreshed successfully."
+            ),
+            data={
+                "access": serializer.validated_data[
+                    "access"
+                ],
+                "refresh": serializer.validated_data[
+                    "refresh"
+                ],
+                "token_type": serializer.validated_data[
+                    "token_type"
+                ],
+            },
         )
 
 

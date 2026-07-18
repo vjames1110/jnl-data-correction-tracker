@@ -272,6 +272,8 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
         "user": "1000/hour",
         "login": "10/minute",
+        "token_refresh": "30/minute",
+        "token_verify": "60/minute",
         "password_reset": "5/hour",
         "admin_dashboard": "300/hour",
     },

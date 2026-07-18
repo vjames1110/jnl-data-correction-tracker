@@ -55,7 +55,14 @@ async function refreshAccessToken() {
     },
   );
 
-  const tokenData = response.data;
+  const tokenData =
+    response.data?.data ?? response.data;
+
+  if (!tokenData?.access) {
+    throw new Error(
+      "The token refresh response did not include an access token.",
+    );
+  }
 
   tokenStorage.setTokens({
     access: tokenData.access,
@@ -104,19 +111,18 @@ apiClient.interceptors.response.use(
 
       try {
         refreshPromise ??=
-          refreshAccessToken();
+          refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
 
         const newAccessToken =
           await refreshPromise;
-
-        refreshPromise = null;
 
         originalRequest.headers.Authorization =
           `Bearer ${newAccessToken}`;
 
         return apiClient(originalRequest);
       } catch (refreshError) {
-        refreshPromise = null;
         tokenStorage.clearTokens();
 
         window.dispatchEvent(

@@ -1,9 +1,18 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import (
     validate_password,
 )
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import (
+    TokenRefreshSerializer,
+)
+from rest_framework_simplejwt.exceptions import (
+    InvalidToken,
+    TokenError,
+)
+from rest_framework_simplejwt.settings import api_settings
 
 from apps.authentication.models import (
     AccountStatus,
@@ -108,6 +117,85 @@ class EmptyDataResponseSerializer(serializers.Serializer):
         read_only=True,
         allow_null=True,
     )
+
+
+class TokenRefreshResponseDataSerializer(serializers.Serializer):
+    access = serializers.CharField(
+        read_only=True,
+    )
+    refresh = serializers.CharField(
+        read_only=True,
+    )
+    token_type = serializers.CharField(
+        read_only=True,
+    )
+
+
+class TokenRefreshResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField(
+        read_only=True,
+    )
+    message = serializers.CharField(
+        read_only=True,
+    )
+    data = TokenRefreshResponseDataSerializer(
+        read_only=True,
+    )
+
+
+class ApplicationTokenRefreshSerializer(
+    TokenRefreshSerializer
+):
+    """
+    Validate refresh tokens while preserving the standard Simple JWT
+    rotation and blacklist behavior.
+    """
+
+    def validate(self, attrs):
+        self.user = None
+
+        try:
+            refresh = self.token_class(
+                attrs["refresh"]
+            )
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+
+        user_id = refresh.payload.get(
+            api_settings.USER_ID_CLAIM
+        )
+
+        if user_id:
+            self.user = (
+                get_user_model()
+                .objects.filter(
+                    **{
+                        api_settings.USER_ID_FIELD: user_id
+                    }
+                )
+                .first()
+            )
+
+        try:
+            data = super().validate(attrs)
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+
+        if not data.get("access"):
+            raise serializers.ValidationError(
+                {
+                    "access": [
+                        "A refreshed access token could not be generated."
+                    ]
+                }
+            )
+
+        if not data.get("refresh"):
+            data["refresh"] = attrs["refresh"]
+
+        data["token_type"] = "Bearer"
+
+        return data
 
 
 class LoginSerializer(serializers.Serializer):
