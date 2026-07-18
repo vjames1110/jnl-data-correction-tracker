@@ -3,6 +3,7 @@ from django.contrib import admin
 from apps.organization.models import (
     Company,
     Department,
+    Designation,
     Site,
 )
 
@@ -216,6 +217,62 @@ class DepartmentAdmin(admin.ModelAdmin):
                     "description",
                     "department_hod",
                     "display_order",
+                    "is_active",
+                )
+            },
+        ),
+        (
+            "Audit information",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+
+@admin.register(Designation)
+class DesignationAdmin(admin.ModelAdmin):
+    list_display = [
+        "designation_code",
+        "designation_name",
+        "department",
+        "level",
+        "is_active",
+        "updated_at",
+    ]
+    list_filter = [
+        "department__company",
+        "department",
+        "is_active",
+        "level",
+    ]
+    search_fields = [
+        "designation_code",
+        "designation_name",
+        "department__department_code",
+        "department__department_name",
+    ]
+    autocomplete_fields = [
+        "department",
+    ]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+    ]
+    fieldsets = (
+        (
+            "Designation details",
+            {
+                "fields": (
+                    "id",
+                    "department",
+                    "designation_code",
+                    "designation_name",
+                    "level",
                     "is_active",
                 )
             },

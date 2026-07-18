@@ -341,3 +341,75 @@ class Department(BusinessModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class Designation(BusinessModel):
+    """
+    Role title assigned to employees within a department.
+    """
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="designations",
+    )
+    designation_code = models.CharField(
+        max_length=30,
+        db_index=True,
+    )
+    designation_name = models.CharField(
+        max_length=150,
+    )
+    level = models.PositiveSmallIntegerField(
+        default=0,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "organization_designation"
+        ordering = [
+            "level",
+            "designation_name",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["department", "designation_code"],
+                name="org_desig_dept_code_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["department", "is_active"],
+                name="org_desig_dept_active_idx",
+            ),
+            models.Index(
+                fields=["designation_code", "is_active"],
+                name="org_desig_code_active_idx",
+            ),
+            models.Index(
+                fields=["level", "designation_name"],
+                name="org_desig_level_name_idx",
+            ),
+        ]
+        verbose_name = "Designation"
+        verbose_name_plural = "Designations"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.designation_code} - "
+            f"{self.designation_name}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        self.designation_code = normalize_code(
+            self.designation_code
+        )
+        self.designation_name = normalize_whitespace(
+            self.designation_name
+        )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
