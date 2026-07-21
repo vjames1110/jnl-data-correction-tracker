@@ -150,6 +150,38 @@ def test_employee_id_must_be_unique():
 
 
 @pytest.mark.django_db
+def test_employee_email_must_be_unique_when_present():
+    EmployeeProfile.objects.create(
+        employee_id="EMP_EMAIL_1",
+        first_name="First",
+        email="employee@jnl.com",
+    )
+
+    with pytest.raises(ValidationError):
+        EmployeeProfile.objects.create(
+            employee_id="EMP_EMAIL_2",
+            first_name="Second",
+            email=" EMPLOYEE@JNL.COM ",
+        )
+
+
+@pytest.mark.django_db
+def test_blank_employee_email_can_repeat():
+    EmployeeProfile.objects.create(
+        employee_id="EMP_BLANK_EMAIL_1",
+        first_name="First",
+        email="",
+    )
+    second = EmployeeProfile.objects.create(
+        employee_id="EMP_BLANK_EMAIL_2",
+        first_name="Second",
+        email="",
+    )
+
+    assert second.email == ""
+
+
+@pytest.mark.django_db
 def test_database_rejects_duplicate_employee_id():
     EmployeeProfile.objects.create(
         employee_id="EMP005",

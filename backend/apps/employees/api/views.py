@@ -16,6 +16,7 @@ from rest_framework.parsers import (
 )
 
 from apps.authentication.models import (
+    AccountStatus,
     LoginHistory,
     UserRole,
 )
@@ -32,7 +33,11 @@ from apps.employees.api.serializers import (
     LoginHistorySerializer,
     UserAccountSerializer,
 )
-from apps.employees.models import EmployeeProfile
+from apps.employees.models import (
+    EmployeeProfile,
+    EmploymentStatus,
+    Gender,
+)
 from apps.employees.services.accounts import (
     change_account_role,
     create_account_for_employee,
@@ -49,6 +54,7 @@ from apps.employees.services.imports import (
     import_employee_rows,
     preview_employee_import,
 )
+from apps.organization.models import DirectorMapping
 
 
 def _is_admin_user(user) -> bool:
@@ -61,6 +67,88 @@ def _is_admin_user(user) -> bool:
             UserRole.ADMIN,
         }
     )
+
+
+def _choices_to_options(choices_class):
+    return [
+        {
+            "value": choice.value,
+            "label": choice.label,
+        }
+        for choice in choices_class
+    ]
+
+
+def _employee_csv_response(queryset):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "employee_id",
+            "first_name",
+            "last_name",
+            "email",
+            "mobile",
+            "gender",
+            "employment_status",
+            "site_code",
+            "department_code",
+            "designation_code",
+            "reporting_manager_employee_id",
+            "role",
+            "account_status",
+            "is_active",
+            "erp_user_id",
+            "date_of_joining",
+            "last_working_date",
+        ]
+    )
+
+    for profile in queryset:
+        writer.writerow(
+            [
+                profile.employee_id,
+                profile.first_name,
+                profile.last_name,
+                profile.email,
+                profile.mobile,
+                profile.gender,
+                profile.employment_status,
+                profile.site.site_code
+                if profile.site_id
+                else "",
+                profile.department.department_code
+                if profile.department_id
+                else "",
+                profile.designation.designation_code
+                if profile.designation_id
+                else "",
+                (
+                    profile.reporting_manager.employee_id
+                    if profile.reporting_manager_id
+                    else ""
+                ),
+                profile.role,
+                (
+                    profile.user.account_status
+                    if profile.user_id
+                    else ""
+                ),
+                profile.is_active,
+                profile.erp_user_id,
+                profile.date_of_joining or "",
+                profile.last_working_date or "",
+            ]
+        )
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="text/csv",
+    )
+    response[
+        "Content-Disposition"
+    ] = "attachment; filename=employee-profiles.csv"
+    return response
 
 
 class EmployeeProfileViewSet(viewsets.ModelViewSet):
@@ -90,6 +178,7 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
         "site",
         "department",
         "designation",
+        "reporting_manager",
         "user",
     ]
     ordering_fields = [
@@ -117,6 +206,27 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
         if not _is_admin_user(self.request.user):
             queryset = queryset.filter(
                 is_active=True,
+            )
+
+        account_status = (
+            self.request.query_params.get(
+                "account_status"
+            )
+        )
+        if account_status:
+            queryset = queryset.filter(
+                user__account_status=account_status
+            )
+
+        director_mapping_id = (
+            self.request.query_params.get(
+                "director_mapping"
+            )
+        )
+        if director_mapping_id:
+            queryset = self._filter_by_director_mapping(
+                queryset,
+                director_mapping_id,
             )
 
         return queryset
@@ -208,6 +318,35 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             ),
         )
 
+    def _filter_by_director_mapping(
+        self,
+        queryset,
+        director_mapping_id,
+    ):
+        mapping = (
+            DirectorMapping.objects.filter(
+                id=director_mapping_id,
+                is_active=True,
+            )
+            .select_related("site", "department")
+            .first()
+        )
+
+        if mapping is None:
+            return queryset.none()
+
+        if mapping.site_id:
+            queryset = queryset.filter(
+                site=mapping.site
+            )
+
+        if mapping.department_id:
+            queryset = queryset.filter(
+                department=mapping.department
+            )
+
+        return queryset
+
     def perform_create(self, serializer):
         try:
             serializer.save()
@@ -225,6 +364,172 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
                 getattr(exc, "message_dict", None)
                 or exc.messages
             ) from exc
+
+    @action(
+        detail=False,
+        methods=["get"],
+    )
+    def dropdown(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(is_active=True)
+        )
+
+        data = [
+            {
+                "id": str(profile.id),
+                "employee_id": profile.employee_id,
+                "label": (
+                    f"{profile.employee_id} - "
+                    f"{profile.full_name}"
+                ),
+                "site": str(profile.site_id)
+                if profile.site_id
+                else "",
+                "department": str(
+                    profile.department_id
+                )
+                if profile.department_id
+                else "",
+                "designation": str(
+                    profile.designation_id
+                )
+                if profile.designation_id
+                else "",
+                "role": profile.role,
+                "user": str(profile.user_id)
+                if profile.user_id
+                else "",
+            }
+            for profile in queryset.order_by(
+                "employee_id"
+            )
+        ]
+
+        return success_response(
+            message=(
+                "Employee dropdown retrieved successfully."
+            ),
+            data=data,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="filter-options",
+    )
+    def filter_options(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        return success_response(
+            message=(
+                "Employee filter options retrieved successfully."
+            ),
+            data={
+                "roles": _choices_to_options(UserRole),
+                "account_statuses": _choices_to_options(
+                    AccountStatus
+                ),
+                "employment_statuses": _choices_to_options(
+                    EmploymentStatus
+                ),
+                "genders": _choices_to_options(Gender),
+            },
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+    )
+    def export(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        queryset = self.filter_queryset(
+            self.get_queryset()
+        )
+
+        if (
+            request.query_params.get(
+                "file_format",
+                "",
+            )
+            .lower()
+            == "csv"
+        ):
+            return _employee_csv_response(queryset)
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+        return success_response(
+            message=(
+                "Employee profile export retrieved successfully."
+            ),
+            data=serializer.data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+    )
+    def activate(self, request, *args, **kwargs):
+        profile = self.get_object()
+        profile.is_active = True
+        profile.save(
+            update_fields=["is_active", "updated_at"]
+        )
+
+        if profile.user_id:
+            reactivate_account(profile.user)
+
+        return success_response(
+            message=(
+                "Employee profile activated successfully."
+            ),
+            data=self.get_serializer(profile).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+    )
+    def deactivate(self, request, *args, **kwargs):
+        profile = self.get_object()
+        profile.is_active = False
+        profile.save(
+            update_fields=["is_active", "updated_at"]
+        )
+
+        if profile.user_id:
+            profile.user.account_status = (
+                AccountStatus.INACTIVE
+            )
+            profile.user.is_active = False
+            profile.user.save(
+                update_fields=[
+                    "account_status",
+                    "is_active",
+                    "updated_at",
+                ]
+            )
+
+        return success_response(
+            message=(
+                "Employee profile deactivated successfully."
+            ),
+            data=self.get_serializer(profile).data,
+        )
 
     @action(
         detail=False,

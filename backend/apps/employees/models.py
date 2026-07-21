@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from apps.authentication.models import UserRole
 from apps.core.models import BusinessModel
@@ -152,6 +153,13 @@ class EmployeeProfile(BusinessModel):
             models.Index(
                 fields=["role", "is_active"],
                 name="emp_profile_role_active_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["email"],
+                condition=~Q(email=""),
+                name="emp_profile_email_uniq",
             ),
         ]
         verbose_name = "Employee Profile"
