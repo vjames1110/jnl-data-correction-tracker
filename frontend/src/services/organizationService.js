@@ -119,6 +119,81 @@ export const organizationService = {
     };
   },
 
+  async getHodMappings() {
+    const [
+      sitesResponse,
+      departmentsResponse,
+      siteDepartmentMappingsResponse,
+      usersResponse,
+    ] = await Promise.all([
+      apiClient.get(
+        "/organization/sites/export/",
+      ),
+      apiClient.get(
+        "/organization/departments/export/",
+      ),
+      apiClient.get(
+        "/organization/site-department-mappings/export/",
+      ),
+      apiClient.get(
+        "/organization/users/dropdown/",
+      ),
+    ]);
+
+    const sites = resolveItems(sitesResponse);
+    const departments = resolveItems(
+      departmentsResponse,
+    );
+    const siteDepartmentMappings = resolveItems(
+      siteDepartmentMappingsResponse,
+    );
+    const users = resolveItems(usersResponse);
+
+    const missingSiteHods = sites.filter(
+      (site) => !site.site_hod,
+    );
+    const missingDepartmentHods =
+      departments.filter(
+        (department) =>
+          !department.department_hod,
+      );
+    const incompleteMappingHistory =
+      siteDepartmentMappings.filter(
+        (mapping) =>
+          !mapping.site_hod ||
+          !mapping.department_hod,
+      );
+
+    return {
+      summary: {
+        sites: sites.length,
+        departments: departments.length,
+        missing_site_hods:
+          missingSiteHods.length,
+        missing_department_hods:
+          missingDepartmentHods.length,
+        incomplete_mapping_history:
+          incompleteMappingHistory.length,
+        total_missing:
+          missingSiteHods.length +
+          missingDepartmentHods.length +
+          incompleteMappingHistory.length,
+      },
+      sites,
+      departments,
+      site_department_mappings:
+        siteDepartmentMappings,
+      users,
+      missing: {
+        site_hods: missingSiteHods,
+        department_hods:
+          missingDepartmentHods,
+        mapping_history:
+          incompleteMappingHistory,
+      },
+    };
+  },
+
   async getSites(params = {}) {
     const response = await apiClient.get(
       "/organization/sites/",
@@ -157,6 +232,17 @@ export const organizationService = {
     const response = await apiClient.patch(
       `/organization/sites/${id}/`,
       payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateSiteHod(id, siteHod) {
+    const response = await apiClient.patch(
+      `/organization/sites/${id}/`,
+      {
+        site_hod: siteHod || null,
+      },
     );
 
     return response.data.data;
@@ -216,6 +302,21 @@ export const organizationService = {
     const response = await apiClient.patch(
       `/organization/departments/${id}/`,
       payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateDepartmentHod(
+    id,
+    departmentHod,
+  ) {
+    const response = await apiClient.patch(
+      `/organization/departments/${id}/`,
+      {
+        department_hod:
+          departmentHod || null,
+      },
     );
 
     return response.data.data;

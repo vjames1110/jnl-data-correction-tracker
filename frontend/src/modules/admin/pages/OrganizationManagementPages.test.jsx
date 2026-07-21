@@ -15,6 +15,7 @@ import {
 import { DepartmentManagementPage } from "./DepartmentManagementPage";
 import { DesignationManagementPage } from "./DesignationManagementPage";
 import { DirectorMappingPage } from "./DirectorMappingPage";
+import { HodMappingPage } from "./HodMappingPage";
 
 const hooks = vi.hoisted(() => ({
   useActivateDepartmentMock: vi.fn(),
@@ -34,10 +35,13 @@ const hooks = vi.hoisted(() => ({
   useDesignationsMock: vi.fn(),
   useDirectorMappingExportMock: vi.fn(),
   useDirectorMappingsMock: vi.fn(),
+  useHodMappingsMock: vi.fn(),
   useSitesDropdownMock: vi.fn(),
   useUpdateDepartmentMock: vi.fn(),
+  useUpdateDepartmentHodMock: vi.fn(),
   useUpdateDesignationMock: vi.fn(),
   useUpdateDirectorMappingMock: vi.fn(),
+  useUpdateSiteHodMock: vi.fn(),
   useUsersDropdownMock: vi.fn(),
 }));
 
@@ -76,14 +80,20 @@ vi.mock("../../../hooks/useOrganization", () => ({
     hooks.useDirectorMappingExportMock(...args),
   useDirectorMappings: (...args) =>
     hooks.useDirectorMappingsMock(...args),
+  useHodMappings: (...args) =>
+    hooks.useHodMappingsMock(...args),
   useSitesDropdown: (...args) =>
     hooks.useSitesDropdownMock(...args),
   useUpdateDepartment: (...args) =>
     hooks.useUpdateDepartmentMock(...args),
+  useUpdateDepartmentHod: (...args) =>
+    hooks.useUpdateDepartmentHodMock(...args),
   useUpdateDesignation: (...args) =>
     hooks.useUpdateDesignationMock(...args),
   useUpdateDirectorMapping: (...args) =>
     hooks.useUpdateDirectorMappingMock(...args),
+  useUpdateSiteHod: (...args) =>
+    hooks.useUpdateSiteHodMock(...args),
   useUsersDropdown: (...args) =>
     hooks.useUsersDropdownMock(...args),
 }));
@@ -159,6 +169,8 @@ describe("Organization management pages", () => {
       hooks.useUpdateDirectorMappingMock,
       hooks.useActivateDirectorMappingMock,
       hooks.useDeactivateDirectorMappingMock,
+      hooks.useUpdateSiteHodMock,
+      hooks.useUpdateDepartmentHodMock,
     ].forEach((mock) =>
       mock.mockReturnValue(mutationMock()),
     );
@@ -310,8 +322,142 @@ describe("Organization management pages", () => {
 
     expect(
       screen.getByText(
-        /select at least one site or department/i,
+      /select at least one site or department/i,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("renders HOD mappings and saves selected HODs", async () => {
+    const updateSiteHod =
+      mutationMock();
+    const updateDepartmentHod =
+      mutationMock();
+
+    hooks.useUpdateSiteHodMock.mockReturnValue(
+      updateSiteHod,
+    );
+    hooks.useUpdateDepartmentHodMock.mockReturnValue(
+      updateDepartmentHod,
+    );
+    hooks.useHodMappingsMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        summary: {
+          sites: 1,
+          departments: 1,
+          missing_site_hods: 1,
+          missing_department_hods: 1,
+          incomplete_mapping_history: 0,
+          total_missing: 2,
+        },
+        sites: [
+          {
+            id: "site-1",
+            company_code: "JNL",
+            site_code: "BKN",
+            site_name: "Bikaner Site",
+            site_hod: null,
+            site_hod_detail: null,
+          },
+        ],
+        departments: [
+          {
+            id: "department-1",
+            company_code: "JNL",
+            department_code: "FIN",
+            department_name: "Finance",
+            department_hod: null,
+            department_hod_detail: null,
+          },
+        ],
+        site_department_mappings: [
+          {
+            id: "history-1",
+            site_code: "BKN",
+            site_name: "Bikaner Site",
+            department_code: "FIN",
+            department_name: "Finance",
+            site_hod_detail: {
+              full_name: "Site Director",
+            },
+            department_hod_detail: {
+              full_name: "Site Director",
+            },
+            effective_date: "2026-07-21",
+            is_active: true,
+          },
+        ],
+        users: [
+          {
+            id: "director-1",
+            label: "DIR001 - Site Director",
+          },
+        ],
+        missing: {
+          site_hods: [
+            {
+              id: "site-1",
+              site_code: "BKN",
+              site_name: "Bikaner Site",
+            },
+          ],
+          department_hods: [
+            {
+              id: "department-1",
+              department_code: "FIN",
+              department_name: "Finance",
+            },
+          ],
+        },
+      },
+    });
+
+    renderWithRouter(<HodMappingPage />);
+
+    expect(
+      screen.getByText(/2 HOD mapping gaps/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Mapping History"),
+    ).toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", {
+        name: /site hod for bikaner site/i,
+      }),
+      "director-1",
+    );
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /save site hod for bikaner site/i,
+      }),
+    );
+
+    expect(
+      updateSiteHod.mutateAsync,
+    ).toHaveBeenCalledWith({
+      id: "site-1",
+      siteHod: "director-1",
+    });
+
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", {
+        name: /department hod for finance/i,
+      }),
+      "director-1",
+    );
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /save department hod for finance/i,
+      }),
+    );
+
+    expect(
+      updateDepartmentHod.mutateAsync,
+    ).toHaveBeenCalledWith({
+      id: "department-1",
+      departmentHod: "director-1",
+    });
   });
 });

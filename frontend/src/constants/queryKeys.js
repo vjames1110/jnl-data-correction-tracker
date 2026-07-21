@@ -17,6 +17,10 @@ export const queryKeys = Object.freeze({
     "organization",
     "dashboard",
   ],
+  organizationHodMappings: [
+    "organization",
+    "hod-mappings",
+  ],
   organizationCompaniesDropdown: [
     "organization",
     "companies",

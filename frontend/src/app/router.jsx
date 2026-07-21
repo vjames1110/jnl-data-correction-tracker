@@ -8,6 +8,7 @@ import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
 import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
 import { DirectorMappingPage } from "../modules/admin/pages/DirectorMappingPage";
+import { HodMappingPage } from "../modules/admin/pages/HodMappingPage";
 import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
 import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
@@ -90,6 +91,11 @@ export const router = createBrowserRouter([
                 path: "/admin/organization/director-mappings",
                 element:
                   <DirectorMappingPage />,
+              },
+              {
+                path: "/admin/organization/hod-mappings",
+                element:
+                  <HodMappingPage />,
               },
               {
                 path: "/admin/vouchers",

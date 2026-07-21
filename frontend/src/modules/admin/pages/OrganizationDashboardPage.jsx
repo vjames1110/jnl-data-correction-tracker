@@ -5,6 +5,7 @@ import {
   GitBranch,
   MapPin,
   Network,
+  UserCheck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -162,6 +163,10 @@ export function OrganizationDashboardPage() {
         <Link to="/admin/organization/director-mappings">
           <GitBranch size={18} />
           <span>Director Mappings</span>
+        </Link>
+        <Link to="/admin/organization/hod-mappings">
+          <UserCheck size={18} />
+          <span>HOD Mappings</span>
         </Link>
       </section>
 

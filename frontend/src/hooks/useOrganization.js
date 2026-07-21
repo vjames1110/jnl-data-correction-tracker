@@ -20,6 +20,14 @@ export function useOrganizationDashboard() {
   });
 }
 
+export function useHodMappings() {
+  return useQuery({
+    queryKey: queryKeys.organizationHodMappings,
+    queryFn:
+      organizationService.getHodMappings,
+  });
+}
+
 export function useCompaniesDropdown() {
   return useQuery({
     queryKey:
@@ -112,6 +120,22 @@ export function useUpdateSite() {
   });
 }
 
+export function useUpdateSiteHod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, siteHod }) =>
+      organizationService.updateSiteHod(
+        id,
+        siteHod,
+      ),
+    onSuccess: () =>
+      invalidateOrganizationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useActivateSite() {
   const queryClient = useQueryClient();
 
@@ -178,6 +202,22 @@ export function useUpdateDepartment() {
       organizationService.updateDepartment(
         id,
         payload,
+      ),
+    onSuccess: () =>
+      invalidateOrganizationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useUpdateDepartmentHod() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, departmentHod }) =>
+      organizationService.updateDepartmentHod(
+        id,
+        departmentHod,
       ),
     onSuccess: () =>
       invalidateOrganizationQueries(
