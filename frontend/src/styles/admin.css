@@ -306,6 +306,11 @@
   gap: 20px;
 }
 
+.organization-page {
+  display: grid;
+  gap: 20px;
+}
+
 .page-heading {
   display: flex;
   align-items: flex-end;
@@ -423,6 +428,201 @@
   gap: 20px;
 }
 
+.organization-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.site-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 1fr)
+    repeat(3, minmax(150px, 190px));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.filter-control {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: var(--color-neutral-600);
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+}
+
+.filter-control span {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.filter-control select,
+.form-field select,
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  min-width: 0;
+  color: var(--color-neutral-900);
+  background: var(--color-white);
+  border: 0;
+  outline: 0;
+}
+
+.form-field select,
+.form-field input,
+.form-field textarea {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+}
+
+.form-field textarea {
+  min-height: 86px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toggle-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-neutral-700);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.toggle-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.table-subtext {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-neutral-600);
+  font-size: 11px;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.pagination-bar > span {
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.pagination-bar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.management-panel,
+.details-drawer {
+  position: fixed;
+  z-index: 40;
+  top: var(--header-height);
+  right: 0;
+  width: min(520px, calc(100vw - 76px));
+  height: calc(100vh - var(--header-height));
+  padding: 22px;
+  background: var(--color-white);
+  border-left: 1px solid var(--color-neutral-200);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+}
+
+.management-panel__header,
+.details-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.management-panel__header h2,
+.details-drawer__header h2 {
+  margin: 3px 0 0;
+  font-size: 20px;
+}
+
+.details-drawer__header p {
+  margin: 4px 0 0;
+  color: var(--color-neutral-600);
+}
+
+.site-form {
+  display: grid;
+  gap: 14px;
+}
+
+.management-panel__actions {
+  position: sticky;
+  bottom: -22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 8px -22px -22px;
+  padding: 16px 22px;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.details-list {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.details-list div {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.details-list dt {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.details-list dd {
+  margin: 4px 0 0;
+  color: var(--color-neutral-900);
+  font-size: 14px;
+}
+
 .data-table-wrapper {
   overflow-x: auto;
 }
@@ -524,6 +724,15 @@
     grid-template-columns: 1fr;
   }
 
+  .organization-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .site-toolbar {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
   .profile-menu__identity {
     display: none;
   }
@@ -567,6 +776,24 @@
 
   .kpi-grid {
     grid-template-columns: 1fr;
+  }
+
+  .site-toolbar,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-actions {
+    justify-content: stretch;
+  }
+
+  .page-actions .button {
+    flex: 1;
+  }
+
+  .management-panel,
+  .details-drawer {
+    width: calc(100vw - 76px);
   }
 }
 

@@ -5,7 +5,9 @@ import {
 import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
+import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
+import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { ForbiddenPage } from "../pages/ForbiddenPage";
@@ -64,7 +66,12 @@ export const router = createBrowserRouter([
               {
                 path: "/admin/organization",
                 element:
-                  <PlaceholderAdminPage />,
+                  <OrganizationDashboardPage />,
+              },
+              {
+                path: "/admin/organization/sites",
+                element:
+                  <SiteManagementPage />,
               },
               {
                 path: "/admin/vouchers",

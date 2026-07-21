@@ -13,4 +13,24 @@ export const queryKeys = Object.freeze({
     limit,
   ],
   serverTime: ["admin", "server-time"],
+  organizationDashboard: [
+    "organization",
+    "dashboard",
+  ],
+  organizationCompaniesDropdown: [
+    "organization",
+    "companies",
+    "dropdown",
+  ],
+  organizationSites: (params) => [
+    "organization",
+    "sites",
+    params,
+  ],
+  organizationSiteExport: (params) => [
+    "organization",
+    "sites",
+    "export",
+    params,
+  ],
 });
