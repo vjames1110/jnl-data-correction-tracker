@@ -24,4 +24,8 @@ urlpatterns = [
             "apps.organization.api.urls"
         ),
     ),
+    path(
+        "employees/",
+        include("apps.employees.api.urls"),
+    ),
 ]
