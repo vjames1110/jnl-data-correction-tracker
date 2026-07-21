@@ -146,6 +146,25 @@ export function OrganizationDashboardPage() {
         />
       </section>
 
+      <section className="organization-shortcuts">
+        <Link to="/admin/organization/sites">
+          <MapPin size={18} />
+          <span>Sites</span>
+        </Link>
+        <Link to="/admin/organization/departments">
+          <Building2 size={18} />
+          <span>Departments</span>
+        </Link>
+        <Link to="/admin/organization/designations">
+          <Network size={18} />
+          <span>Designations</span>
+        </Link>
+        <Link to="/admin/organization/director-mappings">
+          <GitBranch size={18} />
+          <span>Director Mappings</span>
+        </Link>
+      </section>
+
       <section className="organization-grid">
         <SurfaceCard title="Active Sites">
           <div className="data-table-wrapper">

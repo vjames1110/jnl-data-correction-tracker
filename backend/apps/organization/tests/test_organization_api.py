@@ -52,7 +52,6 @@ def organization_data():
         display_order=10,
     )
     designation = Designation.objects.create(
-        department=department,
         designation_code="ACC",
         designation_name="Accountant",
         level=5,
@@ -285,6 +284,37 @@ def test_dropdown_and_hierarchy_endpoints_return_master_data(
         hierarchy_response.data["data"][0]["code"]
         == "JNL"
     )
+
+
+@pytest.mark.django_db
+def test_user_dropdown_returns_active_users(
+    api_client,
+):
+    admin_user = AdminUserFactory(
+        employee_id="ADMIN001",
+    )
+    UserFactory(
+        employee_id="USR001",
+        first_name="Finance",
+        last_name="Head",
+    )
+    UserFactory(
+        employee_id="INACTIVE001",
+        is_active=False,
+    )
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.get(
+        reverse("organization-api:users-dropdown")
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    employee_ids = {
+        item["employee_id"]
+        for item in response.data["data"]
+    }
+    assert "USR001" in employee_ids
+    assert "INACTIVE001" not in employee_ids
 
 
 @pytest.mark.django_db

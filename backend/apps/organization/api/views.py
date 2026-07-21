@@ -12,7 +12,11 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 
-from apps.authentication.models import UserRole
+from apps.authentication.models import (
+    AccountStatus,
+    User,
+    UserRole,
+)
 from apps.core.api.responses import success_response
 from apps.organization.api.permissions import (
     HasOrganizationAccess,
@@ -25,6 +29,7 @@ from apps.organization.api.serializers import (
     ReportingManagerMappingSerializer,
     SiteDepartmentMappingSerializer,
     SiteSerializer,
+    UserDropdownSerializer,
 )
 from apps.organization.models import (
     Company,
@@ -402,19 +407,11 @@ class DepartmentViewSet(OrganizationModelViewSet):
 class DesignationViewSet(OrganizationModelViewSet):
     queryset = Designation.objects.all()
     serializer_class = DesignationSerializer
-    select_related_fields = (
-        "department",
-        "department__company",
-    )
     search_fields = [
         "designation_code",
         "designation_name",
-        "department__department_code",
-        "department__department_name",
     ]
     filterset_fields = [
-        "department",
-        "department__company",
         "level",
         "is_active",
     ]
@@ -623,9 +620,7 @@ class OrganizationHierarchyAPIView(APIView):
             department_nodes = []
             for department in departments:
                 designations = (
-                    Designation.objects.filter(
-                        department=department
-                    ).order_by(
+                    Designation.objects.all().order_by(
                         "level",
                         "designation_name",
                     )
@@ -721,4 +716,53 @@ class OrganizationHierarchyAPIView(APIView):
                 "successfully."
             ),
             data=tree,
+        )
+
+
+class OrganizationUserDropdownAPIView(APIView):
+    permission_classes = [
+        HasOrganizationAccess,
+    ]
+
+    @extend_schema(
+        tags=["Organization"],
+        summary="Retrieve organization user dropdown",
+        responses={
+            200: OpenApiResponse(
+                response=OpenApiTypes.OBJECT,
+                description=(
+                    "Organization users retrieved."
+                ),
+            ),
+            401: OpenApiResponse(
+                description="Authentication required."
+            ),
+            403: OpenApiResponse(
+                description=(
+                    "Organization access required."
+                )
+            ),
+        },
+    )
+    def get(self, request):
+        users = (
+            User.objects.filter(
+                is_active=True,
+                account_status=AccountStatus.ACTIVE,
+            )
+            .order_by(
+                "employee_id",
+                "first_name",
+            )
+        )
+
+        return success_response(
+            message=(
+                "Organization user dropdown "
+                "retrieved successfully."
+            ),
+            data=UserDropdownSerializer(
+                users,
+                many=True,
+            ).data,
         )

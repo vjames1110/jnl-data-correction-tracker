@@ -242,25 +242,17 @@ class DesignationAdmin(admin.ModelAdmin):
     list_display = [
         "designation_code",
         "designation_name",
-        "department",
         "level",
         "is_active",
         "updated_at",
     ]
     list_filter = [
-        "department__company",
-        "department",
         "is_active",
         "level",
     ]
     search_fields = [
         "designation_code",
         "designation_name",
-        "department__department_code",
-        "department__department_name",
-    ]
-    autocomplete_fields = [
-        "department",
     ]
     readonly_fields = [
         "id",
@@ -273,7 +265,6 @@ class DesignationAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "id",
-                    "department",
                     "designation_code",
                     "designation_name",
                     "level",

@@ -351,16 +351,12 @@ class Department(BusinessModel):
 
 class Designation(BusinessModel):
     """
-    Role title assigned to employees within a department.
+    Reusable role title catalog used across departments.
     """
 
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.PROTECT,
-        related_name="designations",
-    )
     designation_code = models.CharField(
         max_length=30,
+        unique=True,
         db_index=True,
     )
     designation_name = models.CharField(
@@ -378,16 +374,8 @@ class Designation(BusinessModel):
             "designation_name",
         ]
         constraints = [
-            models.UniqueConstraint(
-                fields=["department", "designation_code"],
-                name="org_desig_dept_code_uniq",
-            ),
         ]
         indexes = [
-            models.Index(
-                fields=["department", "is_active"],
-                name="org_desig_dept_active_idx",
-            ),
             models.Index(
                 fields=["designation_code", "is_active"],
                 name="org_desig_code_active_idx",

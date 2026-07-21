@@ -7,6 +7,7 @@ from apps.organization.api.views import (
     DesignationViewSet,
     DirectorMappingViewSet,
     OrganizationHierarchyAPIView,
+    OrganizationUserDropdownAPIView,
     ReportingManagerMappingViewSet,
     SiteDepartmentMappingViewSet,
     SiteViewSet,
@@ -57,6 +58,11 @@ urlpatterns = [
         "hierarchy/",
         OrganizationHierarchyAPIView.as_view(),
         name="hierarchy",
+    ),
+    path(
+        "users/dropdown/",
+        OrganizationUserDropdownAPIView.as_view(),
+        name="users-dropdown",
     ),
     path(
         "",

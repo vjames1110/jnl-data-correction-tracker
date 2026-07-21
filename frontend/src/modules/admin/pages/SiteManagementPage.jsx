@@ -202,7 +202,7 @@ function SiteFormPanel({
             }
             required
           >
-            <option value="">
+            <option value="" disabled hidden>
               Select company
             </option>
             {companies.map((company) => (

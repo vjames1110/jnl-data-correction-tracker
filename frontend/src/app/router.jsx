@@ -5,6 +5,9 @@ import {
 import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
+import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
+import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
+import { DirectorMappingPage } from "../modules/admin/pages/DirectorMappingPage";
 import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
 import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
@@ -72,6 +75,21 @@ export const router = createBrowserRouter([
                 path: "/admin/organization/sites",
                 element:
                   <SiteManagementPage />,
+              },
+              {
+                path: "/admin/organization/departments",
+                element:
+                  <DepartmentManagementPage />,
+              },
+              {
+                path: "/admin/organization/designations",
+                element:
+                  <DesignationManagementPage />,
+              },
+              {
+                path: "/admin/organization/director-mappings",
+                element:
+                  <DirectorMappingPage />,
               },
               {
                 path: "/admin/vouchers",

@@ -17,6 +17,30 @@ export const organizationService = {
     return resolveItems(response);
   },
 
+  async getSitesDropdown() {
+    const response = await apiClient.get(
+      "/organization/sites/dropdown/",
+    );
+
+    return resolveItems(response);
+  },
+
+  async getDepartmentsDropdown() {
+    const response = await apiClient.get(
+      "/organization/departments/dropdown/",
+    );
+
+    return resolveItems(response);
+  },
+
+  async getUsersDropdown() {
+    const response = await apiClient.get(
+      "/organization/users/dropdown/",
+    );
+
+    return resolveItems(response);
+  },
+
   async getDashboard() {
     const [
       sitesResponse,
@@ -149,6 +173,183 @@ export const organizationService = {
   async deactivateSite(id) {
     const response = await apiClient.post(
       `/organization/sites/${id}/deactivate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async getDepartments(params = {}) {
+    const response = await apiClient.get(
+      "/organization/departments/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async exportDepartments(params = {}) {
+    const response = await apiClient.get(
+      "/organization/departments/export/",
+      {
+        params,
+      },
+    );
+
+    return resolveItems(response);
+  },
+
+  async createDepartment(payload) {
+    const response = await apiClient.post(
+      "/organization/departments/",
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateDepartment(id, payload) {
+    const response = await apiClient.patch(
+      `/organization/departments/${id}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async activateDepartment(id) {
+    const response = await apiClient.post(
+      `/organization/departments/${id}/activate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async deactivateDepartment(id) {
+    const response = await apiClient.post(
+      `/organization/departments/${id}/deactivate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async getDesignations(params = {}) {
+    const response = await apiClient.get(
+      "/organization/designations/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async exportDesignations(params = {}) {
+    const response = await apiClient.get(
+      "/organization/designations/export/",
+      {
+        params,
+      },
+    );
+
+    return resolveItems(response);
+  },
+
+  async createDesignation(payload) {
+    const response = await apiClient.post(
+      "/organization/designations/",
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateDesignation(id, payload) {
+    const response = await apiClient.patch(
+      `/organization/designations/${id}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async activateDesignation(id) {
+    const response = await apiClient.post(
+      `/organization/designations/${id}/activate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async deactivateDesignation(id) {
+    const response = await apiClient.post(
+      `/organization/designations/${id}/deactivate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async getDirectorMappings(params = {}) {
+    const response = await apiClient.get(
+      "/organization/director-mappings/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async exportDirectorMappings(params = {}) {
+    const response = await apiClient.get(
+      "/organization/director-mappings/export/",
+      {
+        params,
+      },
+    );
+
+    return resolveItems(response);
+  },
+
+  async createDirectorMapping(payload) {
+    const response = await apiClient.post(
+      "/organization/director-mappings/",
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateDirectorMapping(id, payload) {
+    const response = await apiClient.patch(
+      `/organization/director-mappings/${id}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async activateDirectorMapping(id) {
+    const response = await apiClient.post(
+      `/organization/director-mappings/${id}/activate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async deactivateDirectorMapping(id) {
+    const response = await apiClient.post(
+      `/organization/director-mappings/${id}/deactivate/`,
     );
 
     return response.data.data;

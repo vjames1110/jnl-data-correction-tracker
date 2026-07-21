@@ -59,6 +59,28 @@ class UserBriefSerializer(serializers.ModelSerializer):
         ]
 
 
+class UserDropdownSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(
+        read_only=True,
+    )
+    label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "employee_id",
+            "full_name",
+            "role",
+            "label",
+        ]
+
+    def get_label(self, obj: User) -> str:
+        return (
+            f"{obj.employee_id} - {obj.full_name}"
+        )
+
+
 class CompanySerializer(CleanModelSerializer):
     class Meta:
         model = Company
@@ -173,27 +195,10 @@ class DepartmentSerializer(CleanModelSerializer):
 
 
 class DesignationSerializer(CleanModelSerializer):
-    department_code = serializers.CharField(
-        source="department.department_code",
-        read_only=True,
-    )
-    department_name = serializers.CharField(
-        source="department.department_name",
-        read_only=True,
-    )
-    company = serializers.UUIDField(
-        source="department.company_id",
-        read_only=True,
-    )
-
     class Meta:
         model = Designation
         fields = [
             "id",
-            "department",
-            "department_code",
-            "department_name",
-            "company",
             "designation_code",
             "designation_name",
             "level",

@@ -435,6 +435,32 @@
   gap: 20px;
 }
 
+.organization-shortcuts {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.organization-shortcuts a {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: var(--color-neutral-800);
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-weight: 650;
+}
+
+.organization-shortcuts a:hover {
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-200);
+}
+
 .page-actions {
   display: flex;
   flex-wrap: wrap;
@@ -455,7 +481,7 @@
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 0 12px;
   color: var(--color-neutral-600);
   background: var(--color-white);
@@ -470,15 +496,43 @@
 }
 
 .filter-control select,
+.filter-control input,
 .form-field select,
 .form-field input,
 .form-field textarea {
   width: 100%;
   min-width: 0;
+  flex: 1;
   color: var(--color-neutral-900);
   background: var(--color-white);
   border: 0;
   outline: 0;
+}
+
+.filter-control select {
+  min-height: 42px;
+  padding: 0 38px 0 2px;
+}
+
+.filter-control select,
+.form-field select {
+  appearance: none;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--color-neutral-500) 50%
+    ),
+    linear-gradient(
+      135deg,
+      var(--color-neutral-500) 50%,
+      transparent 50%
+    );
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
 }
 
 .form-field select,
@@ -488,6 +542,10 @@
   padding: 0 12px;
   border: 1px solid var(--color-neutral-300);
   border-radius: var(--radius-md);
+}
+
+.form-field select {
+  padding-right: 42px;
 }
 
 .form-field textarea {
@@ -728,6 +786,11 @@
     grid-template-columns: 1fr;
   }
 
+  .organization-shortcuts {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
   .site-toolbar {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
@@ -780,6 +843,10 @@
 
   .site-toolbar,
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-shortcuts {
     grid-template-columns: 1fr;
   }
 

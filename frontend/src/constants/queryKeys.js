@@ -22,6 +22,21 @@ export const queryKeys = Object.freeze({
     "companies",
     "dropdown",
   ],
+  organizationSitesDropdown: [
+    "organization",
+    "sites",
+    "dropdown",
+  ],
+  organizationDepartmentsDropdown: [
+    "organization",
+    "departments",
+    "dropdown",
+  ],
+  organizationUsersDropdown: [
+    "organization",
+    "users",
+    "dropdown",
+  ],
   organizationSites: (params) => [
     "organization",
     "sites",
@@ -30,6 +45,39 @@ export const queryKeys = Object.freeze({
   organizationSiteExport: (params) => [
     "organization",
     "sites",
+    "export",
+    params,
+  ],
+  organizationDepartments: (params) => [
+    "organization",
+    "departments",
+    params,
+  ],
+  organizationDepartmentExport: (params) => [
+    "organization",
+    "departments",
+    "export",
+    params,
+  ],
+  organizationDesignations: (params) => [
+    "organization",
+    "designations",
+    params,
+  ],
+  organizationDesignationExport: (params) => [
+    "organization",
+    "designations",
+    "export",
+    params,
+  ],
+  organizationDirectorMappings: (params) => [
+    "organization",
+    "director-mappings",
+    params,
+  ],
+  organizationDirectorMappingExport: (params) => [
+    "organization",
+    "director-mappings",
     "export",
     params,
   ],
