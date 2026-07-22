@@ -41,6 +41,10 @@ class UserAccountSerializer(serializers.ModelSerializer):
 class EmployeeProfileSerializer(
     serializers.ModelSerializer
 ):
+    employee_id = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
     user_detail = UserAccountSerializer(
         source="user",
         read_only=True,

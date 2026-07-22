@@ -157,6 +157,10 @@ class SiteSerializer(CleanModelSerializer):
 
 
 class DepartmentSerializer(CleanModelSerializer):
+    department_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
     company_code = serializers.CharField(
         source="company.company_code",
         read_only=True,
@@ -192,9 +196,15 @@ class DepartmentSerializer(CleanModelSerializer):
             "created_at",
             "updated_at",
         ]
+        validators = []
 
 
 class DesignationSerializer(CleanModelSerializer):
+    designation_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
     class Meta:
         model = Designation
         fields = [

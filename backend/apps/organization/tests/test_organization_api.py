@@ -144,6 +144,35 @@ def test_admin_can_create_site(
 
 
 @pytest.mark.django_db
+def test_admin_can_create_department_without_manual_code(
+    api_client,
+    organization_data,
+):
+    admin_user = AdminUserFactory()
+    api_client.force_authenticate(user=admin_user)
+
+    response = api_client.post(
+        reverse("organization-api:departments-list"),
+        {
+            "company": str(
+                organization_data["company"].id
+            ),
+            "department_name": "Store",
+            "description": "",
+            "display_order": 20,
+            "is_active": True,
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_201_CREATED
+    )
+    assert response.data["data"]["department_code"] == "STO"
+
+
+@pytest.mark.django_db
 def test_company_write_is_super_admin_only(
     api_client,
 ):
