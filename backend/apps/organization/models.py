@@ -7,6 +7,10 @@ from django.db.models import Q
 from django.utils.timezone import get_default_timezone_name
 
 from apps.core.models import BusinessModel
+from apps.core.utils.codes import (
+    build_abbreviation,
+    next_unique_code,
+)
 from apps.core.utils.text import (
     normalize_code,
     normalize_whitespace,
@@ -274,6 +278,7 @@ class Department(BusinessModel):
     )
     department_code = models.CharField(
         max_length=30,
+        blank=True,
         db_index=True,
     )
     department_name = models.CharField(
@@ -332,12 +337,27 @@ class Department(BusinessModel):
     def clean(self):
         super().clean()
 
-        self.department_code = normalize_code(
-            self.department_code
-        )
         self.department_name = normalize_whitespace(
             self.department_name
         )
+        self.department_code = normalize_code(
+            self.department_code
+        )
+
+        if not self.department_code:
+            self.department_code = next_unique_code(
+                Department,
+                "department_code",
+                build_abbreviation(
+                    self.department_name
+                ),
+                exclude_pk=self.pk,
+                scope={
+                    "company_id": self.company_id,
+                }
+                if self.company_id
+                else None,
+            )
 
         if self.description:
             self.description = normalize_whitespace(
@@ -356,6 +376,7 @@ class Designation(BusinessModel):
 
     designation_code = models.CharField(
         max_length=30,
+        blank=True,
         unique=True,
         db_index=True,
     )
@@ -397,12 +418,22 @@ class Designation(BusinessModel):
     def clean(self):
         super().clean()
 
-        self.designation_code = normalize_code(
-            self.designation_code
-        )
         self.designation_name = normalize_whitespace(
             self.designation_name
         )
+        self.designation_code = normalize_code(
+            self.designation_code
+        )
+
+        if not self.designation_code:
+            self.designation_code = next_unique_code(
+                Designation,
+                "designation_code",
+                build_abbreviation(
+                    self.designation_name
+                ),
+                exclude_pk=self.pk,
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()

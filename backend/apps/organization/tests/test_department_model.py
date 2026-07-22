@@ -33,6 +33,21 @@ def test_department_normalizes_code_name_and_description(company):
 
 
 @pytest.mark.django_db
+def test_department_code_is_generated_from_name(company):
+    finance = Department.objects.create(
+        company=company,
+        department_name="Finance",
+    )
+    duplicate = Department.objects.create(
+        company=company,
+        department_name="Finance",
+    )
+
+    assert finance.department_code == "FIN"
+    assert duplicate.department_code == "FIN2"
+
+
+@pytest.mark.django_db
 def test_department_code_must_be_unique_per_company(company):
     Department.objects.create(
         company=company,

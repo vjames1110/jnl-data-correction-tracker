@@ -36,6 +36,12 @@ export const queryKeys = Object.freeze({
     "employees",
     "dropdown",
   ],
+  employeeLoginHistory: (profileId) => [
+    "employees",
+    "profiles",
+    profileId,
+    "login-history",
+  ],
   organizationDashboard: [
     "organization",
     "dashboard",

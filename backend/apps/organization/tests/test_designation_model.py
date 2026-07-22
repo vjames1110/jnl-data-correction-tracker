@@ -23,6 +23,23 @@ def test_designation_normalizes_code_and_name():
 
 
 @pytest.mark.django_db
+def test_designation_code_is_generated_from_name():
+    hod = Designation.objects.create(
+        designation_name="Head of Department",
+    )
+    duplicate = Designation.objects.create(
+        designation_name="Head of Department",
+    )
+    dgm = Designation.objects.create(
+        designation_name="Deputy General Manager",
+    )
+
+    assert hod.designation_code == "HOD"
+    assert duplicate.designation_code == "HOD2"
+    assert dgm.designation_code == "DGM"
+
+
+@pytest.mark.django_db
 def test_designation_code_must_be_unique_globally():
     Designation.objects.create(
         designation_code="HOD",

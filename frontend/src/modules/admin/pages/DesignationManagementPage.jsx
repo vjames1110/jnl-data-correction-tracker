@@ -91,19 +91,15 @@ function DesignationForm({
         }}
       >
         <div className="form-grid">
-          <label className="form-field">
-            <span>Designation Code</span>
-            <input
-              value={form.designation_code}
-              onChange={(event) =>
-                setField(
-                  "designation_code",
-                  event.target.value,
-                )
-              }
-              required
-            />
-          </label>
+          {designation ? (
+            <label className="form-field">
+              <span>Designation Code</span>
+              <input
+                value={form.designation_code}
+                readOnly
+              />
+            </label>
+          ) : null}
           <label className="form-field">
             <span>Designation Name</span>
             <input

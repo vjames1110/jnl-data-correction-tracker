@@ -129,6 +129,31 @@ export const employeeService = {
     return response.data.data;
   },
 
+  async updateProfile(profileId, payload) {
+    const response = await apiClient.patch(
+      `/employees/profiles/${profileId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async activateProfile(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/activate/`,
+    );
+
+    return response.data.data;
+  },
+
+  async deactivateProfile(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/deactivate/`,
+    );
+
+    return response.data.data;
+  },
+
   async createAccount(profileId, payload) {
     const response = await apiClient.post(
       `/employees/profiles/${profileId}/create-account/`,
@@ -136,5 +161,122 @@ export const employeeService = {
     );
 
     return response.data.data;
+  },
+
+  async resetTemporaryPassword(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/reset-temporary-password/`,
+    );
+
+    return response.data.data;
+  },
+
+  async unlockAccount(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/unlock-account/`,
+    );
+
+    return response.data.data;
+  },
+
+  async suspendAccount(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/suspend-account/`,
+    );
+
+    return response.data.data;
+  },
+
+  async reactivateAccount(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/reactivate-account/`,
+    );
+
+    return response.data.data;
+  },
+
+  async changeRole(profileId, payload) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/change-role/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async revokeSessions(profileId) {
+    const response = await apiClient.post(
+      `/employees/profiles/${profileId}/revoke-sessions/`,
+    );
+
+    return response.data.data;
+  },
+
+  async getLoginHistory(profileId) {
+    const response = await apiClient.get(
+      `/employees/profiles/${profileId}/login-history/`,
+    );
+
+    return resolveItems(response);
+  },
+
+  async downloadTemplate(format) {
+    const response = await apiClient.get(
+      "/employees/profiles/import-template/",
+      {
+        params: { format },
+        responseType: "blob",
+      },
+    );
+
+    return response.data;
+  },
+
+  async previewImport(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post(
+      "/employees/profiles/import-preview/",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  async importFile(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post(
+      "/employees/profiles/import/",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  async exportFailedRows(failedRows) {
+    const response = await apiClient.post(
+      "/employees/profiles/failed-rows-export/",
+      {
+        failed_rows: failedRows,
+      },
+      {
+        responseType: "blob",
+      },
+    );
+
+    return response.data;
   },
 };

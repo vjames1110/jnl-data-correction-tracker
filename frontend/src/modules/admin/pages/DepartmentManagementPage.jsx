@@ -134,19 +134,15 @@ function DepartmentForm({
         </label>
 
         <div className="form-grid">
-          <label className="form-field">
-            <span>Department Code</span>
-            <input
-              value={form.department_code}
-              onChange={(event) =>
-                setField(
-                  "department_code",
-                  event.target.value,
-                )
-              }
-              required
-            />
-          </label>
+          {department ? (
+            <label className="form-field">
+              <span>Department Code</span>
+              <input
+                value={form.department_code}
+                readOnly
+              />
+            </label>
+          ) : null}
           <label className="form-field">
             <span>Department Name</span>
             <input

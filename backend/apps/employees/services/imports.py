@@ -41,7 +41,6 @@ EMPLOYEE_IMPORT_COLUMNS = [
 ]
 
 REQUIRED_IMPORT_COLUMNS = [
-    "employee_id",
     "first_name",
 ]
 
@@ -70,7 +69,7 @@ def build_csv_template() -> str:
     writer.writerow(EMPLOYEE_IMPORT_COLUMNS)
     writer.writerow(
         [
-            "EMP001",
+            "",
             "Asha",
             "Sharma",
             "asha.sharma@jnl.com",
@@ -106,7 +105,7 @@ def build_xlsx_template() -> bytes:
     worksheet.append(EMPLOYEE_IMPORT_COLUMNS)
     worksheet.append(
         [
-            "EMP001",
+            "",
             "Asha",
             "Sharma",
             "asha.sharma@jnl.com",
@@ -380,9 +379,7 @@ def _validate_row(
     )
     first_name = (row.get("first_name") or "").strip()
 
-    if not employee_id:
-        errors.append("Employee ID is required.")
-    elif employee_id in duplicate_employee_ids:
+    if employee_id in duplicate_employee_ids:
         errors.append(
             "Duplicate Employee ID in import file."
         )

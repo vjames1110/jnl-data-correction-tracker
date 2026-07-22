@@ -83,6 +83,26 @@ def test_employee_profile_can_exist_without_user(
 
 
 @pytest.mark.django_db
+def test_employee_code_is_generated_by_role():
+    employee = EmployeeProfile.objects.create(
+        first_name="Asha",
+        role=UserRole.USER,
+    )
+    director = EmployeeProfile.objects.create(
+        first_name="Director",
+        role=UserRole.DIRECTOR,
+    )
+    next_employee = EmployeeProfile.objects.create(
+        first_name="Ravi",
+        role=UserRole.USER,
+    )
+
+    assert employee.employee_id == "JNLEMP00001"
+    assert director.employee_id == "JNLDIR00001"
+    assert next_employee.employee_id == "JNLEMP00002"
+
+
+@pytest.mark.django_db
 def test_employee_profile_links_to_matching_user(
     organization_context,
 ):

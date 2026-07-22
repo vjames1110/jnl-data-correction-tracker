@@ -5,6 +5,9 @@ from django.db.models import Q
 
 from apps.authentication.models import UserRole
 from apps.core.models import BusinessModel
+from apps.core.utils.codes import (
+    next_prefixed_sequence,
+)
 from apps.core.utils.text import (
     normalize_code,
     normalize_whitespace,
@@ -55,6 +58,7 @@ class EmployeeProfile(BusinessModel):
     )
     employee_id = models.CharField(
         max_length=30,
+        blank=True,
         unique=True,
         db_index=True,
     )
@@ -183,6 +187,24 @@ class EmployeeProfile(BusinessModel):
         self.employee_id = normalize_code(
             self.employee_id
         )
+        if not self.employee_id:
+            if self.user_id:
+                self.employee_id = normalize_code(
+                    self.user.employee_id
+                )
+            else:
+                prefix = (
+                    "JNLDIR"
+                    if self.role == UserRole.DIRECTOR
+                    else "JNLEMP"
+                )
+                self.employee_id = next_prefixed_sequence(
+                    EmployeeProfile,
+                    "employee_id",
+                    prefix,
+                    exclude_pk=self.pk,
+                )
+
         self.first_name = normalize_whitespace(
             self.first_name
         )

@@ -1,12 +1,23 @@
 import { useMemo, useState } from "react";
 import {
+  Ban,
+  ClipboardCheck,
   Download,
+  Eye,
+  FileDown,
+  FileSpreadsheet,
+  History,
   KeyRound,
   LockKeyhole,
+  Pencil,
   Plus,
+  RotateCcw,
   Search,
   ShieldAlert,
+  UnlockKeyhole,
+  Upload,
   UserCheck,
+  UserCog,
   UserX,
   Users,
   X,
@@ -22,13 +33,27 @@ import {
   useSitesDropdown,
 } from "../../../hooks/useOrganization";
 import {
+  useActivateEmployeeProfile,
+  useChangeEmployeeRole,
   useCreateEmployeeAccount,
   useCreateEmployeeProfile,
+  useDeactivateEmployeeProfile,
+  useDownloadEmployeeTemplate,
   useEmployeeDashboard,
   useEmployeeDropdown,
   useEmployeeFilterOptions,
+  useEmployeeLoginHistory,
   useEmployeeProfileExport,
   useEmployeeProfiles,
+  useExportEmployeeFailedRows,
+  useImportEmployees,
+  usePreviewEmployeeImport,
+  useReactivateEmployeeAccount,
+  useResetEmployeeTemporaryPassword,
+  useRevokeEmployeeSessions,
+  useSuspendEmployeeAccount,
+  useUnlockEmployeeAccount,
+  useUpdateEmployeeProfile,
 } from "../../../hooks/useEmployees";
 import { KpiCard } from "../components/KpiCard";
 import {
@@ -159,18 +184,90 @@ function normalizeProfilePayload(form) {
   };
 }
 
+function toDateInput(value) {
+  if (!value) {
+    return "";
+  }
+
+  return String(value).slice(0, 10);
+}
+
+function formFromProfile(profile) {
+  return {
+    ...emptyForm,
+    employee_id: profile.employee_id ?? "",
+    first_name: profile.first_name ?? "",
+    last_name: profile.last_name ?? "",
+    email: profile.email ?? "",
+    mobile: profile.mobile ?? "",
+    gender:
+      profile.gender ?? emptyForm.gender,
+    date_of_joining: toDateInput(
+      profile.date_of_joining,
+    ),
+    employment_status:
+      profile.employment_status ??
+      emptyForm.employment_status,
+    last_working_date: toDateInput(
+      profile.last_working_date,
+    ),
+    site: profile.site ?? "",
+    department: profile.department ?? "",
+    designation: profile.designation ?? "",
+    reporting_manager:
+      profile.reporting_manager ?? "",
+    role: profile.role ?? emptyForm.role,
+    is_active:
+      profile.is_active ?? emptyForm.is_active,
+    erp_user_id: profile.erp_user_id ?? "",
+    create_account: false,
+    send_notification: false,
+  };
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDateTime(value) {
+  return value
+    ? new Date(value).toLocaleString()
+    : "-";
+}
+
+function DetailItem({ label, value }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value || "-"}</dd>
+    </div>
+  );
+}
+
 function EmployeeCreatePanel({
   departments,
   designations,
   employees,
   error,
   filterOptions,
+  initialProfile,
   isSubmitting,
+  mode = "create",
   onClose,
   onSubmit,
   sites,
 }) {
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() =>
+    initialProfile
+      ? formFromProfile(initialProfile)
+      : emptyForm,
+  );
+  const isEditMode = mode === "edit";
 
   const updateField = (field, value) => {
     setForm((current) => ({
@@ -194,7 +291,11 @@ function EmployeeCreatePanel({
           <span className="page-eyebrow">
             User Management
           </span>
-          <h2>Add Employee</h2>
+          <h2>
+            {isEditMode
+              ? "Edit Employee"
+              : "Add Employee"}
+          </h2>
         </div>
         <button
           type="button"
@@ -221,19 +322,15 @@ function EmployeeCreatePanel({
       >
         <section className="employee-form-section">
           <h3>Personal Information</h3>
-          <label className="form-field">
-            <span>Employee ID</span>
-            <input
-              value={form.employee_id}
-              onChange={(event) =>
-                updateField(
-                  "employee_id",
-                  event.target.value,
-                )
-              }
-              required
-            />
-          </label>
+          {isEditMode ? (
+            <label className="form-field">
+              <span>Employee Code</span>
+              <input
+                value={form.employee_id}
+                readOnly
+              />
+            </label>
+          ) : null}
           <div className="form-grid">
             <label className="form-field">
               <span>First Name</span>
@@ -507,33 +604,43 @@ function EmployeeCreatePanel({
             />
             <span>Active employee</span>
           </label>
-          <label className="toggle-field">
-            <input
-              type="checkbox"
-              checked={form.create_account}
-              onChange={(event) =>
-                updateField(
-                  "create_account",
-                  event.target.checked,
-                )
-              }
-            />
-            <span>Create user account</span>
-          </label>
-          <label className="toggle-field">
-            <input
-              type="checkbox"
-              checked={form.send_notification}
-              disabled={!form.create_account}
-              onChange={(event) =>
-                updateField(
-                  "send_notification",
-                  event.target.checked,
-                )
-              }
-            />
-            <span>Send account notification</span>
-          </label>
+          {!isEditMode ? (
+            <>
+              <label className="toggle-field">
+                <input
+                  type="checkbox"
+                  checked={form.create_account}
+                  onChange={(event) =>
+                    updateField(
+                      "create_account",
+                      event.target.checked,
+                    )
+                  }
+                />
+                <span>Create user account</span>
+              </label>
+              <label className="toggle-field">
+                <input
+                  type="checkbox"
+                  checked={
+                    form.send_notification
+                  }
+                  disabled={
+                    !form.create_account
+                  }
+                  onChange={(event) =>
+                    updateField(
+                      "send_notification",
+                      event.target.checked,
+                    )
+                  }
+                />
+                <span>
+                  Send account notification
+                </span>
+              </label>
+            </>
+          ) : null}
         </section>
 
         <div className="management-panel__actions">
@@ -551,10 +658,680 @@ function EmployeeCreatePanel({
           >
             {isSubmitting
               ? "Saving..."
-              : "Save Employee"}
+              : isEditMode
+                ? "Update Employee"
+                : "Save Employee"}
           </button>
         </div>
       </form>
+    </aside>
+  );
+}
+
+function EmployeeDetailsDrawer({
+  filterOptions,
+  onClose,
+  onEdit,
+  profile,
+}) {
+  const [selectedRole, setSelectedRole] = useState(
+    profile.role,
+  );
+  const [actionResult, setActionResult] =
+    useState(null);
+  const [actionError, setActionError] =
+    useState(null);
+  const hasAccount = Boolean(profile.user_detail);
+  const loginHistoryQuery =
+    useEmployeeLoginHistory(
+      profile.id,
+      hasAccount,
+    );
+  const activateProfile =
+    useActivateEmployeeProfile();
+  const deactivateProfile =
+    useDeactivateEmployeeProfile();
+  const resetPassword =
+    useResetEmployeeTemporaryPassword();
+  const unlockAccount =
+    useUnlockEmployeeAccount();
+  const suspendAccount =
+    useSuspendEmployeeAccount();
+  const reactivateAccount =
+    useReactivateEmployeeAccount();
+  const changeRole = useChangeEmployeeRole();
+  const revokeSessions =
+    useRevokeEmployeeSessions();
+
+  const roleOptions =
+    filterOptions.roles ?? fallbackOptions.roles;
+  const isActionPending = [
+    activateProfile,
+    deactivateProfile,
+    resetPassword,
+    unlockAccount,
+    suspendAccount,
+    reactivateAccount,
+    changeRole,
+    revokeSessions,
+  ].some((mutation) => mutation.isPending);
+
+  const runAction = async (
+    mutation,
+    successMessage,
+    variables = profile.id,
+  ) => {
+    setActionError(null);
+    setActionResult(null);
+
+    try {
+      const result =
+        await mutation.mutateAsync(variables);
+      setActionResult({
+        message: successMessage,
+        temporary_password:
+          result?.temporary_password,
+        revoked_sessions:
+          result?.revoked_sessions,
+      });
+    } catch (error) {
+      setActionError(error);
+    }
+  };
+
+  return (
+    <aside className="details-drawer employee-details">
+      <div className="details-drawer__header">
+        <div>
+          <span className="page-eyebrow">
+            Employee Details
+          </span>
+          <h2>{profile.full_name}</h2>
+          <p>{profile.employee_id}</p>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Close employee details"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {actionResult ? (
+        <div className="inline-alert inline-alert--success">
+          <ClipboardCheck size={18} />
+          <div>
+            <strong>
+              {actionResult.message}
+            </strong>
+            {actionResult.temporary_password ? (
+              <p>
+                {
+                  actionResult.temporary_password
+                }
+              </p>
+            ) : null}
+            {Number.isInteger(
+              actionResult.revoked_sessions,
+            ) ? (
+              <p>
+                Revoked sessions:{" "}
+                {
+                  actionResult.revoked_sessions
+                }
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {actionError ? (
+        <div className="inline-alert inline-alert--error">
+          <strong>
+            {actionError.message}
+          </strong>
+        </div>
+      ) : null}
+
+      <section className="employee-details-section">
+        <div className="employee-details-section__header">
+          <h3>Profile</h3>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => onEdit(profile)}
+          >
+            <Pencil size={16} />
+            Edit
+          </button>
+        </div>
+        <dl className="details-list">
+          <DetailItem
+            label="Email"
+            value={profile.email}
+          />
+          <DetailItem
+            label="Mobile"
+            value={profile.mobile}
+          />
+          <DetailItem
+            label="Employment Status"
+            value={optionLabel(
+              filterOptions.employment_statuses ??
+                fallbackOptions.employment_statuses,
+              profile.employment_status,
+            )}
+          />
+          <DetailItem
+            label="Profile Updated"
+            value={formatDateTime(
+              profile.updated_at,
+            )}
+          />
+        </dl>
+      </section>
+
+      <section className="employee-details-section">
+        <h3>Account Actions</h3>
+        <div className="account-action-grid">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={isActionPending}
+            onClick={() =>
+              runAction(
+                profile.is_active
+                  ? deactivateProfile
+                  : activateProfile,
+                profile.is_active
+                  ? "Employee deactivated."
+                  : "Employee activated.",
+              )
+            }
+          >
+            {profile.is_active ? (
+              <UserX size={16} />
+            ) : (
+              <UserCheck size={16} />
+            )}
+            {profile.is_active
+              ? "Deactivate"
+              : "Activate"}
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!hasAccount || isActionPending}
+            onClick={() =>
+              runAction(
+                resetPassword,
+                "Temporary password reset.",
+              )
+            }
+          >
+            <KeyRound size={16} />
+            Reset Password
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!hasAccount || isActionPending}
+            onClick={() =>
+              runAction(
+                unlockAccount,
+                "Account unlocked.",
+              )
+            }
+          >
+            <UnlockKeyhole size={16} />
+            Unlock
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!hasAccount || isActionPending}
+            onClick={() =>
+              runAction(
+                suspendAccount,
+                "Account suspended.",
+              )
+            }
+          >
+            <Ban size={16} />
+            Suspend
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!hasAccount || isActionPending}
+            onClick={() =>
+              runAction(
+                reactivateAccount,
+                "Account reactivated.",
+              )
+            }
+          >
+            <RotateCcw size={16} />
+            Reactivate
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!hasAccount || isActionPending}
+            onClick={() =>
+              runAction(
+                revokeSessions,
+                "Active sessions revoked.",
+              )
+            }
+          >
+            <LockKeyhole size={16} />
+            Revoke Sessions
+          </button>
+        </div>
+
+        <div className="role-change-row">
+          <label className="form-field">
+            <span>Change Role</span>
+            <select
+              value={selectedRole}
+              onChange={(event) =>
+                setSelectedRole(
+                  event.target.value,
+                )
+              }
+              disabled={!hasAccount}
+            >
+              {roleOptions.map((role) => (
+                <option
+                  key={role.value}
+                  value={role.value}
+                >
+                  {role.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={
+              !hasAccount ||
+              selectedRole === profile.role ||
+              isActionPending
+            }
+            onClick={() =>
+              runAction(
+                changeRole,
+                "Role updated.",
+                {
+                  profileId: profile.id,
+                  role: selectedRole,
+                },
+              )
+            }
+          >
+            <UserCog size={16} />
+            Apply
+          </button>
+        </div>
+
+        {!hasAccount ? (
+          <p className="muted-copy">
+            This employee does not have a login
+            account yet.
+          </p>
+        ) : null}
+      </section>
+
+      <section className="employee-details-section">
+        <h3>Login History</h3>
+        {loginHistoryQuery.isLoading ? (
+          <AppLoader label="Loading login history..." />
+        ) : loginHistoryQuery.isError ? (
+          <ErrorState
+            title="Login history unavailable"
+            message={
+              loginHistoryQuery.error?.message
+            }
+            onRetry={loginHistoryQuery.refetch}
+          />
+        ) : !loginHistoryQuery.data?.length ? (
+          <EmptyState
+            title="No login events"
+            message="This account has no recorded login activity."
+          />
+        ) : (
+          <div className="mini-history-list">
+            {loginHistoryQuery.data.map((event) => (
+              <div key={event.id}>
+                <History size={16} />
+                <div>
+                  <strong>
+                    {event.event_type}
+                  </strong>
+                  <span>
+                    {formatDateTime(
+                      event.created_at,
+                    )}
+                  </span>
+                  {event.failure_reason ? (
+                    <p>
+                      {event.failure_reason}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  className={
+                    event.was_successful
+                      ? "status-chip status-chip--success"
+                      : "status-chip status-chip--error"
+                  }
+                >
+                  {event.was_successful
+                    ? "Success"
+                    : "Failed"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="employee-details-section">
+        <h3>Role History</h3>
+        <div className="history-snapshot">
+          <strong>
+            {optionLabel(
+              roleOptions,
+              profile.role,
+            )}
+          </strong>
+          <span>
+            Current role as of{" "}
+            {formatDateTime(profile.updated_at)}
+          </span>
+        </div>
+      </section>
+
+      <section className="employee-details-section">
+        <h3>Organization History</h3>
+        <div className="history-snapshot">
+          <strong>
+            {[
+              profile.site_code,
+              profile.department_code,
+              profile.designation_code,
+            ]
+              .filter(Boolean)
+              .join(" / ") || "-"}
+          </strong>
+          <span>
+            Current organization mapping as of{" "}
+            {formatDateTime(profile.updated_at)}
+          </span>
+        </div>
+      </section>
+    </aside>
+  );
+}
+
+function EmployeeImportPanel({ onClose }) {
+  const [selectedFile, setSelectedFile] =
+    useState(null);
+  const [previewResult, setPreviewResult] =
+    useState(null);
+  const [importResult, setImportResult] =
+    useState(null);
+  const downloadTemplate =
+    useDownloadEmployeeTemplate();
+  const previewImport =
+    usePreviewEmployeeImport();
+  const importEmployees =
+    useImportEmployees();
+  const exportFailedRows =
+    useExportEmployeeFailedRows();
+
+  const failedRows =
+    importResult?.failed_rows ??
+    previewResult?.failed_rows ??
+    [];
+  const summary =
+    importResult?.summary ??
+    previewResult?.summary ??
+    {};
+  const error =
+    downloadTemplate.error ??
+    previewImport.error ??
+    importEmployees.error ??
+    exportFailedRows.error;
+
+  const handleTemplateDownload = async (format) => {
+    const blob =
+      await downloadTemplate.mutateAsync(format);
+    downloadBlob(
+      `employee-import-template.${format}`,
+      blob,
+    );
+  };
+
+  const handlePreview = async () => {
+    if (!selectedFile) {
+      return;
+    }
+
+    setImportResult(null);
+    const result =
+      await previewImport.mutateAsync(selectedFile);
+    setPreviewResult(result);
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      return;
+    }
+
+    const result =
+      await importEmployees.mutateAsync(
+        selectedFile,
+      );
+    setImportResult(result);
+  };
+
+  const handleFailedRowsDownload = async () => {
+    const blob =
+      await exportFailedRows.mutateAsync(
+        failedRows,
+      );
+    downloadBlob(
+      "employee-import-failed-rows.csv",
+      blob,
+    );
+  };
+
+  return (
+    <aside className="management-panel employee-panel">
+      <div className="management-panel__header">
+        <div>
+          <span className="page-eyebrow">
+            Bulk Import
+          </span>
+          <h2>Import Employees</h2>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Close employee import"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {error ? (
+        <div className="inline-alert inline-alert--error">
+          <strong>{error.message}</strong>
+        </div>
+      ) : null}
+
+      {importResult ? (
+        <div className="inline-alert inline-alert--success">
+          <ClipboardCheck size={18} />
+          <div>
+            <strong>
+              Import completed.
+            </strong>
+            <p>
+              Created rows:{" "}
+              {summary.created_rows ?? 0}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="employee-form-section">
+        <h3>Template</h3>
+        <div className="import-template-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={downloadTemplate.isPending}
+            onClick={() =>
+              handleTemplateDownload("csv")
+            }
+          >
+            <FileDown size={16} />
+            CSV Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={downloadTemplate.isPending}
+            onClick={() =>
+              handleTemplateDownload("xlsx")
+            }
+          >
+            <FileSpreadsheet size={16} />
+            Excel Template
+          </button>
+        </div>
+      </section>
+
+      <section className="employee-form-section">
+        <h3>Upload</h3>
+        <label className="file-upload-control">
+          <Upload size={18} />
+          <span>
+            {selectedFile
+              ? selectedFile.name
+              : "Select CSV or Excel file"}
+          </span>
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xlsm"
+            onChange={(event) => {
+              setSelectedFile(
+                event.target.files?.[0] ?? null,
+              );
+              setPreviewResult(null);
+              setImportResult(null);
+            }}
+          />
+        </label>
+        <div className="management-panel__inline-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={
+              !selectedFile ||
+              previewImport.isPending
+            }
+            onClick={handlePreview}
+          >
+            Preview Validation
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={
+              !selectedFile ||
+              !previewResult ||
+              previewImport.isPending ||
+              importEmployees.isPending
+            }
+            onClick={handleImport}
+          >
+            Confirm Import
+          </button>
+        </div>
+      </section>
+
+      {previewResult || importResult ? (
+        <section className="employee-form-section">
+          <h3>Summary</h3>
+          <div className="import-summary-grid">
+            <div>
+              <span>Total Rows</span>
+              <strong>
+                {summary.total_rows ?? 0}
+              </strong>
+            </div>
+            <div>
+              <span>Valid Rows</span>
+              <strong>
+                {summary.valid_rows ?? "-"}
+              </strong>
+            </div>
+            <div>
+              <span>Created Rows</span>
+              <strong>
+                {summary.created_rows ?? "-"}
+              </strong>
+            </div>
+            <div>
+              <span>Failed Rows</span>
+              <strong>
+                {summary.failed_rows ?? 0}
+              </strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {failedRows.length ? (
+        <section className="employee-form-section">
+          <div className="employee-details-section__header">
+            <h3>Validation Errors</h3>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={
+                exportFailedRows.isPending
+              }
+              onClick={handleFailedRowsDownload}
+            >
+              <Download size={16} />
+              Failed Rows
+            </button>
+          </div>
+          <div className="failed-rows-list">
+            {failedRows.map((failedRow) => (
+              <div
+                key={`${failedRow.row_number}-${failedRow.errors?.join("|")}`}
+              >
+                <strong>
+                  Row {failedRow.row_number}
+                </strong>
+                <span>
+                  {failedRow.errors?.join("; ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </aside>
   );
 }
@@ -572,6 +1349,12 @@ export function EmployeeManagementPage() {
   });
   const [isFormOpen, setIsFormOpen] =
     useState(false);
+  const [isImportOpen, setIsImportOpen] =
+    useState(false);
+  const [editingProfile, setEditingProfile] =
+    useState(null);
+  const [detailsProfile, setDetailsProfile] =
+    useState(null);
   const [
     accountCreationResult,
     setAccountCreationResult,
@@ -614,6 +1397,8 @@ export function EmployeeManagementPage() {
     useDesignationsDropdown();
   const createProfile =
     useCreateEmployeeProfile();
+  const updateProfile =
+    useUpdateEmployeeProfile();
   const createAccount =
     useCreateEmployeeAccount();
 
@@ -697,6 +1482,15 @@ export function EmployeeManagementPage() {
     setIsFormOpen(false);
   };
 
+  const handleUpdateEmployee = async (form) => {
+    await updateProfile.mutateAsync({
+      profileId: editingProfile.id,
+      payload: normalizeProfilePayload(form),
+    });
+    setEditingProfile(null);
+    setDetailsProfile(null);
+  };
+
   const dashboard =
     dashboardQuery.data ?? {};
   const summary = dashboard.summary ?? {};
@@ -716,6 +1510,14 @@ export function EmployeeManagementPage() {
         </div>
 
         <div className="page-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => setIsImportOpen(true)}
+          >
+            <Upload size={17} />
+            Import
+          </button>
           <button
             type="button"
             className="button button--secondary"
@@ -1044,9 +1846,26 @@ export function EmployeeManagementPage() {
                         <button
                           type="button"
                           className="button button--tertiary employee-table-action"
-                          disabled
+                          onClick={() =>
+                            setDetailsProfile(
+                              profile,
+                            )
+                          }
                         >
+                          <Eye size={15} />
                           Details
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--tertiary employee-table-action"
+                          onClick={() =>
+                            setEditingProfile(
+                              profile,
+                            )
+                          }
+                        >
+                          <Pencil size={15} />
+                          Edit
                         </button>
                       </div>
                     </td>
@@ -1120,6 +1939,46 @@ export function EmployeeManagementPage() {
           onClose={() => setIsFormOpen(false)}
           onSubmit={handleCreateEmployee}
           sites={sitesQuery.data ?? []}
+        />
+      ) : null}
+
+      {editingProfile ? (
+        <EmployeeCreatePanel
+          departments={
+            departmentsQuery.data ?? []
+          }
+          designations={
+            designationsQuery.data ?? []
+          }
+          employees={
+            employeeDropdownQuery.data ?? []
+          }
+          error={updateProfile.error}
+          filterOptions={filterOptions}
+          initialProfile={editingProfile}
+          isSubmitting={updateProfile.isPending}
+          mode="edit"
+          onClose={() => setEditingProfile(null)}
+          onSubmit={handleUpdateEmployee}
+          sites={sitesQuery.data ?? []}
+        />
+      ) : null}
+
+      {detailsProfile ? (
+        <EmployeeDetailsDrawer
+          filterOptions={filterOptions}
+          onClose={() => setDetailsProfile(null)}
+          onEdit={(profile) => {
+            setDetailsProfile(null);
+            setEditingProfile(profile);
+          }}
+          profile={detailsProfile}
+        />
+      ) : null}
+
+      {isImportOpen ? (
+        <EmployeeImportPanel
+          onClose={() => setIsImportOpen(false)}
         />
       ) : null}
     </div>

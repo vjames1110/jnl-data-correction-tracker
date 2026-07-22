@@ -49,6 +49,7 @@ from apps.employees.services.accounts import (
 )
 from apps.employees.services.imports import (
     EMPLOYEE_IMPORT_COLUMNS,
+    REQUIRED_IMPORT_COLUMNS,
     build_csv_template,
     build_xlsx_template,
     import_employee_rows,
@@ -599,10 +600,7 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             ),
             data={
                 "columns": EMPLOYEE_IMPORT_COLUMNS,
-                "required_columns": [
-                    "employee_id",
-                    "first_name",
-                ],
+                "required_columns": REQUIRED_IMPORT_COLUMNS,
             },
         )
 
