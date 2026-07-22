@@ -70,10 +70,11 @@ export const queryKeys = Object.freeze({
     "designations",
     "dropdown",
   ],
-  organizationUsersDropdown: [
+  organizationUsersDropdown: (params) => [
     "organization",
     "users",
     "dropdown",
+    params,
   ],
   organizationSites: (params) => [
     "organization",

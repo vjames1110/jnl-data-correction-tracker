@@ -25,7 +25,6 @@ import {
   useActivateDirectorMapping,
   useCreateDirectorMapping,
   useDeactivateDirectorMapping,
-  useDepartmentsDropdown,
   useDirectorMappingExport,
   useDirectorMappings,
   useSitesDropdown,
@@ -35,8 +34,7 @@ import {
 
 const emptyForm = {
   director: "",
-  site: "",
-  department: "",
+  sites: [],
   authority_type: "PRIMARY",
   effective_from: "",
   effective_to: "",
@@ -45,7 +43,6 @@ const emptyForm = {
 
 function DirectorMappingForm({
   sites,
-  departments,
   users,
   mapping,
   error,
@@ -57,8 +54,9 @@ function DirectorMappingForm({
     mapping
       ? {
           director: mapping.director ?? "",
-          site: mapping.site ?? "",
-          department: mapping.department ?? "",
+          sites: mapping.site
+            ? [mapping.site]
+            : [],
           authority_type:
             mapping.authority_type ?? "PRIMARY",
           effective_from:
@@ -80,10 +78,19 @@ function DirectorMappingForm({
     }));
   };
 
+  const updateSelectedSites = (options) => {
+    setField(
+      "sites",
+      Array.from(options)
+        .filter((option) => option.selected)
+        .map((option) => option.value),
+    );
+  };
+
   const validateAndSubmit = () => {
-    if (!form.site && !form.department) {
+    if (!form.sites.length) {
       setLocalError(
-        "Select at least one site or department.",
+        "Select at least one site.",
       );
       return;
     }
@@ -104,9 +111,7 @@ function DirectorMappingForm({
       normalizeDatePayload(
         {
           ...form,
-          site: form.site || null,
-          department:
-            form.department || null,
+          department: null,
           effective_to:
             form.effective_to || null,
         },
@@ -166,55 +171,32 @@ function DirectorMappingForm({
           </select>
         </label>
 
-        <div className="form-grid">
-          <label className="form-field">
-            <span>Site</span>
-            <select
-              value={form.site}
-              onChange={(event) =>
-                setField(
-                  "site",
-                  event.target.value,
-                )
-              }
-            >
-              <option value="">No site</option>
-              {sites.map((site) => (
-                <option
-                  key={site.id}
-                  value={site.id}
-                >
-                  {site.code} - {site.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>Department</span>
-            <select
-              value={form.department}
-              onChange={(event) =>
-                setField(
-                  "department",
-                  event.target.value,
-                )
-              }
-            >
-              <option value="">
-                No department
+        <label className="form-field">
+          <span>Sites</span>
+          <select
+            multiple
+            value={form.sites}
+            onChange={(event) =>
+              updateSelectedSites(
+                event.target.options,
+              )
+            }
+            size={Math.min(
+              Math.max(sites.length, 3),
+              7,
+            )}
+            required
+          >
+            {sites.map((site) => (
+              <option
+                key={site.id}
+                value={site.id}
+              >
+                {site.code} - {site.label}
               </option>
-              {departments.map((department) => (
-                <option
-                  key={department.id}
-                  value={department.id}
-                >
-                  {department.code} -{" "}
-                  {department.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            ))}
+          </select>
+        </label>
 
         <div className="form-grid">
           <label className="form-field">
@@ -307,7 +289,6 @@ export function DirectorMappingPage() {
   const [filters, setFilters] = useState({
     search: "",
     site: "",
-    department: "",
     authority_type: "",
     is_active: "",
     ordering: "-effective_from",
@@ -327,7 +308,6 @@ export function DirectorMappingPage() {
       buildParams({
         search: filters.search,
         site: filters.site,
-        department: filters.department,
         authority_type:
           filters.authority_type,
         is_active: filters.is_active,
@@ -339,9 +319,9 @@ export function DirectorMappingPage() {
   const mappingsQuery =
     useDirectorMappings(queryParams);
   const sitesQuery = useSitesDropdown();
-  const departmentsQuery =
-    useDepartmentsDropdown();
-  const usersQuery = useUsersDropdown();
+  const usersQuery = useUsersDropdown({
+    designation: "director",
+  });
   const exportQuery =
     useDirectorMappingExport(exportParams);
   const createMapping =
@@ -367,14 +347,27 @@ export function DirectorMappingPage() {
   };
 
   const handleSubmit = async (payload) => {
+    const {
+      sites: selectedSites,
+      ...mappingPayload
+    } = payload;
+
     if (editingMapping) {
       await updateMapping.mutateAsync({
         id: editingMapping.id,
-        payload,
+        payload: {
+          ...mappingPayload,
+          site: selectedSites[0],
+        },
       });
     } else {
-      await createMapping.mutateAsync(
-        payload,
+      await Promise.all(
+        selectedSites.map((site) =>
+          createMapping.mutateAsync({
+            ...mappingPayload,
+            site,
+          }),
+        ),
       );
     }
 
@@ -395,10 +388,6 @@ export function DirectorMappingPage() {
         {
           key: "site_name",
           label: "Site",
-        },
-        {
-          key: "department_name",
-          label: "Department",
         },
         {
           key: "authority_type",
@@ -430,8 +419,7 @@ export function DirectorMappingPage() {
           <h1>Director Mapping</h1>
           <p>
             Maintain primary and backup
-            approval authority by site or
-            department.
+            approval authority by site.
           </p>
         </div>
         <div className="page-actions">
@@ -504,32 +492,6 @@ export function DirectorMappingPage() {
             </select>
           </label>
           <label className="filter-control">
-            <span>Department</span>
-            <select
-              value={filters.department}
-              onChange={(event) =>
-                setFilter(
-                  "department",
-                  event.target.value,
-                )
-              }
-            >
-              <option value="">
-                All departments
-              </option>
-              {(departmentsQuery.data ?? []).map(
-                (department) => (
-                  <option
-                    key={department.id}
-                    value={department.id}
-                  >
-                    {department.code}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-          <label className="filter-control">
             <span>Authority</span>
             <select
               value={filters.authority_type}
@@ -573,7 +535,6 @@ export function DirectorMappingPage() {
                 <tr>
                   <th>Director</th>
                   <th>Site</th>
-                  <th>Department</th>
                   <th>Authority</th>
                   <th>Effective</th>
                   <th>Status</th>
@@ -594,10 +555,6 @@ export function DirectorMappingPage() {
                     </td>
                     <td>
                       {mapping.site_code || "-"}
-                    </td>
-                    <td>
-                      {mapping.department_code ||
-                        "-"}
                     </td>
                     <td>
                       {mapping.authority_type}
@@ -709,9 +666,6 @@ export function DirectorMappingPage() {
       {isFormOpen ? (
         <DirectorMappingForm
           sites={sitesQuery.data ?? []}
-          departments={
-            departmentsQuery.data ?? []
-          }
           users={usersQuery.data ?? []}
           mapping={editingMapping}
           error={

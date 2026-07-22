@@ -64,12 +64,15 @@ export function useDesignationsDropdown() {
   });
 }
 
-export function useUsersDropdown() {
+export function useUsersDropdown(params = {}) {
   return useQuery({
     queryKey:
-      queryKeys.organizationUsersDropdown,
+      queryKeys.organizationUsersDropdown(params),
     queryFn:
-      organizationService.getUsersDropdown,
+      () =>
+        organizationService.getUsersDropdown(
+          params,
+        ),
   });
 }
 
@@ -168,6 +171,39 @@ export function useDeactivateSite() {
       invalidateOrganizationQueries(
         queryClient,
       ),
+  });
+}
+
+export function useDownloadSiteTemplate() {
+  return useMutation({
+    mutationFn:
+      organizationService.downloadSiteTemplate,
+  });
+}
+
+export function usePreviewSiteImport() {
+  return useMutation({
+    mutationFn:
+      organizationService.previewSiteImport,
+  });
+}
+
+export function useImportSites() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: organizationService.importSites,
+    onSuccess: () =>
+      invalidateOrganizationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useExportSiteFailedRows() {
+  return useMutation({
+    mutationFn:
+      organizationService.exportSiteFailedRows,
   });
 }
 

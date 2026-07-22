@@ -64,6 +64,8 @@ class UserDropdownSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     label = serializers.SerializerMethodField()
+    designation_code = serializers.SerializerMethodField()
+    designation_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -72,12 +74,30 @@ class UserDropdownSerializer(serializers.ModelSerializer):
             "employee_id",
             "full_name",
             "role",
+            "designation_code",
+            "designation_name",
             "label",
         ]
 
     def get_label(self, obj: User) -> str:
         return (
             f"{obj.employee_id} - {obj.full_name}"
+        )
+
+    def get_designation_code(self, obj: User) -> str:
+        return (
+            obj.employee_profile.designation.designation_code
+            if getattr(obj, "employee_profile", None)
+            and obj.employee_profile.designation_id
+            else ""
+        )
+
+    def get_designation_name(self, obj: User) -> str:
+        return (
+            obj.employee_profile.designation.designation_name
+            if getattr(obj, "employee_profile", None)
+            and obj.employee_profile.designation_id
+            else ""
         )
 
 
@@ -221,6 +241,21 @@ class DesignationSerializer(CleanModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class OrganizationImportFileSerializer(
+    serializers.Serializer
+):
+    file = serializers.FileField()
+
+
+class OrganizationFailedRowsExportSerializer(
+    serializers.Serializer
+):
+    failed_rows = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=True,
+    )
 
 
 class SiteDepartmentMappingSerializer(CleanModelSerializer):

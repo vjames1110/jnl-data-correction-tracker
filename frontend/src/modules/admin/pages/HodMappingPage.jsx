@@ -79,7 +79,7 @@ function HodSelect({
       }
     >
       <option value="" disabled hidden>
-        Select HOD
+        Select person
       </option>
       {users.map((user) => (
         <option key={user.id} value={user.id}>
@@ -111,10 +111,10 @@ function CoverageAlert({ summary }) {
   if (!missing) {
     return (
       <div className="inline-alert inline-alert--success">
-        <strong>HOD coverage is complete.</strong>
-        <p>
-          Site, department and mapping history
-          records have assigned HODs.
+          <strong>PM/HOD coverage is complete.</strong>
+          <p>
+          Site PM, department HOD and mapping
+          history records have assigned owners.
         </p>
       </div>
     );
@@ -125,11 +125,11 @@ function CoverageAlert({ summary }) {
       <AlertTriangle size={18} />
       <div>
         <strong>
-          {missing} HOD mapping gap
+          {missing} PM/HOD mapping gap
           {missing === 1 ? "" : "s"} found.
         </strong>
         <p>
-          Assign missing site and department HODs
+          Assign missing site PMs and department HODs
           before closing organization setup.
         </p>
       </div>
@@ -208,15 +208,16 @@ export function HodMappingPage() {
   }
 
   return (
-    <div className="organization-page">
+    <div className="organization-page hod-mapping-page">
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
             Organization Masters
           </span>
-          <h1>HOD Mapping</h1>
+          <h1>PM & HOD Mapping</h1>
           <p>
-            Assign site and department HODs,
+            Assign site project managers and
+            department HODs,
             review missing coverage and inspect
             mapping history.
           </p>
@@ -248,7 +249,7 @@ export function HodMappingPage() {
           <div className="hod-summary-item">
             <MapPin size={20} />
             <div>
-              <span>Site HOD Gaps</span>
+              <span>Site PM Gaps</span>
               <strong>
                 {summary.missing_site_hods ?? 0}
               </strong>
@@ -282,11 +283,11 @@ export function HodMappingPage() {
       </section>
 
       <section className="organization-grid">
-        <SurfaceCard title="Site HOD">
+        <SurfaceCard title="Site PM">
           {!sites.length ? (
             <EmptyState
               title="No sites found"
-              message="Add sites before assigning HODs."
+              message="Add sites before assigning project managers."
             />
           ) : (
             <div className="data-table-wrapper">
@@ -295,8 +296,8 @@ export function HodMappingPage() {
                   <tr>
                     <th>Code</th>
                     <th>Site</th>
-                    <th>Current HOD</th>
-                    <th>Assign HOD</th>
+                    <th>Current PM</th>
+                    <th>Assign PM</th>
                     <th>Status</th>
                     <th>Save</th>
                   </tr>
@@ -334,7 +335,7 @@ export function HodMappingPage() {
                         </td>
                         <td className="mapping-select-cell">
                           <HodSelect
-                            label={`Site HOD for ${site.site_name}`}
+                            label={`Site PM for ${site.site_name}`}
                             users={users}
                             value={value}
                             onChange={(nextValue) =>
@@ -361,8 +362,8 @@ export function HodMappingPage() {
                           <button
                             type="button"
                             className="icon-button"
-                            aria-label={`Save site HOD for ${site.site_name}`}
-                            title="Save HOD"
+                            aria-label={`Save site PM for ${site.site_name}`}
+                            title="Save PM"
                             disabled={
                               !changed ||
                               updateSiteHod
@@ -543,7 +544,7 @@ export function HodMappingPage() {
                 <tr>
                   <th>Site</th>
                   <th>Department</th>
-                  <th>Site HOD</th>
+                  <th>Site PM</th>
                   <th>Department HOD</th>
                   <th>Effective Date</th>
                   <th>Status</th>

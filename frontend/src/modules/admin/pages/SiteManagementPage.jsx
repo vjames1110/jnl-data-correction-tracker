@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
 import {
+  ClipboardCheck,
   Download,
   Eye,
+  FileDown,
+  FileSpreadsheet,
   Filter,
   Pencil,
   Plus,
   Power,
   Search,
+  Upload,
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -20,9 +24,14 @@ import {
   useCompaniesDropdown,
   useCreateSite,
   useDeactivateSite,
+  useDownloadSiteTemplate,
+  useExportSiteFailedRows,
+  useImportSites,
+  usePreviewSiteImport,
   useSiteExport,
   useSites,
   useUpdateSite,
+  useUsersDropdown,
 } from "../../../hooks/useOrganization";
 
 const emptyForm = {
@@ -35,6 +44,8 @@ const emptyForm = {
   address: "",
   start_date: "",
   end_date: "",
+  site_director: "",
+  site_hod: "",
   cost_centre: "",
   erp_site_code: "",
   is_active: true,
@@ -56,6 +67,9 @@ function normalizePayload(form) {
     ...form,
     start_date: form.start_date || null,
     end_date: form.end_date || null,
+    site_director:
+      form.site_director || null,
+    site_hod: form.site_hod || null,
   };
 }
 
@@ -99,6 +113,17 @@ function downloadCsv(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor =
+    document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function StatusChip({ active }) {
   return (
     <span
@@ -115,11 +140,13 @@ function StatusChip({ active }) {
 
 function SiteFormPanel({
   companies,
+  directorUsers,
   initialSite,
   isSubmitting,
   error,
   onClose,
   onSubmit,
+  pmUsers,
 }) {
   const [form, setForm] = useState(() => {
     if (!initialSite) {
@@ -138,6 +165,9 @@ function SiteFormPanel({
       start_date:
         initialSite.start_date ?? "",
       end_date: initialSite.end_date ?? "",
+      site_director:
+        initialSite.site_director ?? "",
+      site_hod: initialSite.site_hod ?? "",
       cost_centre:
         initialSite.cost_centre ?? "",
       erp_site_code:
@@ -333,6 +363,58 @@ function SiteFormPanel({
 
         <div className="form-grid">
           <label className="form-field">
+            <span>Director</span>
+            <select
+              value={form.site_director}
+              onChange={(event) =>
+                updateField(
+                  "site_director",
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">
+                Select director
+              </option>
+              {directorUsers.map((user) => (
+                <option
+                  key={user.id}
+                  value={user.id}
+                >
+                  {user.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-field">
+            <span>Project Manager</span>
+            <select
+              value={form.site_hod}
+              onChange={(event) =>
+                updateField(
+                  "site_hod",
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">
+                Select project manager
+              </option>
+              {pmUsers.map((user) => (
+                <option
+                  key={user.id}
+                  value={user.id}
+                >
+                  {user.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="form-grid">
+          <label className="form-field">
             <span>Cost Centre</span>
             <input
               value={form.cost_centre}
@@ -419,7 +501,7 @@ function SiteDetailsDrawer({
       site.site_director_detail?.full_name,
     ],
     [
-      "Site HOD",
+      "Project Manager",
       site.site_hod_detail?.full_name,
     ],
   ];
@@ -458,6 +540,261 @@ function SiteDetailsDrawer({
   );
 }
 
+function SiteImportPanel({ onClose }) {
+  const [selectedFile, setSelectedFile] =
+    useState(null);
+  const [previewResult, setPreviewResult] =
+    useState(null);
+  const [importResult, setImportResult] =
+    useState(null);
+  const downloadTemplate =
+    useDownloadSiteTemplate();
+  const previewImport =
+    usePreviewSiteImport();
+  const importSites = useImportSites();
+  const exportFailedRows =
+    useExportSiteFailedRows();
+
+  const failedRows =
+    importResult?.failed_rows ??
+    previewResult?.failed_rows ??
+    [];
+  const summary =
+    importResult?.summary ??
+    previewResult?.summary ??
+    {};
+  const error =
+    downloadTemplate.error ??
+    previewImport.error ??
+    importSites.error ??
+    exportFailedRows.error;
+
+  const handleTemplateDownload = async (format) => {
+    const blob =
+      await downloadTemplate.mutateAsync(format);
+    downloadBlob(
+      `site-import-template.${format}`,
+      blob,
+    );
+  };
+
+  const handlePreview = async () => {
+    if (!selectedFile) {
+      return;
+    }
+
+    setImportResult(null);
+    const result =
+      await previewImport.mutateAsync(selectedFile);
+    setPreviewResult(result);
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      return;
+    }
+
+    const result =
+      await importSites.mutateAsync(selectedFile);
+    setImportResult(result);
+  };
+
+  const handleFailedRowsDownload = async () => {
+    const blob =
+      await exportFailedRows.mutateAsync(
+        failedRows,
+      );
+    downloadBlob(
+      "site-import-failed-rows.csv",
+      blob,
+    );
+  };
+
+  return (
+    <aside className="management-panel">
+      <div className="management-panel__header">
+        <div>
+          <span className="page-eyebrow">
+            Bulk Import
+          </span>
+          <h2>Import Sites</h2>
+        </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Close site import"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {error ? (
+        <div className="inline-alert inline-alert--error">
+          <strong>{error.message}</strong>
+        </div>
+      ) : null}
+
+      {importResult ? (
+        <div className="inline-alert inline-alert--success">
+          <ClipboardCheck size={18} />
+          <div>
+            <strong>
+              Import completed.
+            </strong>
+            <p>
+              Created rows:{" "}
+              {summary.created_rows ?? 0}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="employee-form-section">
+        <h3>Template</h3>
+        <div className="import-template-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={downloadTemplate.isPending}
+            onClick={() =>
+              handleTemplateDownload("csv")
+            }
+          >
+            <FileDown size={16} />
+            CSV Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={downloadTemplate.isPending}
+            onClick={() =>
+              handleTemplateDownload("xlsx")
+            }
+          >
+            <FileSpreadsheet size={16} />
+            Excel Template
+          </button>
+        </div>
+      </section>
+
+      <section className="employee-form-section">
+        <h3>Upload</h3>
+        <label className="file-upload-control">
+          <Upload size={18} />
+          <span>
+            {selectedFile
+              ? selectedFile.name
+              : "Select CSV or Excel file"}
+          </span>
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xlsm"
+            onChange={(event) => {
+              setSelectedFile(
+                event.target.files?.[0] ?? null,
+              );
+              setPreviewResult(null);
+              setImportResult(null);
+            }}
+          />
+        </label>
+        <div className="management-panel__inline-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={
+              !selectedFile ||
+              previewImport.isPending
+            }
+            onClick={handlePreview}
+          >
+            Preview Validation
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={
+              !selectedFile ||
+              !previewResult ||
+              previewImport.isPending ||
+              importSites.isPending
+            }
+            onClick={handleImport}
+          >
+            Confirm Import
+          </button>
+        </div>
+      </section>
+
+      {previewResult || importResult ? (
+        <section className="employee-form-section">
+          <h3>Summary</h3>
+          <div className="import-summary-grid">
+            <div>
+              <span>Total Rows</span>
+              <strong>
+                {summary.total_rows ?? 0}
+              </strong>
+            </div>
+            <div>
+              <span>Valid Rows</span>
+              <strong>
+                {summary.valid_rows ?? "-"}
+              </strong>
+            </div>
+            <div>
+              <span>Created Rows</span>
+              <strong>
+                {summary.created_rows ?? "-"}
+              </strong>
+            </div>
+            <div>
+              <span>Failed Rows</span>
+              <strong>
+                {summary.failed_rows ?? 0}
+              </strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {failedRows.length ? (
+        <section className="employee-form-section">
+          <div className="employee-details-section__header">
+            <h3>Validation Errors</h3>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={
+                exportFailedRows.isPending
+              }
+              onClick={handleFailedRowsDownload}
+            >
+              <Download size={16} />
+              Failed Rows
+            </button>
+          </div>
+          <div className="failed-rows-list">
+            {failedRows.map((failedRow) => (
+              <div
+                key={`${failedRow.row_number}-${failedRow.errors?.join("|")}`}
+              >
+                <strong>
+                  Row {failedRow.row_number}
+                </strong>
+                <span>
+                  {failedRow.errors?.join("; ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </aside>
+  );
+}
+
 export function SiteManagementPage() {
   const [filters, setFilters] = useState({
     search: "",
@@ -472,6 +809,8 @@ export function SiteManagementPage() {
   const [detailsSite, setDetailsSite] =
     useState(null);
   const [isFormOpen, setIsFormOpen] =
+    useState(false);
+  const [isImportOpen, setIsImportOpen] =
     useState(false);
 
   const queryParams = useMemo(
@@ -494,6 +833,10 @@ export function SiteManagementPage() {
   const sitesQuery = useSites(queryParams);
   const companiesQuery =
     useCompaniesDropdown();
+  const directorUsersQuery = useUsersDropdown({
+    designation: "director",
+  });
+  const pmUsersQuery = useUsersDropdown();
   const exportQuery =
     useSiteExport(exportParams);
   const createSite = useCreateSite();
@@ -574,6 +917,14 @@ export function SiteManagementPage() {
           >
             Overview
           </Link>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => setIsImportOpen(true)}
+          >
+            <Upload size={17} />
+            Import
+          </button>
           <button
             type="button"
             className="button button--secondary"
@@ -837,6 +1188,9 @@ export function SiteManagementPage() {
           companies={
             companiesQuery.data ?? []
           }
+          directorUsers={
+            directorUsersQuery.data ?? []
+          }
           initialSite={editingSite}
           isSubmitting={
             createSite.isPending ||
@@ -845,6 +1199,7 @@ export function SiteManagementPage() {
           error={formError}
           onClose={closeForm}
           onSubmit={handleSubmit}
+          pmUsers={pmUsersQuery.data ?? []}
         />
       ) : null}
 
@@ -852,6 +1207,12 @@ export function SiteManagementPage() {
         site={detailsSite}
         onClose={() => setDetailsSite(null)}
       />
+
+      {isImportOpen ? (
+        <SiteImportPanel
+          onClose={() => setIsImportOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

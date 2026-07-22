@@ -1,4 +1,9 @@
+import csv
+import io
+
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import HttpResponse
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import (
@@ -26,6 +31,8 @@ from apps.organization.api.serializers import (
     DepartmentSerializer,
     DesignationSerializer,
     DirectorMappingSerializer,
+    OrganizationFailedRowsExportSerializer,
+    OrganizationImportFileSerializer,
     ReportingManagerMappingSerializer,
     SiteDepartmentMappingSerializer,
     SiteSerializer,
@@ -39,6 +46,13 @@ from apps.organization.models import (
     ReportingManagerMapping,
     Site,
     SiteDepartmentMapping,
+)
+from apps.organization.services.site_imports import (
+    SITE_IMPORT_COLUMNS,
+    build_site_csv_template,
+    build_site_xlsx_template,
+    import_site_rows,
+    preview_site_import,
 )
 
 
@@ -370,6 +384,164 @@ class SiteViewSet(OrganizationModelViewSet):
     ]
     dropdown_code_field = "site_code"
     dropdown_label_field = "site_name"
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="import-template",
+    )
+    def import_template(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        template_format = request.query_params.get(
+            "format",
+            "csv",
+        ).lower()
+
+        if template_format == "xlsx":
+            response = HttpResponse(
+                build_site_xlsx_template(),
+                content_type=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+            )
+            response[
+                "Content-Disposition"
+            ] = (
+                "attachment; filename=site-import-template.xlsx"
+            )
+            return response
+
+        if template_format != "csv":
+            raise ValidationError(
+                {
+                    "format": [
+                        "Template format must be csv or xlsx."
+                    ]
+                }
+            )
+
+        response = HttpResponse(
+            build_site_csv_template(),
+            content_type="text/csv",
+        )
+        response[
+            "Content-Disposition"
+        ] = "attachment; filename=site-import-template.csv"
+        return response
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-preview",
+        serializer_class=OrganizationImportFileSerializer,
+    )
+    def import_preview(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = OrganizationImportFileSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        return success_response(
+            message=(
+                "Site import preview generated successfully."
+            ),
+            data=preview_site_import(
+                serializer.validated_data["file"]
+            ),
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import",
+        url_name="import",
+        serializer_class=OrganizationImportFileSerializer,
+    )
+    def import_file(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = OrganizationImportFileSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        return success_response(
+            message="Site import completed successfully.",
+            data=import_site_rows(
+                serializer.validated_data["file"]
+            ),
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="failed-rows-export",
+        serializer_class=OrganizationFailedRowsExportSerializer,
+    )
+    def failed_rows_export(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = (
+            OrganizationFailedRowsExportSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "row_number",
+                *SITE_IMPORT_COLUMNS,
+                "errors",
+            ]
+        )
+
+        for failed_row in serializer.validated_data[
+            "failed_rows"
+        ]:
+            row_data = failed_row.get("row", {})
+            writer.writerow(
+                [
+                    failed_row.get("row_number", ""),
+                    *[
+                        row_data.get(column, "")
+                        for column in SITE_IMPORT_COLUMNS
+                    ],
+                    "; ".join(
+                        failed_row.get("errors", [])
+                    ),
+                ]
+            )
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type="text/csv",
+        )
+        response[
+            "Content-Disposition"
+        ] = (
+            "attachment; filename=site-import-failed-rows.csv"
+        )
+        return response
 
 
 class DepartmentViewSet(OrganizationModelViewSet):
@@ -750,11 +922,32 @@ class OrganizationUserDropdownAPIView(APIView):
                 is_active=True,
                 account_status=AccountStatus.ACTIVE,
             )
+            .select_related(
+                "employee_profile",
+                "employee_profile__designation",
+            )
             .order_by(
                 "employee_id",
                 "first_name",
             )
         )
+
+        role = request.query_params.get("role")
+        if role:
+            users = users.filter(role=role)
+
+        designation = request.query_params.get(
+            "designation"
+        )
+        if designation:
+            users = users.filter(
+                Q(
+                    employee_profile__designation__designation_code__icontains=designation
+                )
+                | Q(
+                    employee_profile__designation__designation_name__icontains=designation
+                )
+            )
 
         return success_response(
             message=(

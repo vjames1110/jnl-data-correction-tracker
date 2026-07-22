@@ -1,6 +1,7 @@
 import {
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -143,6 +144,11 @@ describe("Organization management pages", () => {
           code: "BKN",
           label: "Bikaner Site",
         },
+        {
+          id: "site-2",
+          code: "JPR",
+          label: "Jaipur Site",
+        },
       ],
     });
     hooks.useUsersDropdownMock.mockReturnValue({
@@ -269,6 +275,11 @@ describe("Organization management pages", () => {
   });
 
   it("renders director mappings and validates mapping context", async () => {
+    const createDirectorMapping =
+      mutationMock();
+    hooks.useCreateDirectorMappingMock.mockReturnValue(
+      createDirectorMapping,
+    );
     hooks.useDirectorMappingsMock.mockReturnValue({
       isLoading: false,
       isError: false,
@@ -310,6 +321,10 @@ describe("Organization management pages", () => {
       screen.getByLabelText(/^director$/i),
       "director-1",
     );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/^sites$/i),
+      ["site-1", "site-2"],
+    );
     await userEvent.type(
       screen.getByLabelText(/effective from/i),
       "2026-07-21",
@@ -320,11 +335,33 @@ describe("Organization management pages", () => {
       }),
     );
 
+    await waitFor(() => {
+      expect(
+        createDirectorMapping.mutateAsync,
+      ).toHaveBeenCalledTimes(2);
+    });
     expect(
-      screen.getByText(
-      /select at least one site or department/i,
-      ),
-    ).toBeInTheDocument();
+      createDirectorMapping.mutateAsync,
+    ).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        director: "director-1",
+        site: "site-1",
+        department: null,
+        effective_from: "2026-07-21",
+      }),
+    );
+    expect(
+      createDirectorMapping.mutateAsync,
+    ).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        director: "director-1",
+        site: "site-2",
+        department: null,
+        effective_from: "2026-07-21",
+      }),
+    );
   });
 
   it("renders HOD mappings and saves selected HODs", async () => {
@@ -416,7 +453,7 @@ describe("Organization management pages", () => {
     renderWithRouter(<HodMappingPage />);
 
     expect(
-      screen.getByText(/2 HOD mapping gaps/i),
+      screen.getByText(/2 PM\/HOD mapping gaps/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Mapping History"),
@@ -424,13 +461,13 @@ describe("Organization management pages", () => {
 
     await userEvent.selectOptions(
       screen.getByRole("combobox", {
-        name: /site hod for bikaner site/i,
+        name: /site pm for bikaner site/i,
       }),
       "director-1",
     );
     await userEvent.click(
       screen.getByRole("button", {
-        name: /save site hod for bikaner site/i,
+        name: /save site pm for bikaner site/i,
       }),
     );
 

@@ -41,9 +41,12 @@ export const organizationService = {
     return resolveItems(response);
   },
 
-  async getUsersDropdown() {
+  async getUsersDropdown(params = {}) {
     const response = await apiClient.get(
       "/organization/users/dropdown/",
+      {
+        params,
+      },
     );
 
     return resolveItems(response);
@@ -270,6 +273,66 @@ export const organizationService = {
     );
 
     return response.data.data;
+  },
+
+  async downloadSiteTemplate(format) {
+    const response = await apiClient.get(
+      "/organization/sites/import-template/",
+      {
+        params: { format },
+        responseType: "blob",
+      },
+    );
+
+    return response.data;
+  },
+
+  async previewSiteImport(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post(
+      "/organization/sites/import-preview/",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  async importSites(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post(
+      "/organization/sites/import/",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  async exportSiteFailedRows(failedRows) {
+    const response = await apiClient.post(
+      "/organization/sites/failed-rows-export/",
+      {
+        failed_rows: failedRows,
+      },
+      {
+        responseType: "blob",
+      },
+    );
+
+    return response.data;
   },
 
   async getDepartments(params = {}) {
