@@ -8,6 +8,7 @@ import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
 import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
 import { DirectorMappingPage } from "../modules/admin/pages/DirectorMappingPage";
+import { EmployeeManagementPage } from "../modules/admin/pages/EmployeeManagementPage";
 import { HodMappingPage } from "../modules/admin/pages/HodMappingPage";
 import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
@@ -65,7 +66,7 @@ export const router = createBrowserRouter([
               {
                 path: "/admin/users",
                 element:
-                  <PlaceholderAdminPage />,
+                  <EmployeeManagementPage />,
               },
               {
                 path: "/admin/organization",

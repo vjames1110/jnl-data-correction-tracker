@@ -13,6 +13,29 @@ export const queryKeys = Object.freeze({
     limit,
   ],
   serverTime: ["admin", "server-time"],
+  employeeDashboard: [
+    "employees",
+    "dashboard",
+  ],
+  employeeProfiles: (params) => [
+    "employees",
+    "profiles",
+    params,
+  ],
+  employeeProfileExport: (params) => [
+    "employees",
+    "profiles",
+    "export",
+    params,
+  ],
+  employeeFilterOptions: [
+    "employees",
+    "filter-options",
+  ],
+  employeeDropdown: [
+    "employees",
+    "dropdown",
+  ],
   organizationDashboard: [
     "organization",
     "dashboard",
@@ -34,6 +57,11 @@ export const queryKeys = Object.freeze({
   organizationDepartmentsDropdown: [
     "organization",
     "departments",
+    "dropdown",
+  ],
+  organizationDesignationsDropdown: [
+    "organization",
+    "designations",
     "dropdown",
   ],
   organizationUsersDropdown: [

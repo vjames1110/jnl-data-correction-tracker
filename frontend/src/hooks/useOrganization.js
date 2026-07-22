@@ -55,6 +55,15 @@ export function useDepartmentsDropdown() {
   });
 }
 
+export function useDesignationsDropdown() {
+  return useQuery({
+    queryKey:
+      queryKeys.organizationDesignationsDropdown,
+    queryFn:
+      organizationService.getDesignationsDropdown,
+  });
+}
+
 export function useUsersDropdown() {
   return useQuery({
     queryKey:

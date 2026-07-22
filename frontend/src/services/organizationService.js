@@ -33,6 +33,14 @@ export const organizationService = {
     return resolveItems(response);
   },
 
+  async getDesignationsDropdown() {
+    const response = await apiClient.get(
+      "/organization/designations/dropdown/",
+    );
+
+    return resolveItems(response);
+  },
+
   async getUsersDropdown() {
     const response = await apiClient.get(
       "/organization/users/dropdown/",
