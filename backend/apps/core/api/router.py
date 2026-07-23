@@ -28,4 +28,8 @@ urlpatterns = [
         "employees/",
         include("apps.employees.api.urls"),
     ),
+    path(
+        "erp/",
+        include("apps.erp.api.urls"),
+    ),
 ]

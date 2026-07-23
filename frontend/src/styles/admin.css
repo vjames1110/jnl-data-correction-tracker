@@ -717,6 +717,25 @@
   resize: vertical;
 }
 
+.director-site-select {
+  min-height: 120px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  appearance: auto;
+  background-image: none;
+}
+
+.director-site-select option {
+  padding: 4px 6px;
+}
+
+.form-help {
+  color: var(--color-neutral-600);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns:
@@ -1073,6 +1092,11 @@
 .status-chip--error {
   color: var(--color-error-700);
   background: var(--color-error-100);
+}
+
+.status-chip--warning {
+  color: var(--color-warning-700);
+  background: var(--color-warning-100);
 }
 
 .table-empty-state {

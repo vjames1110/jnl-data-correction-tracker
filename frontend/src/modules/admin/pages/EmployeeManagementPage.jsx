@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Search,
   ShieldAlert,
+  Trash2,
   UnlockKeyhole,
   Upload,
   UserCheck,
@@ -1401,6 +1402,10 @@ export function EmployeeManagementPage() {
     useUpdateEmployeeProfile();
   const createAccount =
     useCreateEmployeeAccount();
+  const activateProfile =
+    useActivateEmployeeProfile();
+  const deactivateProfile =
+    useDeactivateEmployeeProfile();
 
   const profiles =
     profilesQuery.data?.items ?? [];
@@ -1866,6 +1871,33 @@ export function EmployeeManagementPage() {
                         >
                           <Pencil size={15} />
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--tertiary employee-table-action"
+                          onClick={() =>
+                            profile.is_active
+                              ? deactivateProfile.mutate(
+                                  profile.id,
+                                )
+                              : activateProfile.mutate(
+                                  profile.id,
+                                )
+                          }
+                          aria-label={
+                            profile.is_active
+                              ? "Delete employee without removing database record"
+                              : "Restore employee"
+                          }
+                        >
+                          {profile.is_active ? (
+                            <Trash2 size={15} />
+                          ) : (
+                            <UserCheck size={15} />
+                          )}
+                          {profile.is_active
+                            ? "Delete"
+                            : "Restore"}
                         </button>
                       </div>
                     </td>

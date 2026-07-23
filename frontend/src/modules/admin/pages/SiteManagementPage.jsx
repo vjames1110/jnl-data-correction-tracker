@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { AppLoader } from "../../../components/common/AppLoader";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { USER_ROLES } from "../../../constants/roles";
 import {
   useActivateSite,
   useCompaniesDropdown,
@@ -50,6 +52,18 @@ const emptyForm = {
   erp_site_code: "",
   is_active: true,
 };
+
+function mergeUsers(...userGroups) {
+  const uniqueUsers = new Map();
+
+  userGroups.flat().forEach((user) => {
+    if (user?.id) {
+      uniqueUsers.set(user.id, user);
+    }
+  });
+
+  return Array.from(uniqueUsers.values());
+}
 
 function buildParams(filters) {
   return Object.fromEntries(
@@ -833,7 +847,11 @@ export function SiteManagementPage() {
   const sitesQuery = useSites(queryParams);
   const companiesQuery =
     useCompaniesDropdown();
-  const directorUsersQuery = useUsersDropdown({
+  const directorRoleUsersQuery = useUsersDropdown({
+    role: USER_ROLES.DIRECTOR,
+  });
+  const directorDesignationUsersQuery =
+    useUsersDropdown({
     designation: "director",
   });
   const pmUsersQuery = useUsersDropdown();
@@ -848,6 +866,18 @@ export function SiteManagementPage() {
   const sites = sitesQuery.data?.items ?? [];
   const pagination =
     sitesQuery.data?.meta?.pagination;
+  const directorUsers = useMemo(
+    () =>
+      mergeUsers(
+        directorRoleUsersQuery.data ?? [],
+        directorDesignationUsersQuery.data ??
+          [],
+      ),
+    [
+      directorRoleUsersQuery.data,
+      directorDesignationUsersQuery.data,
+    ],
+  );
 
   const setFilter = (field, value) => {
     setFilters((current) => ({
@@ -1134,6 +1164,22 @@ export function SiteManagementPage() {
                         >
                           <Power size={17} />
                         </button>
+                        {site.is_active ? (
+                          <button
+                            type="button"
+                            className="button button--tertiary employee-table-action"
+                            onClick={() =>
+                              deactivateSite.mutate(
+                                site.id,
+                              )
+                            }
+                            aria-label="Delete site without removing database record"
+                            title="Delete from active list"
+                          >
+                            <Trash2 size={15} />
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -1189,7 +1235,7 @@ export function SiteManagementPage() {
             companiesQuery.data ?? []
           }
           directorUsers={
-            directorUsersQuery.data ?? []
+            directorUsers
           }
           initialSite={editingSite}
           isSubmitting={

@@ -5,6 +5,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -12,6 +13,7 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { USER_ROLES } from "../../../constants/roles";
 import {
   ManagementPanel,
   StatusChip,
@@ -40,6 +42,18 @@ const emptyForm = {
   effective_to: "",
   is_active: true,
 };
+
+function mergeUsers(...userGroups) {
+  const uniqueUsers = new Map();
+
+  userGroups.flat().forEach((user) => {
+    if (user?.id) {
+      uniqueUsers.set(user.id, user);
+    }
+  });
+
+  return Array.from(uniqueUsers.values());
+}
 
 function DirectorMappingForm({
   sites,
@@ -112,10 +126,12 @@ function DirectorMappingForm({
         {
           ...form,
           department: null,
+          effective_from:
+            form.effective_from || null,
           effective_to:
             form.effective_to || null,
         },
-        ["effective_to"],
+        ["effective_from", "effective_to"],
       ),
     );
   };
@@ -174,6 +190,8 @@ function DirectorMappingForm({
         <label className="form-field">
           <span>Sites</span>
           <select
+            aria-label="Sites"
+            className="director-site-select"
             multiple
             value={form.sites}
             onChange={(event) =>
@@ -196,6 +214,10 @@ function DirectorMappingForm({
               </option>
             ))}
           </select>
+          <small className="form-help">
+            Use Ctrl and click to select multiple
+            sites.
+          </small>
         </label>
 
         <div className="form-grid">
@@ -210,7 +232,6 @@ function DirectorMappingForm({
                   event.target.value,
                 )
               }
-              required
             />
           </label>
           <label className="form-field">
@@ -319,7 +340,11 @@ export function DirectorMappingPage() {
   const mappingsQuery =
     useDirectorMappings(queryParams);
   const sitesQuery = useSitesDropdown();
-  const usersQuery = useUsersDropdown({
+  const directorRoleUsersQuery = useUsersDropdown({
+    role: USER_ROLES.DIRECTOR,
+  });
+  const directorDesignationUsersQuery =
+    useUsersDropdown({
     designation: "director",
   });
   const exportQuery =
@@ -337,6 +362,18 @@ export function DirectorMappingPage() {
     mappingsQuery.data?.items ?? [];
   const pagination =
     mappingsQuery.data?.meta?.pagination;
+  const directorUsers = useMemo(
+    () =>
+      mergeUsers(
+        directorRoleUsersQuery.data ?? [],
+        directorDesignationUsersQuery.data ??
+          [],
+      ),
+    [
+      directorRoleUsersQuery.data,
+      directorDesignationUsersQuery.data,
+    ],
+  );
 
   const setFilter = (field, value) => {
     setFilters((current) => ({
@@ -560,7 +597,8 @@ export function DirectorMappingPage() {
                       {mapping.authority_type}
                     </td>
                     <td>
-                      {mapping.effective_from}
+                      {mapping.effective_from ||
+                        "Not set"}
                       <span className="table-subtext">
                         {mapping.effective_to ||
                           "Open ended"}
@@ -614,6 +652,22 @@ export function DirectorMappingPage() {
                         >
                           <Power size={17} />
                         </button>
+                        {mapping.is_active ? (
+                          <button
+                            type="button"
+                            className="button button--tertiary employee-table-action"
+                            onClick={() =>
+                              deactivateMapping.mutate(
+                                mapping.id,
+                              )
+                            }
+                            aria-label="Delete director mapping without removing database record"
+                            title="Delete from active mappings"
+                          >
+                            <Trash2 size={15} />
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -666,7 +720,7 @@ export function DirectorMappingPage() {
       {isFormOpen ? (
         <DirectorMappingForm
           sites={sitesQuery.data ?? []}
-          users={usersQuery.data ?? []}
+          users={directorUsers}
           mapping={editingMapping}
           error={
             createMapping.error ??

@@ -563,7 +563,10 @@ class DirectorMapping(BusinessModel):
         null=True,
         blank=True,
     )
-    effective_from = models.DateField()
+    effective_from = models.DateField(
+        null=True,
+        blank=True,
+    )
     effective_to = models.DateField(
         null=True,
         blank=True,

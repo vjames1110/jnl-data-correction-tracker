@@ -9,6 +9,15 @@ import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManag
 import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
 import { DirectorMappingPage } from "../modules/admin/pages/DirectorMappingPage";
 import { EmployeeManagementPage } from "../modules/admin/pages/EmployeeManagementPage";
+import { ErpDashboardPage } from "../modules/admin/pages/ErpDashboardPage";
+import { ErpFieldConfigurationPage } from "../modules/admin/pages/ErpFieldConfigurationPage";
+import { ErpImportExportPage } from "../modules/admin/pages/ErpImportExportPage";
+import { ErpModuleManagementPage } from "../modules/admin/pages/ErpModuleManagementPage";
+import { ErpPriorityManagementPage } from "../modules/admin/pages/ErpPriorityManagementPage";
+import { ErpReasonCategoryManagementPage } from "../modules/admin/pages/ErpReasonCategoryManagementPage";
+import { ErpResponsibleMappingPage } from "../modules/admin/pages/ErpResponsibleMappingPage";
+import { ErpVoucherTypeManagementPage } from "../modules/admin/pages/ErpVoucherTypeManagementPage";
+import { ErpWorkTypeManagementPage } from "../modules/admin/pages/ErpWorkTypeManagementPage";
 import { HodMappingPage } from "../modules/admin/pages/HodMappingPage";
 import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
@@ -101,7 +110,47 @@ export const router = createBrowserRouter([
               {
                 path: "/admin/vouchers",
                 element:
-                  <PlaceholderAdminPage />,
+                  <ErpDashboardPage />,
+              },
+              {
+                path: "/admin/vouchers/modules",
+                element:
+                  <ErpModuleManagementPage />,
+              },
+              {
+                path: "/admin/vouchers/voucher-types",
+                element:
+                  <ErpVoucherTypeManagementPage />,
+              },
+              {
+                path: "/admin/vouchers/work-types",
+                element:
+                  <ErpWorkTypeManagementPage />,
+              },
+              {
+                path: "/admin/vouchers/reasons",
+                element:
+                  <ErpReasonCategoryManagementPage />,
+              },
+              {
+                path: "/admin/vouchers/priorities",
+                element:
+                  <ErpPriorityManagementPage />,
+              },
+              {
+                path: "/admin/vouchers/mappings",
+                element:
+                  <ErpResponsibleMappingPage />,
+              },
+              {
+                path: "/admin/vouchers/fields",
+                element:
+                  <ErpFieldConfigurationPage />,
+              },
+              {
+                path: "/admin/vouchers/import-export",
+                element:
+                  <ErpImportExportPage />,
               },
               {
                 path: "/admin/reports",

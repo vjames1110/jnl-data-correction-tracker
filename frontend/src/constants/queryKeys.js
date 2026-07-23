@@ -120,4 +120,111 @@ export const queryKeys = Object.freeze({
     "export",
     params,
   ],
+  erpDashboard: ["erp", "dashboard"],
+  erpModulesDropdown: [
+    "erp",
+    "modules",
+    "dropdown",
+  ],
+  erpModules: (params) => [
+    "erp",
+    "modules",
+    params,
+  ],
+  erpModuleExport: (params) => [
+    "erp",
+    "modules",
+    "export",
+    params,
+  ],
+  erpVoucherTypes: (params) => [
+    "erp",
+    "voucher-types",
+    params,
+  ],
+  erpVoucherTypeExport: (params) => [
+    "erp",
+    "voucher-types",
+    "export",
+    params,
+  ],
+  erpVoucherTypesDropdown: [
+    "erp",
+    "voucher-types",
+    "dropdown",
+  ],
+  erpWorkTypes: (params) => [
+    "erp",
+    "work-types",
+    params,
+  ],
+  erpWorkTypeExport: (params) => [
+    "erp",
+    "work-types",
+    "export",
+    params,
+  ],
+  erpWorkTypesDropdown: [
+    "erp",
+    "work-types",
+    "dropdown",
+  ],
+  erpReasonCategories: (params) => [
+    "erp",
+    "reason-categories",
+    params,
+  ],
+  erpReasonCategoryExport: (params) => [
+    "erp",
+    "reason-categories",
+    "export",
+    params,
+  ],
+  erpReasonCategoriesDropdown: [
+    "erp",
+    "reason-categories",
+    "dropdown",
+  ],
+  erpPriorities: (params) => [
+    "erp",
+    "priorities",
+    params,
+  ],
+  erpPriorityExport: (params) => [
+    "erp",
+    "priorities",
+    "export",
+    params,
+  ],
+  erpPrioritiesDropdown: [
+    "erp",
+    "priorities",
+    "dropdown",
+  ],
+  erpResponsiblePersonMappings: (params) => [
+    "erp",
+    "responsible-person-mappings",
+    params,
+  ],
+  erpResponsiblePersonMappingExport: (
+    params,
+  ) => [
+    "erp",
+    "responsible-person-mappings",
+    "export",
+    params,
+  ],
+  erpRequestFieldConfigurations: (params) => [
+    "erp",
+    "request-field-configurations",
+    params,
+  ],
+  erpRequestFieldConfigurationExport: (
+    params,
+  ) => [
+    "erp",
+    "request-field-configurations",
+    "export",
+    params,
+  ],
 });
