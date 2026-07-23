@@ -54,7 +54,7 @@ export function RootRedirectPage() {
 
   return (
     <Navigate
-      to={AUTH_ROUTES.FORBIDDEN}
+      to={AUTH_ROUTES.USER_DASHBOARD}
       replace
     />
   );

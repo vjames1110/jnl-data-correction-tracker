@@ -103,24 +103,23 @@ export function LoginPage() {
         return;
       }
 
-      if (!isAdminRole(loginData.user.role)) {
-        navigate(
-          AUTH_ROUTES.FORBIDDEN,
-          {
-            replace: true,
-          },
-        );
-        return;
-      }
-
       const requestedPath =
         location.state?.from;
+      const isAdmin =
+        isAdminRole(loginData.user.role);
+      const fallbackPath = isAdmin
+        ? AUTH_ROUTES.DASHBOARD
+        : AUTH_ROUTES.USER_DASHBOARD;
+      const canUseRequestedPath =
+        requestedPath &&
+        (isAdmin
+          ? requestedPath.startsWith("/admin/")
+          : requestedPath.startsWith("/user/"));
 
       navigate(
-        requestedPath &&
-          requestedPath.startsWith("/admin/")
+        canUseRequestedPath
           ? requestedPath
-          : AUTH_ROUTES.DASHBOARD,
+          : fallbackPath,
         {
           replace: true,
         },

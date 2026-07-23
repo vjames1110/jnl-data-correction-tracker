@@ -7,6 +7,7 @@ export const AUTH_ROUTES = Object.freeze({
   LOGIN: "/admin/login",
   CHANGE_PASSWORD: "/admin/change-password",
   DASHBOARD: "/admin/dashboard",
+  USER_DASHBOARD: "/user/dashboard",
   FORBIDDEN: "/forbidden",
 });
 

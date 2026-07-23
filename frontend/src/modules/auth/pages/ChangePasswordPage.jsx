@@ -108,8 +108,7 @@ export function ChangePasswordPage() {
           <p>
             Hello {user?.full_name}. You must
             replace your temporary password
-            before entering the administration
-            portal.
+            before entering the application.
           </p>
         </div>
 

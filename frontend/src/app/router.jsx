@@ -4,6 +4,7 @@ import {
 
 import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
+import { UserLayout } from "../layouts/UserLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
 import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
@@ -24,6 +25,9 @@ import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPag
 import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
+import { CreateTrackerPage } from "../modules/user/pages/CreateTrackerPage";
+import { UserDashboardPage } from "../modules/user/pages/UserDashboardPage";
+import { UserRequestsPage } from "../modules/user/pages/UserRequestsPage";
 import { ForbiddenPage } from "../pages/ForbiddenPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { RootRedirectPage } from "../pages/RootRedirectPage";
@@ -60,6 +64,27 @@ export const router = createBrowserRouter([
       {
         path: "/admin/change-password",
         element: <ChangePasswordPage />,
+      },
+      {
+        element: <UserLayout />,
+        children: [
+          {
+            path: "/user/dashboard",
+            element: <UserDashboardPage />,
+          },
+          {
+            path: "/user/requests",
+            element: <UserRequestsPage />,
+          },
+          {
+            path: "/user/requests/new",
+            element: <CreateTrackerPage />,
+          },
+          {
+            path: "/user/requests/:requestId/continue",
+            element: <CreateTrackerPage />,
+          },
+        ],
       },
       {
         element: <AdminRoute />,

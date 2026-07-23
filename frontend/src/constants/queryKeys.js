@@ -227,4 +227,24 @@ export const queryKeys = Object.freeze({
     "export",
     params,
   ],
+  correctionRequests: (params) => [
+    "corrections",
+    "requests",
+    params,
+  ],
+  correctionRequest: (id) => [
+    "corrections",
+    "requests",
+    id,
+  ],
+  correctionMyRequests: (params) => [
+    "corrections",
+    "requests",
+    "my",
+    params,
+  ],
+  correctionDashboard: [
+    "corrections",
+    "dashboard",
+  ],
 });

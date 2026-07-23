@@ -32,4 +32,8 @@ urlpatterns = [
         "erp/",
         include("apps.erp.api.urls"),
     ),
+    path(
+        "corrections/",
+        include("apps.corrections.api.urls"),
+    ),
 ]
