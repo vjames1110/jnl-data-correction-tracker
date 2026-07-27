@@ -90,6 +90,11 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             site_code="JPR",
             site_name="Jaipur Site",
         )
+        self.remote_site = Site.objects.create(
+            company=self.company,
+            site_code="BFB",
+            site_name="Bengaluru FOB",
+        )
         self.department = Department.objects.create(
             company=self.company,
             department_name="Finance",
@@ -133,6 +138,20 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             voucher_type=self.voucher,
             department=self.department,
             site=self.site,
+            work_type=self.work_type,
+            priority=self.priority,
+            responsible_person=self.responsible_person,
+        )
+        DirectorMapping.objects.create(
+            director=self.director,
+            site=self.remote_site,
+            authority_type=ApprovalAuthorityType.PRIMARY,
+        )
+        ResponsiblePersonMapping.objects.create(
+            erp_module=self.module,
+            voucher_type=self.voucher,
+            department=self.department,
+            site=self.remote_site,
             work_type=self.work_type,
             priority=self.priority,
             responsible_person=self.responsible_person,
@@ -209,6 +228,54 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             submitted.duplicate_override_reason,
         )
 
+    def test_requester_can_submit_for_different_site(
+        self,
+    ):
+        draft = self._create_complete_draft(
+            "JV-REMOTE-001",
+            site=self.remote_site,
+        )
+
+        submitted = submit_request(
+            draft=draft,
+            user=self.requester,
+        )
+
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.PENDING_APPROVAL,
+        )
+        self.assertEqual(
+            submitted.site,
+            self.remote_site,
+        )
+
+    def test_approval_submit_can_use_department_hod_without_responsible_mapping(
+        self,
+    ):
+        ResponsiblePersonMapping.objects.all().delete()
+        DirectorMapping.objects.all().delete()
+        self.department.department_hod = self.director
+        self.department.save()
+        draft = self._create_complete_draft(
+            "JV-HOD-001",
+            site=self.remote_site,
+        )
+
+        submitted = submit_request(
+            draft=draft,
+            user=self.requester,
+        )
+
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.PENDING_APPROVAL,
+        )
+        self.assertEqual(
+            submitted.current_owner,
+            self.director,
+        )
+
     def test_attachment_upload_validation_and_download_api(
         self,
     ):
@@ -263,11 +330,12 @@ class CorrectionSubmissionAttachmentTests(TestCase):
     def _create_complete_draft(
         self,
         voucher_number: str,
+        site=None,
     ):
         return create_draft(
             requester=self.requester,
             data={
-                "site": self.site,
+                "site": site or self.site,
                 "department": self.department,
                 "erp_module": self.module,
                 "voucher_type": self.voucher,

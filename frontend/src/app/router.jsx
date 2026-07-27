@@ -26,6 +26,8 @@ import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { CreateTrackerPage } from "../modules/user/pages/CreateTrackerPage";
+import { RequestDetailsPage } from "../modules/user/pages/RequestDetailsPage";
+import { UserAnalyticsPage } from "../modules/user/pages/UserAnalyticsPage";
 import { UserDashboardPage } from "../modules/user/pages/UserDashboardPage";
 import { UserRequestsPage } from "../modules/user/pages/UserRequestsPage";
 import { ForbiddenPage } from "../pages/ForbiddenPage";
@@ -77,12 +79,20 @@ export const router = createBrowserRouter([
             element: <UserRequestsPage />,
           },
           {
+            path: "/user/analytics",
+            element: <UserAnalyticsPage />,
+          },
+          {
             path: "/user/requests/new",
             element: <CreateTrackerPage />,
           },
           {
             path: "/user/requests/:requestId/continue",
             element: <CreateTrackerPage />,
+          },
+          {
+            path: "/user/requests/:requestId",
+            element: <RequestDetailsPage />,
           },
         ],
       },

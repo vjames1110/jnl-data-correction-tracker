@@ -641,7 +641,8 @@ export function CreateTrackerPage() {
               </div>
             ) : null}
 
-            {localError || actionError ? (
+            {localError ||
+            (actionError && !duplicateState) ? (
               <div className="inline-alert inline-alert--error">
                 <strong>
                   {localError ||

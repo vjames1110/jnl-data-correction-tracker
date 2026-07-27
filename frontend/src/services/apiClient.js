@@ -60,16 +60,76 @@ function dispatchAuthenticationExpired(reason) {
   );
 }
 
+function humanizeFieldName(value) {
+  return String(value ?? "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) =>
+      letter.toUpperCase(),
+    );
+}
+
+function resolveErrorDetail(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const firstText = value.find(
+      (item) => typeof item === "string",
+    );
+
+    if (firstText) {
+      return firstText;
+    }
+
+    return "";
+  }
+
+  if (typeof value === "object") {
+    for (const [field, detail] of Object.entries(
+      value,
+    )) {
+      if (field === "duplicate_requests") {
+        continue;
+      }
+
+      const message = resolveErrorDetail(detail);
+      if (message) {
+        return `${humanizeFieldName(field)}: ${message}`;
+      }
+    }
+  }
+
+  return "";
+}
+
 function normalizeApiError(error) {
+  const responseData = error.response?.data;
+  const detailMessage = resolveErrorDetail(
+    responseData?.errors ?? responseData,
+  );
+  const apiMessage = responseData?.message;
+  const message =
+    detailMessage &&
+    (!apiMessage ||
+      apiMessage ===
+        "The request data is invalid.")
+      ? detailMessage
+      : apiMessage ||
+        detailMessage ||
+        error.message ||
+        "An unexpected network error occurred.";
+
   return {
     status: error.response?.status ?? null,
-    message:
-      error.response?.data?.message ??
-      error.message ??
-      "An unexpected network error occurred.",
-    errors: error.response?.data?.errors ?? null,
+    message,
+    errors: responseData?.errors ?? null,
     errorCode:
-      error.response?.data?.error_code ?? null,
+      responseData?.error_code ?? null,
     requestId:
       error.response?.headers?.["x-request-id"] ??
       null,

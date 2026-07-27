@@ -63,7 +63,11 @@ export function UserRequestsPage() {
       return;
     }
 
-    await deleteDraft.mutateAsync(request.id);
+    try {
+      await deleteDraft.mutateAsync(request.id);
+    } catch {
+      // Mutation error is shown in the inline alert.
+    }
   };
 
   return (

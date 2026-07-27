@@ -22,6 +22,10 @@ class CorrectionRequestDraftSerializer(
         source="current_owner.employee_id",
         read_only=True,
     )
+    current_owner_name = serializers.CharField(
+        source="current_owner.full_name",
+        read_only=True,
+    )
     site_code = serializers.CharField(
         source="site.site_code",
         read_only=True,
@@ -119,6 +123,7 @@ class CorrectionRequestDraftSerializer(
             "current_status",
             "current_owner",
             "current_owner_employee_id",
+            "current_owner_name",
             "sla_deadline",
             "submitted_at",
             "duplicate_override_reason",
@@ -148,6 +153,7 @@ class CorrectionRequestDraftSerializer(
             "current_status",
             "current_owner",
             "current_owner_employee_id",
+            "current_owner_name",
             "sla_deadline",
             "submitted_at",
             "duplicate_override_reason",
@@ -174,6 +180,16 @@ class CorrectionRequestCancelSerializer(
     serializers.Serializer
 ):
     reason = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+
+
+class CorrectionRequestCommentSerializer(
+    serializers.Serializer
+):
+    comment = serializers.CharField(
         allow_blank=True,
         required=False,
         trim_whitespace=True,

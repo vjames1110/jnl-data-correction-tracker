@@ -61,7 +61,10 @@ def submit_request(
             .select_related(
                 "requester",
                 "site",
+                "site__site_director",
+                "site__site_hod",
                 "department",
+                "department__department_hod",
                 "erp_module",
                 "voucher_type",
                 "work_type",
@@ -85,7 +88,10 @@ def submit_request(
         responsible_mapping = _find_responsible_mapping(
             locked_draft
         )
-        if responsible_mapping is None:
+        if (
+            not locked_draft.work_type.requires_approval
+            and responsible_mapping is None
+        ):
             raise ValidationError(
                 {
                     "responsible_mapping": (
@@ -180,7 +186,9 @@ def submit_request(
                 ],
                 "responsible_mapping_id": str(
                     responsible_mapping.id
-                ),
+                )
+                if responsible_mapping
+                else "",
                 "approval_owner_id": (
                     str(approval_owner.id)
                     if approval_owner
@@ -203,7 +211,9 @@ def submit_request(
                     "assigned_to": str(current_owner.id),
                     "responsible_mapping_id": str(
                         responsible_mapping.id
-                    ),
+                    )
+                    if responsible_mapping
+                    else "",
                 },
             )
 
@@ -278,25 +288,6 @@ def _validate_user_organization(
     if not profile.is_active:
         errors["requester"] = (
             "Requester employee profile must be active."
-        )
-
-    if (
-        profile.site_id
-        and request.site_id
-        and profile.site_id != request.site_id
-    ):
-        errors["site"] = (
-            "Request site must match the requester site."
-        )
-
-    if (
-        profile.department_id
-        and request.department_id
-        and profile.department_id
-        != request.department_id
-    ):
-        errors["department"] = (
-            "Request department must match the requester department."
         )
 
     if errors:
@@ -378,6 +369,15 @@ def _find_approval_owner(
     )
     if department_mapping:
         return department_mapping.director
+
+    if request.site_id and request.site.site_director_id:
+        return request.site.site_director
+
+    if (
+        request.department_id
+        and request.department.department_hod_id
+    ):
+        return request.department.department_hod
 
     return None
 

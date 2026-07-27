@@ -4,7 +4,7 @@ import {
   ClipboardList,
   FilePlus2,
   LayoutDashboard,
-  ListChecks,
+  LineChart,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -47,13 +47,14 @@ const navItems = [
     ],
   },
   {
-    key: "assigned",
-    label: "Assigned Work",
-    path: "/user/requests?owner=current",
-    icon: ListChecks,
+    key: "analytics",
+    label: "Analytics",
+    path: "/user/analytics",
+    icon: LineChart,
     roles: [
-      USER_ROLES.RESPONSIBLE_PERSON,
+      USER_ROLES.USER,
       USER_ROLES.DIRECTOR,
+      USER_ROLES.RESPONSIBLE_PERSON,
     ],
   },
 ];

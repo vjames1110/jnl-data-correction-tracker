@@ -1,7 +1,13 @@
 import { apiClient } from "./apiClient";
 
 function resolveItems(response) {
-  return response.data?.data ?? [];
+  const payload = response.data?.data ?? response.data;
+
+  return Array.isArray(payload) ? payload : [];
+}
+
+function resolveItem(response) {
+  return response.data?.data ?? response.data ?? null;
 }
 
 function resolveMeta(response) {
@@ -112,6 +118,95 @@ function buildDashboard(items) {
   };
 }
 
+function incrementMap(map, key) {
+  const value = key || "Not specified";
+  map.set(value, (map.get(value) ?? 0) + 1);
+}
+
+function mapToSeries(map, nameKey) {
+  return Array.from(map.entries())
+    .map(([name, count]) => ({
+      [nameKey]: name,
+      count,
+    }))
+    .sort((first, second) => second.count - first.count);
+}
+
+function monthKey(value) {
+  if (!value) {
+    return "Draft";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Draft";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    year: "2-digit",
+  }).format(date);
+}
+
+function buildAnalytics(items) {
+  const voucherMap = new Map();
+  const reasonMap = new Map();
+  const monthMap = new Map();
+  let rejected = 0;
+  let reopened = 0;
+
+  items.forEach((request) => {
+    incrementMap(
+      voucherMap,
+      request.voucher_name ||
+        request.voucher_code,
+    );
+    incrementMap(
+      reasonMap,
+      request.reason_name ||
+        request.reason_code,
+    );
+    incrementMap(
+      monthMap,
+      monthKey(
+        request.submitted_at ??
+          request.created_at,
+      ),
+    );
+
+    if (request.current_status === "REJECTED") {
+      rejected += 1;
+    }
+    if (request.current_status === "REOPENED") {
+      reopened += 1;
+    }
+  });
+
+  const dashboard = buildDashboard(items);
+  const total = items.length || 1;
+
+  return {
+    requests_by_voucher: mapToSeries(
+      voucherMap,
+      "voucher",
+    ),
+    requests_by_reason: mapToSeries(
+      reasonMap,
+      "reason",
+    ),
+    monthly_trend: mapToSeries(
+      monthMap,
+      "month",
+    ).reverse(),
+    rejection_rate:
+      Math.round((rejected / total) * 1000) / 10,
+    reopen_rate:
+      Math.round((reopened / total) * 1000) / 10,
+    average_closure_time_hours:
+      dashboard.average_closure_time_hours,
+  };
+}
+
 export const correctionRequestService = {
   async getRequests(params = {}) {
     const response = await apiClient.get(
@@ -145,8 +240,13 @@ export const correctionRequestService = {
     const response = await apiClient.get(
       `/corrections/requests/${id}/`,
     );
+    const request = resolveItem(response);
 
-    return response.data.data;
+    if (!request) {
+      throw new Error("Request details were not returned.");
+    }
+
+    return request;
   },
 
   async getDashboard() {
@@ -158,13 +258,22 @@ export const correctionRequestService = {
     return buildDashboard(response.items);
   },
 
+  async getAnalytics() {
+    const response = await this.getMyRequests({
+      page_size: 500,
+      ordering: "-updated_at",
+    });
+
+    return buildAnalytics(response.items);
+  },
+
   async createDraft(payload) {
     const response = await apiClient.post(
       "/corrections/requests/",
       payload,
     );
 
-    return response.data.data;
+    return resolveItem(response);
   },
 
   async updateDraft(id, payload) {
@@ -173,7 +282,7 @@ export const correctionRequestService = {
       payload,
     );
 
-    return response.data.data;
+    return resolveItem(response);
   },
 
   async deleteDraft(id) {
@@ -181,7 +290,72 @@ export const correctionRequestService = {
       `/corrections/drafts/${id}/`,
     );
 
-    return response.data.data;
+    return resolveItem(response);
+  },
+
+  async cancelRequest(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/cancel/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async addComment(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/comment/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async confirmResolution(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/confirm-resolution/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async reopenRequest(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/reopen/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async getTimeline(request) {
+    const response = await apiClient.get(
+      "/corrections/timeline/",
+      {
+        params: {
+          request,
+          page_size: 200,
+          ordering: "created_at",
+        },
+      },
+    );
+
+    return resolveItems(response);
+  },
+
+  async getAttachments(request) {
+    const response = await apiClient.get(
+      "/corrections/attachments/",
+      {
+        params: {
+          request,
+          page_size: 100,
+        },
+      },
+    );
+
+    return resolveItems(response);
   },
 
   async submitRequest(id, payload = {}) {
@@ -190,7 +364,7 @@ export const correctionRequestService = {
       payload,
     );
 
-    return response.data.data;
+    return resolveItem(response);
   },
 
   async uploadAttachment({
@@ -216,6 +390,6 @@ export const correctionRequestService = {
       },
     );
 
-    return response.data.data;
+    return resolveItem(response);
   },
 };

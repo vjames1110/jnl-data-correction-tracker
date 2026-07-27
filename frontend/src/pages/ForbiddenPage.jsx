@@ -5,10 +5,6 @@ import {
   Link,
 } from "react-router-dom";
 
-import {
-  AUTH_ROUTES,
-} from "../constants/auth";
-
 export function ForbiddenPage() {
   return (
     <main className="system-state-page">
@@ -19,14 +15,14 @@ export function ForbiddenPage() {
 
       <p>
         Your account does not have permission
-        to access the administration portal.
+        to access this page.
       </p>
 
       <Link
         className="button button--primary"
-        to={AUTH_ROUTES.LOGIN}
+        to="/"
       >
-        Return to sign in
+        Go to my dashboard
       </Link>
     </main>
   );

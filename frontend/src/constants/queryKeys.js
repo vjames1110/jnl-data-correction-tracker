@@ -247,4 +247,18 @@ export const queryKeys = Object.freeze({
     "corrections",
     "dashboard",
   ],
+  correctionAnalytics: [
+    "corrections",
+    "analytics",
+  ],
+  correctionTimeline: (requestId) => [
+    "corrections",
+    "timeline",
+    requestId,
+  ],
+  correctionAttachments: (requestId) => [
+    "corrections",
+    "attachments",
+    requestId,
+  ],
 });

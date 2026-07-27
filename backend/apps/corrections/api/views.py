@@ -17,6 +17,7 @@ from apps.corrections.api.permissions import (
 from apps.corrections.api.serializers import (
     CorrectionRequestAttachmentSerializer,
     CorrectionRequestCancelSerializer,
+    CorrectionRequestCommentSerializer,
     CorrectionRequestDraftSerializer,
     CorrectionRequestSubmitSerializer,
     CorrectionRequestTimelineSerializer,
@@ -42,6 +43,11 @@ from apps.corrections.services.drafts import (
 )
 from apps.corrections.services.cancellation import (
     cancel_request,
+)
+from apps.corrections.services.requester_actions import (
+    add_request_comment,
+    confirm_resolution,
+    reopen_request,
 )
 from apps.corrections.services.submission import (
     preview_duplicates,
@@ -293,6 +299,12 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
             return CorrectionRequestSubmitSerializer
         if self.action == "cancel":
             return CorrectionRequestCancelSerializer
+        if self.action in {
+            "comment",
+            "confirm_resolution",
+            "reopen",
+        }:
+            return CorrectionRequestCommentSerializer
         return super().get_serializer_class()
 
     def get_queryset(self):
@@ -456,6 +468,99 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
             message="Correction request cancelled successfully.",
             data=CorrectionRequestDraftSerializer(
                 cancelled_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="comment",
+    )
+    def comment(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        correction_request = add_request_comment(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            response_type="REQUESTER_RESPONSE",
+        )
+
+        return success_response(
+            message="Comment added successfully.",
+            data=CorrectionRequestDraftSerializer(
+                correction_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="confirm-resolution",
+    )
+    def confirm_resolution(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        correction_request = confirm_resolution(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Resolution confirmed successfully.",
+            data=CorrectionRequestDraftSerializer(
+                correction_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reopen",
+    )
+    def reopen(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        correction_request = reopen_request(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Correction request reopened successfully.",
+            data=CorrectionRequestDraftSerializer(
+                correction_request,
                 context=self.get_serializer_context(),
             ).data,
         )

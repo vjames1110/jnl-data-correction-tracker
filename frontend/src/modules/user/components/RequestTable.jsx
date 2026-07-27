@@ -1,6 +1,7 @@
 import { EmptyState } from "../../../components/common/EmptyState";
 import {
   FilePenLine,
+  Eye,
   Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -104,9 +105,17 @@ export function RequestTable({
               </td>
               {showActions ? (
                 <td>
-                  {request.current_status ===
-                  "DRAFT" ? (
-                    <div className="table-actions">
+                  <div className="table-actions user-table-actions">
+                    <Link
+                      className="button button--tertiary employee-table-action"
+                      to={`/user/requests/${request.id}`}
+                    >
+                      <Eye size={15} />
+                      View
+                    </Link>
+                    {request.current_status ===
+                    "DRAFT" ? (
+                      <>
                       <Link
                         className="button button--tertiary employee-table-action"
                         to={`/user/requests/${request.id}/continue`}
@@ -124,10 +133,9 @@ export function RequestTable({
                         <Trash2 size={15} />
                         Delete
                       </button>
-                    </div>
-                  ) : (
-                    "-"
-                  )}
+                      </>
+                    ) : null}
+                  </div>
                 </td>
               ) : null}
             </tr>

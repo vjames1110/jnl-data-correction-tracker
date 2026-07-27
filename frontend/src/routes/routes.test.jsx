@@ -96,6 +96,10 @@ function renderGuestRoute(
           path="/admin/dashboard"
           element={<div>Dashboard</div>}
         />
+        <Route
+          path="/user/dashboard"
+          element={<div>User Dashboard</div>}
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -124,6 +128,9 @@ describe("route guards", () => {
     useAuthMock.mockReturnValue({
       isInitializing: false,
       isAuthenticated: true,
+      user: {
+        role: USER_ROLES.USER,
+      },
     });
 
     renderProtectedRoute();
@@ -172,7 +179,7 @@ describe("route guards", () => {
     renderGuestRoute();
 
     expect(
-      await screen.findByText("Dashboard"),
+      await screen.findByText("User Dashboard"),
     ).toBeInTheDocument();
   });
 });
