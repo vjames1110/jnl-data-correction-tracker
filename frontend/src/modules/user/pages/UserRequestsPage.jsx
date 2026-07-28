@@ -95,7 +95,7 @@ export function UserRequestsPage() {
             className="button button--primary"
             to="/user/requests/new"
           >
-            Create Tracker
+            Create Request
           </Link>
         </div>
       </div>

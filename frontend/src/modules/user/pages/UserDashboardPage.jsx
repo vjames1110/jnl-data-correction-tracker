@@ -62,7 +62,7 @@ export function UserDashboardPage() {
             className="button button--primary"
             to="/user/requests/new"
           >
-            Create Tracker
+            Create Request
           </Link>
         </div>
       </div>

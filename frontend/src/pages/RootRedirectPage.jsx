@@ -5,6 +5,7 @@ import {
 } from "../constants/auth";
 import {
   isAdminRole,
+  USER_ROLES,
 } from "../constants/roles";
 import { AppLoader } from "../components/common/AppLoader";
 import { useAuth } from "../hooks/useAuth";
@@ -47,6 +48,15 @@ export function RootRedirectPage() {
     return (
       <Navigate
         to={AUTH_ROUTES.DASHBOARD}
+        replace
+      />
+    );
+  }
+
+  if (user?.role === USER_ROLES.DIRECTOR) {
+    return (
+      <Navigate
+        to={AUTH_ROUTES.DIRECTOR_DASHBOARD}
         replace
       />
     );

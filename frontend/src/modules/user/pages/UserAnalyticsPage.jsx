@@ -90,7 +90,7 @@ export function UserAnalyticsPage() {
             className="button button--primary"
             to="/user/requests/new"
           >
-            Create Tracker
+            Create Request
           </Link>
         </div>
       </div>

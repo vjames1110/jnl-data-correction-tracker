@@ -8,6 +8,8 @@ export const AUTH_ROUTES = Object.freeze({
   CHANGE_PASSWORD: "/admin/change-password",
   DASHBOARD: "/admin/dashboard",
   USER_DASHBOARD: "/user/dashboard",
+  DIRECTOR_DASHBOARD: "/director/dashboard",
+  DIRECTOR_APPROVALS: "/director/approvals",
   FORBIDDEN: "/forbidden",
 });
 

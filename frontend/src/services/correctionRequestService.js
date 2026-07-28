@@ -392,4 +392,106 @@ export const correctionRequestService = {
 
     return resolveItem(response);
   },
+
+  async getApprovalInbox(params = {}) {
+    const response = await apiClient.get(
+      "/corrections/approvals/inbox/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async getApprovalSteps(params = {}) {
+    const response = await apiClient.get(
+      "/corrections/approvals/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async getApprovalStep(id) {
+    const response = await apiClient.get(
+      `/corrections/approvals/${id}/`,
+    );
+    const step = resolveItem(response);
+
+    if (!step) {
+      throw new Error("Approval details were not returned.");
+    }
+
+    return step;
+  },
+
+  async getApprovalHistory(id) {
+    const response = await apiClient.get(
+      `/corrections/approvals/${id}/history/`,
+    );
+
+    return resolveItems(response);
+  },
+
+  async getApprovalPendingCounts() {
+    const response = await apiClient.get(
+      "/corrections/approvals/pending-counts/",
+    );
+
+    return resolveItem(response) ?? {};
+  },
+
+  async approveApprovalStep(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/approvals/${id}/approve/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async rejectApprovalStep(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/approvals/${id}/reject/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async returnApprovalStep(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/approvals/${id}/return/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async commentApprovalStep(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/approvals/${id}/comment/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async delegateApprovalStep(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/approvals/${id}/delegate/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
 };

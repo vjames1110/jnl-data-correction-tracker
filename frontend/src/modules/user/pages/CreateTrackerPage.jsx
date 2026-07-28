@@ -594,7 +594,7 @@ export function CreateTrackerPage() {
           <h1>
             {requestId
               ? "Continue Draft"
-              : "Create Tracker"}
+              : "Create Request"}
           </h1>
           <p>
             {requestId

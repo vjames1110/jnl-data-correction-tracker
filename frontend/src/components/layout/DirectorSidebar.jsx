@@ -1,77 +1,50 @@
 import clsx from "clsx";
 import {
+  BarChart3,
   ChevronLeft,
-  ClipboardList,
-  FilePlus2,
+  ClipboardCheck,
+  Download,
   LayoutDashboard,
-  LineChart,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { env } from "../../config/env";
-import { USER_ROLES } from "../../constants/roles";
-import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
   {
     key: "dashboard",
     label: "Dashboard",
-    path: "/user/dashboard",
+    path: "/director/dashboard",
     icon: LayoutDashboard,
-    roles: [
-      USER_ROLES.USER,
-      USER_ROLES.DIRECTOR,
-      USER_ROLES.RESPONSIBLE_PERSON,
-    ],
   },
   {
-    key: "create",
-    label: "Create Request",
-    path: "/user/requests/new",
-    icon: FilePlus2,
-    roles: [
-      USER_ROLES.USER,
-      USER_ROLES.DIRECTOR,
-      USER_ROLES.RESPONSIBLE_PERSON,
-    ],
-  },
-  {
-    key: "requests",
-    label: "My Requests",
-    path: "/user/requests",
-    icon: ClipboardList,
-    roles: [
-      USER_ROLES.USER,
-      USER_ROLES.DIRECTOR,
-      USER_ROLES.RESPONSIBLE_PERSON,
-    ],
+    key: "approvals",
+    label: "Approval Inbox",
+    path: "/director/approvals",
+    icon: ClipboardCheck,
   },
   {
     key: "analytics",
     label: "Analytics",
-    path: "/user/analytics",
-    icon: LineChart,
-    roles: [
-      USER_ROLES.USER,
-      USER_ROLES.DIRECTOR,
-      USER_ROLES.RESPONSIBLE_PERSON,
-    ],
+    path: "/director/analytics",
+    icon: BarChart3,
+  },
+  {
+    key: "export",
+    label: "Export",
+    path: "/director/export",
+    icon: Download,
   },
 ];
 
-export function UserSidebar({
+export function DirectorSidebar({
   collapsed,
   onCollapse,
 }) {
-  const { user } = useAuth();
-  const visibleItems = navItems.filter((item) =>
-    item.roles.includes(user?.role),
-  );
-
   return (
     <aside
       className={clsx(
-        "user-sidebar",
+        "user-sidebar director-sidebar",
         collapsed &&
           "user-sidebar--collapsed",
       )}
@@ -83,8 +56,8 @@ export function UserSidebar({
 
         {!collapsed ? (
           <div>
-            <strong>Data Correction</strong>
-            <span>User Portal</span>
+            <strong>Approvals</strong>
+            <span>Director Portal</span>
           </div>
         ) : null}
       </div>
@@ -92,11 +65,11 @@ export function UserSidebar({
       <nav className="user-sidebar__nav">
         {!collapsed ? (
           <span className="user-sidebar__label">
-            Requests
+            Approval Desk
           </span>
         ) : null}
 
-        {visibleItems.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
 
           return (

@@ -14,3 +14,11 @@ export const ADMIN_ROLES = Object.freeze([
 export function isAdminRole(role) {
   return ADMIN_ROLES.includes(role);
 }
+
+export function isApprovalRole(role) {
+  return [
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+  ].includes(role);
+}

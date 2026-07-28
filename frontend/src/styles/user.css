@@ -171,7 +171,8 @@
 .user-requests-page,
 .create-tracker-page,
 .request-details-page,
-.user-analytics-page {
+.user-analytics-page,
+.director-approval-page {
   display: grid;
   gap: 16px;
 }
@@ -556,20 +557,203 @@
   height: 280px;
 }
 
+.director-kpi-grid {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+}
+
+.director-dashboard-kpis {
+  grid-template-columns:
+    repeat(6, minmax(0, 1fr));
+}
+
+.director-inbox-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.2fr)
+    repeat(6, minmax(135px, 1fr))
+    minmax(82px, auto);
+  align-items: end;
+  gap: 10px;
+}
+
+.director-inbox-toolbar .form-field span,
+.director-detail-layout .form-field span {
+  font-size: 10px;
+}
+
+.director-inbox-toolbar input,
+.director-inbox-toolbar select {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.director-inbox-toolbar .button {
+  min-height: 34px;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.director-approval-table {
+  min-width: 1180px;
+}
+
+.director-approval-table th,
+.director-approval-table td {
+  font-size: 12px;
+}
+
+.director-approval-table td small,
+.director-route-list small,
+.director-previous-list span,
+.director-side-grid dd {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-neutral-600);
+  font-size: 11px;
+}
+
+.director-approval-table .request-status {
+  margin-top: 4px;
+}
+
+.director-detail-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(290px, 340px);
+  align-items: start;
+  gap: 16px;
+}
+
+.director-detail-main,
+.director-detail-side {
+  display: grid;
+  gap: 14px;
+}
+
+.director-detail-side {
+  position: sticky;
+  top: calc(var(--header-height) + 18px);
+}
+
+.director-meta-grid {
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+}
+
+.director-side-grid {
+  grid-template-columns: 1fr;
+}
+
+.director-route-list {
+  display: grid;
+  gap: 10px;
+}
+
+.director-route-list > div {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.director-route-list > div > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--color-white);
+  background: var(--color-primary-600);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.director-route-list p,
+.director-previous-list a {
+  margin: 3px 0 0;
+}
+
+.director-previous-list {
+  display: grid;
+  gap: 8px;
+}
+
+.director-previous-list a {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.director-previous-list svg {
+  flex: 0 0 auto;
+  color: var(--color-primary-600);
+}
+
+.director-previous-list span {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.director-duplicate-alert {
+  align-items: flex-start;
+}
+
+.director-action-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  color: var(--color-neutral-600);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.director-export-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 240px)
+    repeat(2, minmax(90px, auto));
+  align-items: end;
+  justify-content: start;
+  gap: 10px;
+}
+
+.director-export-toolbar .button {
+  min-height: 34px;
+  font-size: 12px;
+}
+
 @media (max-width: 1180px) {
   .user-kpi-grid {
     grid-template-columns:
       repeat(3, minmax(0, 1fr));
   }
 
+  .director-dashboard-kpis {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
   .user-dashboard-grid,
   .tracker-form,
-  .request-details-layout {
+  .request-details-layout,
+  .director-detail-layout {
     grid-template-columns: 1fr;
   }
 
   .tracker-review-panel,
-  .request-details-side {
+  .request-details-side,
+  .director-detail-side {
     position: static;
   }
 
@@ -612,7 +796,12 @@
   .user-kpi-grid,
   .user-request-toolbar,
   .request-details-grid,
-  .user-analytics-kpis {
+  .user-analytics-kpis,
+  .director-kpi-grid,
+  .director-dashboard-kpis,
+  .director-inbox-toolbar,
+  .director-export-toolbar,
+  .director-meta-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -37,12 +37,16 @@ export function useCorrectionAnalytics() {
   });
 }
 
-export function useCorrectionRequests(params) {
+export function useCorrectionRequests(
+  params,
+  options = {},
+) {
   return useQuery({
     queryKey:
       queryKeys.correctionRequests(params),
     queryFn: () =>
       correctionRequestService.getRequests(params),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -202,6 +206,127 @@ export function useUploadCorrectionAttachment() {
   return useMutation({
     mutationFn:
       correctionRequestService.uploadAttachment,
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useApprovalInbox(params) {
+  return useQuery({
+    queryKey: queryKeys.approvalInbox(params),
+    queryFn: () =>
+      correctionRequestService.getApprovalInbox(
+        params,
+      ),
+  });
+}
+
+export function useApprovalSteps(params) {
+  return useQuery({
+    queryKey: queryKeys.approvalSteps(params),
+    queryFn: () =>
+      correctionRequestService.getApprovalSteps(
+        params,
+      ),
+  });
+}
+
+export function useApprovalStep(id) {
+  return useQuery({
+    queryKey: queryKeys.approvalStep(id),
+    queryFn: () =>
+      correctionRequestService.getApprovalStep(id),
+    enabled: Boolean(id),
+  });
+}
+
+export function useApprovalHistory(id) {
+  return useQuery({
+    queryKey: queryKeys.approvalHistory(id),
+    queryFn: () =>
+      correctionRequestService.getApprovalHistory(
+        id,
+      ),
+    enabled: Boolean(id),
+  });
+}
+
+export function useApprovalPendingCounts() {
+  return useQuery({
+    queryKey: queryKeys.approvalPendingCounts,
+    queryFn:
+      correctionRequestService.getApprovalPendingCounts.bind(
+        correctionRequestService,
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useApproveApprovalStep() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.approveApprovalStep(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useRejectApprovalStep() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.rejectApprovalStep(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useReturnApprovalStep() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.returnApprovalStep(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useCommentApprovalStep() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.commentApprovalStep(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useDelegateApprovalStep() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.delegateApprovalStep(
+        id,
+        payload,
+      ),
     onSuccess: () =>
       invalidateCorrectionQueries(queryClient),
   });

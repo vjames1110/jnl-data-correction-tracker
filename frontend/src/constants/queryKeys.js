@@ -261,4 +261,31 @@ export const queryKeys = Object.freeze({
     "attachments",
     requestId,
   ],
+  approvalInbox: (params) => [
+    "corrections",
+    "approvals",
+    "inbox",
+    params,
+  ],
+  approvalStep: (id) => [
+    "corrections",
+    "approvals",
+    id,
+  ],
+  approvalSteps: (params) => [
+    "corrections",
+    "approvals",
+    params,
+  ],
+  approvalHistory: (id) => [
+    "corrections",
+    "approvals",
+    id,
+    "history",
+  ],
+  approvalPendingCounts: [
+    "corrections",
+    "approvals",
+    "pending-counts",
+  ],
 });
