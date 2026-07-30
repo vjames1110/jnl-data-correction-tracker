@@ -10,23 +10,13 @@
   position: relative;
   overflow: hidden;
   color: var(--color-white);
-  background:
-    radial-gradient(
-      circle at 15% 20%,
-      rgb(39 142 240 / 40%),
-      transparent 32%
-    ),
-    linear-gradient(
-      145deg,
-      var(--color-nav-900),
-      #0a416f
-    );
+  background: var(--shell-bg);
 }
 
 .auth-brand-panel__overlay {
   position: absolute;
   inset: 0;
-  opacity: 0.12;
+  opacity: 0.1;
   background-image:
     linear-gradient(
       rgb(255 255 255 / 18%) 1px,
@@ -46,7 +36,7 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 48px 56px;
+  padding: var(--space-8);
 }
 
 .auth-brand {
@@ -56,8 +46,8 @@
 }
 
 .auth-brand__mark {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   color: var(--color-primary-600);
@@ -94,15 +84,15 @@
 }
 
 .auth-brand-panel__message h1 {
-  margin-bottom: 20px;
-  font-size: clamp(36px, 4vw, 58px);
-  line-height: 1.08;
+  margin-bottom: var(--space-4);
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.12;
 }
 
 .auth-brand-panel__message p {
   max-width: 570px;
   color: rgb(255 255 255 / 76%);
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .auth-feature-list {
@@ -121,7 +111,7 @@
   display: grid;
   place-items: center;
   padding: 40px;
-  background: var(--color-neutral-50);
+  background: var(--n-25);
 }
 
 .auth-form-shell {
@@ -142,7 +132,8 @@
 
 .auth-form-heading h2 {
   margin: 8px 0;
-  font-size: 32px;
+  font-size: 24px;
+  line-height: 32px;
 }
 
 .auth-form-heading p,
@@ -167,12 +158,7 @@
   display: grid;
   place-items: center;
   padding: 32px;
-  background:
-    linear-gradient(
-      180deg,
-      var(--color-primary-100),
-      var(--color-neutral-50) 320px
-    );
+  background: var(--n-25);
 }
 
 .password-change-card {

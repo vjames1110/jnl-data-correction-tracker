@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
+from django.contrib.auth import get_user_model
+
 from apps.corrections.models import (
+    CorrectionApprovalStep,
     CorrectionRequest,
     CorrectionRequestAttachment,
     CorrectionRequestTimeline,
@@ -292,3 +295,176 @@ class CorrectionRequestTimelineSerializer(
             "created_at",
         ]
         read_only_fields = fields
+
+
+class CorrectionApprovalStepSerializer(
+    serializers.ModelSerializer
+):
+    request_reference = serializers.CharField(
+        source="request.reference",
+        read_only=True,
+    )
+    request_status = serializers.CharField(
+        source="request.current_status",
+        read_only=True,
+    )
+    requester_employee_id = serializers.CharField(
+        source="request.requester.employee_id",
+        read_only=True,
+    )
+    requester_name = serializers.CharField(
+        source="request.requester.full_name",
+        read_only=True,
+    )
+    request_submitted_at = serializers.DateTimeField(
+        source="request.submitted_at",
+        read_only=True,
+    )
+    request_sla_deadline = serializers.DateTimeField(
+        source="request.sla_deadline",
+        read_only=True,
+    )
+    site_code = serializers.CharField(
+        source="request.site.site_code",
+        read_only=True,
+    )
+    site_name = serializers.CharField(
+        source="request.site.site_name",
+        read_only=True,
+    )
+    department_code = serializers.CharField(
+        source="request.department.department_code",
+        read_only=True,
+    )
+    department_name = serializers.CharField(
+        source="request.department.department_name",
+        read_only=True,
+    )
+    voucher_code = serializers.CharField(
+        source="request.voucher_type.voucher_code",
+        read_only=True,
+    )
+    voucher_name = serializers.CharField(
+        source="request.voucher_type.voucher_name",
+        read_only=True,
+    )
+    voucher_number = serializers.CharField(
+        source="request.voucher_number",
+        read_only=True,
+    )
+    work_type_name = serializers.CharField(
+        source="request.work_type.work_type_name",
+        read_only=True,
+    )
+    reason_name = serializers.CharField(
+        source="request.reason_category.reason_name",
+        read_only=True,
+    )
+    priority_name = serializers.CharField(
+        source="request.priority.priority_name",
+        read_only=True,
+    )
+    amount = serializers.DecimalField(
+        source="request.amount",
+        max_digits=14,
+        decimal_places=2,
+        read_only=True,
+    )
+    approver_employee_id = serializers.CharField(
+        source="approver.employee_id",
+        read_only=True,
+    )
+    approver_name = serializers.CharField(
+        source="approver.full_name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = CorrectionApprovalStep
+        fields = [
+            "id",
+            "request",
+            "request_reference",
+            "request_status",
+            "requester_employee_id",
+            "requester_name",
+            "request_submitted_at",
+            "request_sla_deadline",
+            "site_code",
+            "site_name",
+            "department_code",
+            "department_name",
+            "voucher_code",
+            "voucher_name",
+            "voucher_number",
+            "work_type_name",
+            "reason_name",
+            "priority_name",
+            "amount",
+            "workflow_policy",
+            "sequence",
+            "level_name",
+            "approver_type",
+            "approver",
+            "approver_employee_id",
+            "approver_name",
+            "status",
+            "is_current",
+            "due_at",
+            "escalates_at",
+            "decided_at",
+            "policy_name_snapshot",
+            "approver_employee_id_snapshot",
+            "approver_name_snapshot",
+            "snapshot",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class ApprovalActionSerializer(serializers.Serializer):
+    comment = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+
+
+class ApprovalDelegateSerializer(
+    ApprovalActionSerializer
+):
+    delegate_to = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(),
+        required=True,
+    )
+
+
+class ApprovalEscalationSerializer(
+    ApprovalActionSerializer
+):
+    backup_approver = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+
+class ApprovalAdminInterventionSerializer(
+    ApprovalEscalationSerializer
+):
+    action = serializers.ChoiceField(
+        choices=[
+            "APPROVE",
+            "REJECT",
+            "RETURN",
+            "DELEGATE",
+            "REMINDER",
+            "ESCALATE",
+        ]
+    )
+    delegate_to = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(),
+        required=False,
+        allow_null=True,
+    )

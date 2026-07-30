@@ -77,6 +77,32 @@ class CorrectionTimelineEventType(models.TextChoices):
     CLOSED = "CLOSED", "Closed"
 
 
+class ApprovalApproverType(models.TextChoices):
+    DEPARTMENT_HOD = (
+        "DEPARTMENT_HOD",
+        "Department HOD",
+    )
+    SITE_HOD = "SITE_HOD", "Site HOD"
+    DIRECTOR = "DIRECTOR", "Director"
+    ADMIN_FINAL = (
+        "ADMIN_FINAL",
+        "Admin Final Approval",
+    )
+    CUSTOM = "CUSTOM", "Custom Approver"
+
+
+class ApprovalStepStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Rejected"
+    RETURNED = (
+        "RETURNED",
+        "Returned For Clarification",
+    )
+    DELEGATED = "DELEGATED", "Delegated"
+    SKIPPED = "SKIPPED", "Skipped"
+
+
 ALLOWED_ATTACHMENT_EXTENSIONS = {
     ".pdf",
     ".xlsx",
@@ -383,6 +409,461 @@ class CorrectionRequest(
             self.current_owner = self.requester
 
         self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ApprovalWorkflowPolicy(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    SoftDeleteModel,
+):
+    """
+    Configurable approval route selector for submitted requests.
+    Empty scope fields act as wildcards; the most specific active
+    policy is used when a request is submitted.
+    """
+
+    policy_name = models.CharField(
+        max_length=150,
+        db_index=True,
+    )
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    erp_module = models.ForeignKey(
+        ErpModule,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    voucher_type = models.ForeignKey(
+        VoucherType,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    work_type = models.ForeignKey(
+        WorkType,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    priority = models.ForeignKey(
+        Priority,
+        on_delete=models.PROTECT,
+        related_name="approval_workflow_policies",
+        null=True,
+        blank=True,
+    )
+    amount_min = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    amount_max = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+    )
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "correction_approval_workflow_policy"
+        ordering = [
+            "display_order",
+            "policy_name",
+        ]
+        indexes = [
+            models.Index(
+                fields=["is_active", "display_order"],
+                name="corr_awp_active_order_idx",
+            ),
+            models.Index(
+                fields=["site", "department", "is_active"],
+                name="corr_awp_org_active_idx",
+            ),
+            models.Index(
+                fields=[
+                    "erp_module",
+                    "voucher_type",
+                    "is_active",
+                ],
+                name="corr_awp_erp_active_idx",
+            ),
+            models.Index(
+                fields=[
+                    "work_type",
+                    "priority",
+                    "is_active",
+                ],
+                name="corr_awp_work_active_idx",
+            ),
+        ]
+        verbose_name = "Approval Workflow Policy"
+        verbose_name_plural = (
+            "Approval Workflow Policies"
+        )
+
+    def __str__(self) -> str:
+        return self.policy_name
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if (
+            self.amount_min is not None
+            and self.amount_min < Decimal("0")
+        ):
+            errors["amount_min"] = (
+                "Minimum amount cannot be negative."
+            )
+
+        if (
+            self.amount_max is not None
+            and self.amount_max < Decimal("0")
+        ):
+            errors["amount_max"] = (
+                "Maximum amount cannot be negative."
+            )
+
+        if (
+            self.amount_min is not None
+            and self.amount_max is not None
+            and self.amount_max < self.amount_min
+        ):
+            errors["amount_max"] = (
+                "Maximum amount cannot be below minimum amount."
+            )
+
+        if (
+            self.voucher_type_id
+            and self.erp_module_id
+            and self.voucher_type.erp_module_id
+            != self.erp_module_id
+        ):
+            errors["voucher_type"] = (
+                "Voucher type must belong to the selected ERP module."
+            )
+
+        if (
+            self.voucher_type_id
+            and self.department_id
+            and self.voucher_type.department_id
+            and self.voucher_type.department_id
+            != self.department_id
+        ):
+            errors["department"] = (
+                "Department must match the selected voucher type."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ApprovalWorkflowLevel(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    SoftDeleteModel,
+):
+    """
+    Ordered approval levels for a workflow policy.
+    """
+
+    workflow_policy = models.ForeignKey(
+        ApprovalWorkflowPolicy,
+        on_delete=models.CASCADE,
+        related_name="approval_levels",
+    )
+    level_name = models.CharField(
+        max_length=120,
+        blank=True,
+    )
+    sequence = models.PositiveSmallIntegerField(
+        db_index=True,
+    )
+    approver_type = models.CharField(
+        max_length=30,
+        choices=ApprovalApproverType.choices,
+        db_index=True,
+    )
+    custom_approver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="custom_approval_levels",
+        null=True,
+        blank=True,
+    )
+    is_required = models.BooleanField(
+        default=True,
+    )
+    sla_hours = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+    escalation_hours = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "correction_approval_workflow_level"
+        ordering = [
+            "workflow_policy",
+            "sequence",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "workflow_policy",
+                    "sequence",
+                ],
+                condition=models.Q(is_deleted=False),
+                name="corr_awl_policy_sequence_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "workflow_policy",
+                    "is_deleted",
+                    "sequence",
+                ],
+                name="corr_awl_policy_order_idx",
+            ),
+            models.Index(
+                fields=["approver_type", "is_deleted"],
+                name="corr_awl_type_deleted_idx",
+            ),
+        ]
+        verbose_name = "Approval Workflow Level"
+        verbose_name_plural = (
+            "Approval Workflow Levels"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.workflow_policy.policy_name} - "
+            f"{self.sequence}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if self.sequence < 1:
+            errors["sequence"] = (
+                "Approval sequence must be at least 1."
+            )
+
+        if (
+            self.approver_type
+            == ApprovalApproverType.CUSTOM
+            and not self.custom_approver_id
+        ):
+            errors["custom_approver"] = (
+                "Custom approver is required for custom approval levels."
+            )
+
+        if (
+            self.approver_type
+            != ApprovalApproverType.CUSTOM
+            and self.custom_approver_id
+        ):
+            errors["custom_approver"] = (
+                "Custom approver can only be used with custom approval levels."
+            )
+
+        if (
+            self.sla_hours is not None
+            and self.sla_hours < 1
+        ):
+            errors["sla_hours"] = (
+                "SLA hours must be at least 1."
+            )
+
+        if (
+            self.escalation_hours is not None
+            and self.escalation_hours < 1
+        ):
+            errors["escalation_hours"] = (
+                "Escalation hours must be at least 1."
+            )
+
+        if (
+            self.sla_hours
+            and self.escalation_hours
+            and self.escalation_hours > self.sla_hours
+        ):
+            errors["escalation_hours"] = (
+                "Escalation hours cannot exceed SLA hours."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class CorrectionApprovalStep(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+):
+    """
+    Immutable request-time approval route snapshot.
+    """
+
+    request = models.ForeignKey(
+        CorrectionRequest,
+        on_delete=models.PROTECT,
+        related_name="approval_steps",
+    )
+    workflow_policy = models.ForeignKey(
+        ApprovalWorkflowPolicy,
+        on_delete=models.SET_NULL,
+        related_name="approval_step_snapshots",
+        null=True,
+        blank=True,
+    )
+    sequence = models.PositiveSmallIntegerField(
+        db_index=True,
+    )
+    level_name = models.CharField(
+        max_length=120,
+        blank=True,
+    )
+    approver_type = models.CharField(
+        max_length=30,
+        choices=ApprovalApproverType.choices,
+        db_index=True,
+    )
+    approver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="correction_approval_steps",
+    )
+    status = models.CharField(
+        max_length=30,
+        choices=ApprovalStepStatus.choices,
+        default=ApprovalStepStatus.PENDING,
+        db_index=True,
+    )
+    is_current = models.BooleanField(
+        default=False,
+        db_index=True,
+    )
+    due_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    escalates_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    decided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    policy_name_snapshot = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    approver_employee_id_snapshot = models.CharField(
+        max_length=30,
+        blank=True,
+    )
+    approver_name_snapshot = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "correction_approval_step"
+        ordering = ["request", "sequence"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["request", "sequence"],
+                name="corr_approval_step_request_sequence_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["request", "status"],
+                name="corr_step_request_status_idx",
+            ),
+            models.Index(
+                fields=["approver", "status"],
+                name="corr_step_approver_status_idx",
+            ),
+            models.Index(
+                fields=["request", "is_current"],
+                name="corr_step_request_current_idx",
+            ),
+        ]
+        verbose_name = "Correction Approval Step"
+        verbose_name_plural = (
+            "Correction Approval Steps"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.request.reference} - "
+            f"{self.sequence} - {self.approver_type}"
+        )
+
+    def save(self, *args, **kwargs):
+        if self.workflow_policy_id and not self.policy_name_snapshot:
+            self.policy_name_snapshot = (
+                self.workflow_policy.policy_name
+            )
+
+        if self.approver_id:
+            if not self.approver_employee_id_snapshot:
+                self.approver_employee_id_snapshot = (
+                    self.approver.employee_id
+                )
+            if not self.approver_name_snapshot:
+                self.approver_name_snapshot = (
+                    self.approver.full_name
+                )
+
         return super().save(*args, **kwargs)
 
 

@@ -11,6 +11,10 @@ from apps.corrections.models import (
     CorrectionRequestStatus,
     CorrectionTimelineEventType,
 )
+from apps.corrections.services.approvals import (
+    build_approval_route,
+    snapshot_approval_route,
+)
 from apps.corrections.services.drafts import (
     validate_draft_access,
 )
@@ -22,10 +26,6 @@ from apps.corrections.services.timeline import (
 )
 from apps.employees.models import EmployeeProfile
 from apps.erp.models import ResponsiblePersonMapping
-from apps.organization.models import (
-    ApprovalAuthorityType,
-    DirectorMapping,
-)
 
 
 BASE_REQUIRED_FIELDS = {
@@ -101,18 +101,23 @@ def submit_request(
                 }
             )
 
-        approval_owner = _find_approval_owner(
-            locked_draft
-        )
+        approval_policy = None
+        approval_route = []
+        if locked_draft.work_type.requires_approval:
+            (
+                approval_policy,
+                approval_route,
+            ) = build_approval_route(locked_draft)
+
         if (
             locked_draft.work_type.requires_approval
-            and approval_owner is None
+            and not approval_route
         ):
             raise ValidationError(
                 {
                     "approval_configuration": (
-                        "No active primary director mapping "
-                        "matches this request."
+                        "No active director or admin approver "
+                        "is available for this request."
                     )
                 }
             )
@@ -149,7 +154,7 @@ def submit_request(
             to_status = (
                 CorrectionRequestStatus.PENDING_APPROVAL
             )
-            current_owner = approval_owner
+            current_owner = approval_route[0].approver
         else:
             to_status = CorrectionRequestStatus.ASSIGNED
             current_owner = (
@@ -190,12 +195,29 @@ def submit_request(
                 if responsible_mapping
                 else "",
                 "approval_owner_id": (
-                    str(approval_owner.id)
-                    if approval_owner
+                    str(current_owner.id)
+                    if to_status
+                    == CorrectionRequestStatus.PENDING_APPROVAL
                     else ""
+                ),
+                "approval_policy_id": (
+                    str(approval_policy.id)
+                    if approval_policy
+                    else ""
+                ),
+                "approval_route_steps": len(
+                    approval_route
                 ),
             },
         )
+
+        if approval_route:
+            snapshot_approval_route(
+                request=locked_draft,
+                policy=approval_policy,
+                route=approval_route,
+                submitted_at=now,
+            )
 
         if to_status == CorrectionRequestStatus.ASSIGNED:
             record_timeline(
@@ -338,48 +360,6 @@ def _validate_voucher(
 
     if errors:
         raise ValidationError(errors)
-
-
-def _find_approval_owner(
-    request: CorrectionRequest,
-):
-    today = timezone.localdate()
-    queryset = DirectorMapping.objects.filter(
-        is_active=True,
-        authority_type=ApprovalAuthorityType.PRIMARY,
-    ).filter(
-        Q(effective_from__isnull=True)
-        | Q(effective_from__lte=today),
-        Q(effective_to__isnull=True)
-        | Q(effective_to__gte=today),
-    )
-
-    site_mapping = (
-        queryset.filter(site_id=request.site_id)
-        .order_by("-effective_from", "created_at")
-        .first()
-    )
-    if site_mapping:
-        return site_mapping.director
-
-    department_mapping = (
-        queryset.filter(department_id=request.department_id)
-        .order_by("-effective_from", "created_at")
-        .first()
-    )
-    if department_mapping:
-        return department_mapping.director
-
-    if request.site_id and request.site.site_director_id:
-        return request.site.site_director
-
-    if (
-        request.department_id
-        and request.department.department_hod_id
-    ):
-        return request.department.department_hod
-
-    return None
 
 
 def _find_responsible_mapping(

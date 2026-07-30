@@ -1,4 +1,6 @@
 from django.http import FileResponse
+from django.db.models import Count, Q
+from django.utils import timezone
 from rest_framework import (
     parsers,
     status,
@@ -8,13 +10,20 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import (
     MethodNotAllowed,
     NotFound,
+    PermissionDenied,
 )
 
+from apps.authentication.models import UserRole
 from apps.core.api.responses import success_response
 from apps.corrections.api.permissions import (
     HasCorrectionRequestAccess,
 )
 from apps.corrections.api.serializers import (
+    ApprovalActionSerializer,
+    ApprovalAdminInterventionSerializer,
+    ApprovalDelegateSerializer,
+    ApprovalEscalationSerializer,
+    CorrectionApprovalStepSerializer,
     CorrectionRequestAttachmentSerializer,
     CorrectionRequestCancelSerializer,
     CorrectionRequestCommentSerializer,
@@ -23,10 +32,13 @@ from apps.corrections.api.serializers import (
     CorrectionRequestTimelineSerializer,
 )
 from apps.corrections.models import (
+    ApprovalStepStatus,
+    CorrectionApprovalStep,
     CorrectionRequest,
     CorrectionRequestAttachment,
     CorrectionRequestStatus,
     CorrectionRequestTimeline,
+    CorrectionTimelineEventType,
 )
 from apps.corrections.services.access import (
     visible_request_queryset,
@@ -35,6 +47,16 @@ from apps.corrections.services.attachments import (
     create_attachment,
     delete_attachment,
     get_accessible_request_or_404,
+)
+from apps.corrections.services.approvals import (
+    add_approval_comment,
+    approve_step,
+    delegate_step,
+    escalate_step,
+    record_sla_breaches,
+    reject_step,
+    return_step,
+    send_approval_reminder,
 )
 from apps.corrections.services.drafts import (
     create_draft,
@@ -731,3 +753,554 @@ class CorrectionRequestTimelineViewSet(
             )
 
         return queryset
+
+
+def _approval_step_queryset():
+    return CorrectionApprovalStep.objects.select_related(
+        "request",
+        "request__requester",
+        "request__current_owner",
+        "request__site",
+        "request__site__site_director",
+        "request__site__site_hod",
+        "request__department",
+        "request__department__department_hod",
+        "request__voucher_type",
+        "request__erp_module",
+        "request__work_type",
+        "request__priority",
+        "workflow_policy",
+        "approver",
+    )
+
+
+def _is_admin_user(user) -> bool:
+    return bool(
+        user
+        and (
+            user.is_staff
+            or user.has_role(
+                UserRole.SUPER_ADMIN,
+                UserRole.ADMIN,
+            )
+        )
+    )
+
+
+class CorrectionApprovalStepViewSet(
+    viewsets.ReadOnlyModelViewSet
+):
+    serializer_class = CorrectionApprovalStepSerializer
+    permission_classes = [HasCorrectionRequestAccess]
+    parser_classes = [
+        parsers.MultiPartParser,
+        parsers.FormParser,
+        parsers.JSONParser,
+    ]
+    lookup_field = "id"
+    filterset_fields = [
+        "request",
+        "approver",
+        "status",
+        "is_current",
+        "approver_type",
+        "workflow_policy",
+    ]
+    ordering_fields = [
+        "sequence",
+        "due_at",
+        "escalates_at",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ["due_at", "created_at"]
+
+    def get_serializer_class(self):
+        if self.action in {
+            "approve",
+            "reject",
+            "return_request",
+            "comment",
+            "reminder",
+        }:
+            return ApprovalActionSerializer
+        if self.action == "delegate":
+            return ApprovalDelegateSerializer
+        if self.action == "escalate":
+            return ApprovalEscalationSerializer
+        if self.action == "admin_intervention":
+            return ApprovalAdminInterventionSerializer
+        if self.action == "upload_attachment":
+            return CorrectionRequestAttachmentSerializer
+        return super().get_serializer_class()
+
+    def get_queryset(self):
+        queryset = _approval_step_queryset()
+        user = self.request.user
+
+        if _is_admin_user(user):
+            return queryset
+
+        return queryset.filter(
+            approver=user,
+            request__is_deleted=False,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="inbox",
+    )
+    def inbox(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                status=ApprovalStepStatus.PENDING,
+                is_current=True,
+                request__current_status=(
+                    CorrectionRequestStatus.PENDING_APPROVAL
+                ),
+            )
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(
+                page,
+                many=True,
+            )
+            return self.get_paginated_response(
+                serializer.data
+            )
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+        return success_response(
+            message="Approval inbox retrieved successfully.",
+            data=serializer.data,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="pending-counts",
+    )
+    def pending_counts(self, request, *args, **kwargs):
+        queryset = self.get_queryset().filter(
+            status=ApprovalStepStatus.PENDING,
+            is_current=True,
+            request__current_status=(
+                CorrectionRequestStatus.PENDING_APPROVAL
+            ),
+        )
+        now = timezone.now()
+        grouped = queryset.values(
+            "approver_type"
+        ).annotate(count=Count("id"))
+
+        return success_response(
+            message="Approval pending counts retrieved successfully.",
+            data={
+                "total_pending": queryset.count(),
+                "overdue": queryset.filter(
+                    due_at__isnull=False,
+                    due_at__lt=now,
+                ).count(),
+                "due_for_escalation": queryset.filter(
+                    escalates_at__isnull=False,
+                    escalates_at__lt=now,
+                ).count(),
+                "by_approver_type": {
+                    item["approver_type"]: item["count"]
+                    for item in grouped
+                },
+            },
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="approve",
+    )
+    def approve(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = approve_step(
+            step=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval step approved successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reject",
+    )
+    def reject(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = reject_step(
+            step=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval step rejected successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="return",
+    )
+    def return_request(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = return_step(
+            step=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval step returned for clarification successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="delegate",
+    )
+    def delegate(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = delegate_step(
+            step=self.get_object(),
+            user=request.user,
+            delegate_to=serializer.validated_data[
+                "delegate_to"
+            ],
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval step delegated successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="comment",
+    )
+    def comment(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = add_approval_comment(
+            step=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval comment added successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="attachment",
+    )
+    def upload_attachment(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        step = self.get_object()
+        payload = request.data.copy()
+        payload["request"] = step.request_id
+        serializer = self.get_serializer(
+            data=payload
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        attachment = create_attachment(
+            request=step.request,
+            user=request.user,
+            file=serializer.validated_data["file"],
+            attachment_type=serializer.validated_data[
+                "attachment_type"
+            ],
+        )
+        add_approval_comment(
+            step=step,
+            user=request.user,
+            comment="Approval attachment added.",
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval attachment uploaded successfully.",
+            data=CorrectionRequestAttachmentSerializer(
+                attachment,
+                context=self.get_serializer_context(),
+            ).data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="history",
+    )
+    def history(self, request, *args, **kwargs):
+        step = self.get_object()
+        queryset = step.request.timeline_entries.filter(
+            Q(event_type=CorrectionTimelineEventType.APPROVAL_ACTION)
+            | Q(event_type=CorrectionTimelineEventType.SUBMITTED)
+        ).select_related("actor")
+        serializer = CorrectionRequestTimelineSerializer(
+            queryset,
+            many=True,
+            context=self.get_serializer_context(),
+        )
+        return success_response(
+            message="Approval history retrieved successfully.",
+            data=serializer.data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reminder",
+    )
+    def reminder(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = send_approval_reminder(
+            step=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval reminder recorded successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="escalate",
+    )
+    def escalate(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = escalate_step(
+            step=self.get_object(),
+            user=request.user,
+            backup_approver=serializer.validated_data.get(
+                "backup_approver"
+            ),
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+            allow_admin=_is_admin_user(request.user),
+        )
+        return success_response(
+            message="Approval step escalated successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="admin-intervention",
+    )
+    def admin_intervention(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        if not _is_admin_user(request.user):
+            raise PermissionDenied(
+                "Admin intervention requires admin access."
+            )
+
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        step = self.get_object()
+        decision = serializer.validated_data["action"]
+        comment = serializer.validated_data.get(
+            "comment",
+            "",
+        )
+
+        if decision == "APPROVE":
+            step = approve_step(
+                step=step,
+                user=request.user,
+                comment=comment,
+                allow_admin=True,
+            )
+        elif decision == "REJECT":
+            step = reject_step(
+                step=step,
+                user=request.user,
+                comment=comment,
+                allow_admin=True,
+            )
+        elif decision == "RETURN":
+            step = return_step(
+                step=step,
+                user=request.user,
+                comment=comment,
+                allow_admin=True,
+            )
+        elif decision == "DELEGATE":
+            step = delegate_step(
+                step=step,
+                user=request.user,
+                delegate_to=serializer.validated_data.get(
+                    "delegate_to"
+                ),
+                comment=comment,
+                allow_admin=True,
+            )
+        elif decision == "REMINDER":
+            step = send_approval_reminder(
+                step=step,
+                user=request.user,
+                comment=comment,
+                allow_admin=True,
+            )
+        elif decision == "ESCALATE":
+            step = escalate_step(
+                step=step,
+                user=request.user,
+                backup_approver=serializer.validated_data.get(
+                    "backup_approver"
+                ),
+                comment=comment,
+                allow_admin=True,
+            )
+
+        return success_response(
+            message="Admin approval intervention completed successfully.",
+            data=CorrectionApprovalStepSerializer(
+                step,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="record-sla-breaches",
+    )
+    def record_sla_breach_events(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        if not _is_admin_user(request.user):
+            raise PermissionDenied(
+                "SLA breach recording requires admin access."
+            )
+
+        count = record_sla_breaches()
+        return success_response(
+            message="Approval SLA breach scan completed successfully.",
+            data={
+                "recorded_breaches": count,
+            },
+        )

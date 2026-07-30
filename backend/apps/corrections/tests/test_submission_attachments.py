@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -14,6 +15,10 @@ from apps.authentication.models import (
     UserRole,
 )
 from apps.corrections.models import (
+    ApprovalApproverType,
+    ApprovalStepStatus,
+    ApprovalWorkflowLevel,
+    ApprovalWorkflowPolicy,
     CorrectionRequestStatus,
     CorrectionTimelineEventType,
 )
@@ -79,6 +84,23 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             first_name="Responsible",
             last_name="User",
             role=UserRole.RESPONSIBLE_PERSON,
+            account_status=AccountStatus.ACTIVE,
+        )
+        self.admin = User.objects.create_user(
+            employee_id="ADMSUB001",
+            password="StrongPass123!",
+            first_name="Admin",
+            last_name="User",
+            role=UserRole.ADMIN,
+            account_status=AccountStatus.ACTIVE,
+            is_staff=True,
+        )
+        self.custom_approver = User.objects.create_user(
+            employee_id="CUSSUB001",
+            password="StrongPass123!",
+            first_name="Custom",
+            last_name="Approver",
+            role=UserRole.DIRECTOR,
             account_status=AccountStatus.ACTIVE,
         )
         self.company = Company.objects.create(
@@ -193,6 +215,22 @@ class CorrectionSubmissionAttachmentTests(TestCase):
                 CorrectionTimelineEventType.SUBMITTED,
             ],
         )
+        self.assertEqual(
+            submitted.approval_steps.count(),
+            2,
+        )
+        self.assertEqual(
+            submitted.approval_steps.get(
+                approver_type=ApprovalApproverType.DIRECTOR
+            ).approver,
+            self.director,
+        )
+        self.assertEqual(
+            submitted.approval_steps.get(
+                approver_type=ApprovalApproverType.ADMIN_FINAL
+            ).approver,
+            self.admin,
+        )
 
     def test_duplicate_open_request_requires_override_reason(
         self,
@@ -250,13 +288,11 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             self.remote_site,
         )
 
-    def test_approval_submit_can_use_department_hod_without_responsible_mapping(
+    def test_approval_submit_can_fall_back_to_admin_without_director(
         self,
     ):
         ResponsiblePersonMapping.objects.all().delete()
         DirectorMapping.objects.all().delete()
-        self.department.department_hod = self.director
-        self.department.save()
         draft = self._create_complete_draft(
             "JV-HOD-001",
             site=self.remote_site,
@@ -273,7 +309,88 @@ class CorrectionSubmissionAttachmentTests(TestCase):
         )
         self.assertEqual(
             submitted.current_owner,
+            self.admin,
+        )
+
+    def test_submit_snapshots_configured_approval_route(
+        self,
+    ):
+        policy = ApprovalWorkflowPolicy.objects.create(
+            policy_name="High Amount Finance Approval",
+            department=self.department,
+            erp_module=self.module,
+            voucher_type=self.voucher,
+            work_type=self.work_type,
+            priority=self.priority,
+            amount_min=Decimal("50.00"),
+        )
+        ApprovalWorkflowLevel.objects.create(
+            workflow_policy=policy,
+            sequence=1,
+            level_name="Custom review",
+            approver_type=ApprovalApproverType.CUSTOM,
+            custom_approver=self.custom_approver,
+            sla_hours=6,
+            escalation_hours=3,
+        )
+        ApprovalWorkflowLevel.objects.create(
+            workflow_policy=policy,
+            sequence=2,
+            level_name="Director signoff",
+            approver_type=ApprovalApproverType.DIRECTOR,
+        )
+        draft = self._create_complete_draft(
+            "JV-POLICY-001"
+        )
+
+        submitted = submit_request(
+            draft=draft,
+            user=self.requester,
+        )
+        steps = list(
+            submitted.approval_steps.order_by(
+                "sequence"
+            )
+        )
+
+        self.assertEqual(len(steps), 2)
+        self.assertEqual(
+            submitted.current_owner,
             self.director,
+        )
+        self.assertEqual(
+            steps[0].status,
+            ApprovalStepStatus.PENDING,
+        )
+        self.assertTrue(steps[0].is_current)
+        self.assertEqual(
+            steps[0].policy_name_snapshot,
+            "High Amount Finance Approval",
+        )
+        self.assertEqual(
+            steps[0].approver_employee_id_snapshot,
+            "DIRSUB001",
+        )
+        self.assertEqual(
+            steps[1].approver_employee_id_snapshot,
+            "ADMSUB001",
+        )
+        self.assertIsNotNone(steps[0].due_at)
+        self.assertIsNotNone(steps[0].escalates_at)
+
+        policy.policy_name = "Renamed Policy"
+        policy.save()
+        self.director.first_name = "Changed"
+        self.director.save()
+        steps[0].refresh_from_db()
+
+        self.assertEqual(
+            steps[0].policy_name_snapshot,
+            "High Amount Finance Approval",
+        )
+        self.assertEqual(
+            steps[0].approver_name_snapshot,
+            "Director User",
         )
 
     def test_attachment_upload_validation_and_download_api(

@@ -5,6 +5,7 @@ import {
 import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { DirectorLayout } from "../layouts/DirectorLayout";
+import { ResponsibleLayout } from "../layouts/ResponsibleLayout";
 import { UserLayout } from "../layouts/UserLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
@@ -31,6 +32,8 @@ import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorAp
 import { DirectorApprovalInboxPage } from "../modules/director/pages/DirectorApprovalInboxPage";
 import { DirectorDashboardPage } from "../modules/director/pages/DirectorDashboardPage";
 import { DirectorExportPage } from "../modules/director/pages/DirectorExportPage";
+import { ResponsibleDashboardPage } from "../modules/responsible/pages/ResponsibleDashboardPage";
+import { ResponsiblePlaceholderPage } from "../modules/responsible/pages/ResponsiblePlaceholderPage";
 import { CreateTrackerPage } from "../modules/user/pages/CreateTrackerPage";
 import { RequestDetailsPage } from "../modules/user/pages/RequestDetailsPage";
 import { UserAnalyticsPage } from "../modules/user/pages/UserAnalyticsPage";
@@ -43,6 +46,7 @@ import { AdminRoute } from "../routes/AdminRoute";
 import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
+import { ResponsibleRoute } from "../routes/ResponsibleRoute";
 import { CapabilityRoute } from "../routes/CapabilityRoute";
 import {
   ADMIN_CAPABILITIES,
@@ -100,6 +104,36 @@ export const router = createBrowserRouter([
           {
             path: "/user/requests/:requestId",
             element: <RequestDetailsPage />,
+          },
+        ],
+      },
+      {
+        element: <ResponsibleRoute />,
+        children: [
+          {
+            element: <ResponsibleLayout />,
+            children: [
+              {
+                path: "/responsible/dashboard",
+                element:
+                  <ResponsibleDashboardPage />,
+              },
+              {
+                path: "/responsible/assignments",
+                element:
+                  <ResponsiblePlaceholderPage />,
+              },
+              {
+                path: "/responsible/assignments/:assignmentId",
+                element:
+                  <ResponsiblePlaceholderPage />,
+              },
+              {
+                path: "/responsible/analytics",
+                element:
+                  <ResponsiblePlaceholderPage />,
+              },
+            ],
           },
         ],
       },

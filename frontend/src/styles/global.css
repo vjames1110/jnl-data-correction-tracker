@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
 *,
 *::before,
 *::after {
@@ -16,14 +18,11 @@ body {
   min-height: 100vh;
   color: var(--color-neutral-900);
   background: var(--color-neutral-50);
-  font-family:
-    Inter,
-    "72",
-    Arial,
-    sans-serif;
-  font-size: 13px;
-  line-height: 1.42;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -43,7 +42,7 @@ button:disabled {
 }
 
 a {
-  color: inherit;
+  color: var(--color-primary-600);
   text-decoration: none;
 }
 

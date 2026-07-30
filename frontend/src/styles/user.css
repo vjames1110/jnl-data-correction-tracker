@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   color: var(--color-white);
-  background: #1f2937;
+  background: var(--shell-bg);
   overflow: hidden;
 }
 
@@ -29,21 +29,22 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 18px;
+  padding: 0 var(--space-4);
   border-bottom:
     1px solid rgb(255 255 255 / 10%);
 }
 
 .user-sidebar__logo {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   display: grid;
   place-items: center;
   color: var(--color-white);
   background: var(--color-primary-600);
   border-radius: var(--radius-md);
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .user-sidebar__brand > div:last-child {
@@ -56,7 +57,7 @@
 }
 
 .user-sidebar__brand span {
-  color: rgb(255 255 255 / 62%);
+  color: var(--shell-text-muted);
   font-size: 11px;
 }
 
@@ -64,33 +65,33 @@
   flex: 1;
   display: grid;
   align-content: start;
-  gap: 3px;
-  padding: 14px 10px;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
   overflow-y: auto;
 }
 
 .user-sidebar__label {
-  padding: 0 10px 6px;
-  color: rgb(255 255 255 / 45%);
+  padding: 0 var(--space-2) var(--space-1);
+  color: var(--shell-text-muted);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .user-sidebar__link {
-  min-height: 37px;
+  min-height: var(--control-height-compact);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  color: rgb(255 255 255 / 74%);
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  color: var(--shell-text-muted);
   border-radius: var(--radius-md);
   white-space: nowrap;
 }
 
 .user-sidebar__link:hover {
   color: var(--color-white);
-  background: rgb(255 255 255 / 8%);
+  background: var(--shell-bg-hover);
 }
 
 .user-sidebar__link--active {
@@ -105,12 +106,12 @@
 }
 
 .user-sidebar__collapse {
-  min-height: 42px;
+  min-height: var(--header-height);
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 22px;
-  color: rgb(255 255 255 / 68%);
+  padding: 0 var(--space-5);
+  color: var(--shell-text-muted);
   background: transparent;
   border: 0;
   border-top:
@@ -134,8 +135,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 20px;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
   background: var(--color-white);
   border-bottom: 1px solid var(--color-neutral-200);
 }
@@ -164,7 +165,7 @@
 }
 
 .user-page-container {
-  padding: 18px;
+  padding: var(--space-6);
 }
 
 .user-dashboard-page,
@@ -172,25 +173,27 @@
 .create-tracker-page,
 .request-details-page,
 .user-analytics-page,
-.director-approval-page {
+.director-approval-page,
+.responsible-page {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .user-kpi-grid {
   display: grid;
   grid-template-columns:
     repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-4);
 }
 
 .user-kpi-card {
   min-width: 0;
-  padding: 12px;
+  padding: var(--space-4);
   background: var(--color-white);
   border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .user-kpi-card__header {
@@ -209,8 +212,9 @@
 
 .user-kpi-card strong {
   display: block;
-  margin-top: 8px;
-  font-size: 21px;
+  margin-top: var(--space-2);
+  font-size: 28px;
+  line-height: 34px;
 }
 
 .user-kpi-card--warning
@@ -280,10 +284,22 @@
 .request-status {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
+  gap: 5px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.request-status::before {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
 }
 
 .request-status--success {
@@ -567,6 +583,11 @@
     repeat(6, minmax(0, 1fr));
 }
 
+.responsible-kpi-grid {
+  grid-template-columns:
+    repeat(6, minmax(0, 1fr));
+}
+
 .director-inbox-toolbar {
   display: grid;
   grid-template-columns:
@@ -744,6 +765,11 @@
       repeat(3, minmax(0, 1fr));
   }
 
+  .responsible-kpi-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
   .user-dashboard-grid,
   .tracker-form,
   .request-details-layout,
@@ -799,6 +825,7 @@
   .user-analytics-kpis,
   .director-kpi-grid,
   .director-dashboard-kpis,
+  .responsible-kpi-grid,
   .director-inbox-toolbar,
   .director-export-toolbar,
   .director-meta-grid {

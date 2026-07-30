@@ -22,3 +22,11 @@ export function isApprovalRole(role) {
     USER_ROLES.SUPER_ADMIN,
   ].includes(role);
 }
+
+export function isResponsibleRole(role) {
+  return [
+    USER_ROLES.RESPONSIBLE_PERSON,
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+  ].includes(role);
+}

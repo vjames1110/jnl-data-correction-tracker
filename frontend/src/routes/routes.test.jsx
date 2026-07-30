@@ -20,6 +20,7 @@ import { AdminRoute } from "./AdminRoute";
 import { DirectorRoute } from "./DirectorRoute";
 import { GuestRoute } from "./GuestRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { ResponsibleRoute } from "./ResponsibleRoute";
 
 const { useAuthMock } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
@@ -105,6 +106,12 @@ function renderGuestRoute(
           path="/director/dashboard"
           element={<div>Director Dashboard</div>}
         />
+        <Route
+          path="/responsible/dashboard"
+          element={
+            <div>Responsible Dashboard</div>
+          }
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -122,6 +129,35 @@ function renderDirectorRoute(
           <Route
             path="/director/approvals"
             element={<div>Director Inbox</div>}
+          />
+        </Route>
+        <Route
+          path="/admin/change-password"
+          element={<div>Change Password</div>}
+        />
+        <Route
+          path="/forbidden"
+          element={<div>Forbidden</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderResponsibleRoute(
+  initialPath = "/responsible/dashboard",
+) {
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route
+          element={<ResponsibleRoute />}
+        >
+          <Route
+            path="/responsible/dashboard"
+            element={
+              <div>Responsible Dashboard</div>
+            }
           />
         </Route>
         <Route
@@ -233,6 +269,24 @@ describe("route guards", () => {
     ).toBeInTheDocument();
   });
 
+  it("sends responsible users from login to their dashboard", async () => {
+    useAuthMock.mockReturnValue({
+      isInitializing: false,
+      isAuthenticated: true,
+      user: {
+        role: USER_ROLES.RESPONSIBLE_PERSON,
+      },
+    });
+
+    renderGuestRoute();
+
+    expect(
+      await screen.findByText(
+        "Responsible Dashboard",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("allows director users through director routes", () => {
     useAuthMock.mockReturnValue({
       user: {
@@ -257,6 +311,36 @@ describe("route guards", () => {
     });
 
     renderDirectorRoute();
+
+    expect(
+      await screen.findByText("Forbidden"),
+    ).toBeInTheDocument();
+  });
+
+  it("allows responsible users through responsible routes", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.RESPONSIBLE_PERSON,
+        must_change_password: false,
+      },
+    });
+
+    renderResponsibleRoute();
+
+    expect(
+      screen.getByText("Responsible Dashboard"),
+    ).toBeInTheDocument();
+  });
+
+  it("blocks normal users from responsible routes", async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.USER,
+        must_change_password: false,
+      },
+    });
+
+    renderResponsibleRoute();
 
     expect(
       await screen.findByText("Forbidden"),

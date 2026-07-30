@@ -37,6 +37,9 @@ export function GuestRoute() {
             ? AUTH_ROUTES.DASHBOARD
             : user?.role === USER_ROLES.DIRECTOR
               ? AUTH_ROUTES.DIRECTOR_DASHBOARD
+              : user?.role ===
+                  USER_ROLES.RESPONSIBLE_PERSON
+                ? AUTH_ROUTES.RESPONSIBLE_DASHBOARD
               : AUTH_ROUTES.USER_DASHBOARD
         }
         replace

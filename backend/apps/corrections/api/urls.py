@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.corrections.api.views import (
+    CorrectionApprovalStepViewSet,
     CorrectionRequestAttachmentViewSet,
     CorrectionRequestDraftViewSet,
     CorrectionRequestViewSet,
@@ -31,6 +32,11 @@ router.register(
     "timeline",
     CorrectionRequestTimelineViewSet,
     basename="timeline",
+)
+router.register(
+    "approvals",
+    CorrectionApprovalStepViewSet,
+    basename="approvals",
 )
 
 urlpatterns = [
