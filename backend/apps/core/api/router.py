@@ -36,4 +36,8 @@ urlpatterns = [
         "corrections/",
         include("apps.corrections.api.urls"),
     ),
+    path(
+        "",
+        include("apps.notifications.api.urls"),
+    ),
 ]

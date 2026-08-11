@@ -80,7 +80,9 @@ def delete_attachment(
 
     with transaction.atomic():
         locked_attachment = (
-            CorrectionRequestAttachment.objects.select_for_update()
+            CorrectionRequestAttachment.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("request", "uploaded_by")
             .get(pk=attachment.pk)
         )

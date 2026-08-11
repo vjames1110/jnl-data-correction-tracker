@@ -27,6 +27,12 @@ from apps.corrections.models import (
 from apps.corrections.services.timeline import (
     record_timeline,
 )
+from apps.notifications.models import (
+    NotificationEventType,
+)
+from apps.notifications.services.delivery import (
+    notify_workflow_event,
+)
 from apps.organization.models import (
     ApprovalAuthorityType,
     DirectorMapping,
@@ -277,7 +283,7 @@ def snapshot_approval_route(
                 level_name=route_step.level_name,
                 approver_type=route_step.approver_type,
                 approver=route_step.approver,
-                is_current=index == 0,
+                is_current=True,
                 due_at=due_at,
                 escalates_at=escalates_at,
                 policy_name_snapshot=(
@@ -381,6 +387,15 @@ def approve_step(
                 "sequence": locked_step.sequence,
                 "admin_intervention": allow_admin,
                 "first_decision_wins": True,
+            },
+        )
+        notify_workflow_event(
+            event_type=NotificationEventType.REQUEST_APPROVED,
+            correction_request=correction_request,
+            recipients=[correction_request.requester],
+            actor=user,
+            payload={
+                "step_id": str(locked_step.id),
             },
         )
 
@@ -520,6 +535,16 @@ def delegate_step(
                     delegate_to.employee_id
                 ),
                 "admin_intervention": allow_admin,
+            },
+        )
+        notify_workflow_event(
+            event_type=NotificationEventType.APPROVAL_PENDING,
+            correction_request=locked_step.request,
+            recipients=[delegate_to],
+            actor=user,
+            payload={
+                "step_id": str(locked_step.id),
+                "delegated": True,
             },
         )
 
@@ -698,6 +723,16 @@ def record_sla_breaches(*, now=None) -> int:
                 "due_at": step.due_at.isoformat(),
             },
         )
+        notify_workflow_event(
+            event_type=NotificationEventType.SLA_BREACH,
+            correction_request=step.request,
+            recipients=[step.approver],
+            actor=None,
+            payload={
+                "step_id": str(step.id),
+                "due_at": step.due_at.isoformat(),
+            },
+        )
         recorded += 1
 
     return recorded
@@ -742,12 +777,15 @@ def _locked_step(
     step: CorrectionApprovalStep,
 ) -> CorrectionApprovalStep:
     return (
-        CorrectionApprovalStep.objects.select_for_update()
+        CorrectionApprovalStep.objects.select_for_update(
+            of=("self",)
+        )
         .select_related(
             "request",
             "request__site",
             "request__site__site_director",
             "request__site__site_hod",
+            "request__requester",
             "request__department",
             "request__department__department_hod",
             "approver",
@@ -868,6 +906,21 @@ def _close_approval_flow(
                 "admin_intervention": allow_admin,
             },
         )
+        notification_event = {
+            "REJECT": NotificationEventType.REQUEST_REJECTED,
+            "RETURN": NotificationEventType.CLARIFICATION_REQUIRED,
+        }.get(action)
+        if notification_event:
+            notify_workflow_event(
+                event_type=notification_event,
+                correction_request=correction_request,
+                recipients=[correction_request.requester],
+                actor=user,
+                payload={
+                    "step_id": str(locked_step.id),
+                    "action": action,
+                },
+            )
 
         return locked_step
 

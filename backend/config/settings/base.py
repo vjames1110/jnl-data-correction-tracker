@@ -74,6 +74,7 @@ LOCAL_APPS = [
     "apps.employees",
     "apps.erp",
     "apps.corrections",
+    "apps.notifications",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -335,6 +336,42 @@ CSRF_TRUSTED_ORIGINS = normalize_origins(
         default="http://localhost:5173,http://127.0.0.1:5173",
         cast=Csv(),
     )
+)
+
+
+# ---------------------------------------------------------------------------
+# Application links and notification delivery
+# ---------------------------------------------------------------------------
+
+APP_FRONTEND_BASE_URL = config(
+    "APP_FRONTEND_BASE_URL",
+    default="http://127.0.0.1:5173",
+)
+
+NOTIFICATION_EMAILS_ENABLED = config(
+    "NOTIFICATION_EMAILS_ENABLED",
+    default=False,
+    cast=bool,
+)
+
+NOTIFICATION_EMAIL_TIMEOUT_SECONDS = config(
+    "NOTIFICATION_EMAIL_TIMEOUT_SECONDS",
+    default=10,
+    cast=int,
+)
+
+BREVO_API_KEY = config("BREVO_API_KEY", default="")
+BREVO_API_URL = config(
+    "BREVO_API_URL",
+    default="https://api.brevo.com/v3/smtp/email",
+)
+BREVO_SENDER_EMAIL = config(
+    "BREVO_SENDER_EMAIL",
+    default="correctionjnl@gmail.com",
+)
+BREVO_SENDER_NAME = config(
+    "BREVO_SENDER_NAME",
+    default="JNL Correction Tracker",
 )
 
 

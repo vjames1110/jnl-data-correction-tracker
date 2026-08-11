@@ -16,6 +16,12 @@ from apps.corrections.services.access import (
 from apps.corrections.services.timeline import (
     record_timeline,
 )
+from apps.notifications.models import (
+    NotificationEventType,
+)
+from apps.notifications.services.delivery import (
+    notify_workflow_event,
+)
 
 
 def add_request_comment(
@@ -80,7 +86,9 @@ def confirm_resolution(
 
     with transaction.atomic():
         locked_request = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("requester", "current_owner")
             .get(pk=request.pk)
         )
@@ -157,7 +165,9 @@ def reopen_request(
 
     with transaction.atomic():
         locked_request = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("requester", "current_owner")
             .get(pk=request.pk)
         )
@@ -191,6 +201,17 @@ def reopen_request(
             from_status=from_status,
             to_status=CorrectionRequestStatus.REOPENED,
             comment=cleaned_comment,
+        )
+        notify_workflow_event(
+            event_type=NotificationEventType.REQUEST_REOPENED,
+            correction_request=locked_request,
+            recipients=[
+                locked_request.current_owner
+            ]
+            if locked_request.current_owner_id
+            != locked_request.requester_id
+            else [],
+            actor=user,
         )
 
         return locked_request

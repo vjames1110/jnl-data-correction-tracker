@@ -32,3 +32,17 @@ services:
         value: "15"
       - key: REFRESH_TOKEN_LIFETIME_DAYS
         value: "7"
+      - key: APP_FRONTEND_BASE_URL
+        sync: false
+      - key: NOTIFICATION_EMAILS_ENABLED
+        value: "False"
+      - key: NOTIFICATION_EMAIL_TIMEOUT_SECONDS
+        value: "10"
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_API_URL
+        value: https://api.brevo.com/v3/smtp/email
+      - key: BREVO_SENDER_EMAIL
+        value: correctionjnl@gmail.com
+      - key: BREVO_SENDER_NAME
+        value: JNL Correction Tracker

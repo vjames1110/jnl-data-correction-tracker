@@ -78,7 +78,9 @@ def update_draft(
 
     with transaction.atomic():
         locked_draft = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("requester")
             .get(pk=draft.pk)
         )
@@ -106,7 +108,9 @@ def delete_draft(
 
     with transaction.atomic():
         locked_draft = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("requester")
             .get(pk=draft.pk)
         )

@@ -24,6 +24,12 @@ from apps.corrections.services.duplicates import (
 from apps.corrections.services.timeline import (
     record_timeline,
 )
+from apps.notifications.models import (
+    NotificationEventType,
+)
+from apps.notifications.services.delivery import (
+    notify_workflow_event,
+)
 from apps.employees.models import EmployeeProfile
 from apps.erp.models import ResponsiblePersonMapping
 
@@ -57,7 +63,9 @@ def submit_request(
 
     with transaction.atomic():
         locked_draft = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related(
                 "requester",
                 "site",
@@ -218,6 +226,25 @@ def submit_request(
                 route=approval_route,
                 submitted_at=now,
             )
+            notify_workflow_event(
+                event_type=(
+                    NotificationEventType.REQUEST_SUBMITTED
+                ),
+                correction_request=locked_draft,
+                recipients=[locked_draft.requester],
+                actor=user,
+            )
+            notify_workflow_event(
+                event_type=(
+                    NotificationEventType.APPROVAL_PENDING
+                ),
+                correction_request=locked_draft,
+                recipients=[
+                    route_step.approver
+                    for route_step in approval_route
+                ],
+                actor=user,
+            )
 
         if to_status == CorrectionRequestStatus.ASSIGNED:
             record_timeline(
@@ -237,6 +264,22 @@ def submit_request(
                     if responsible_mapping
                     else "",
                 },
+            )
+            notify_workflow_event(
+                event_type=(
+                    NotificationEventType.REQUEST_SUBMITTED
+                ),
+                correction_request=locked_draft,
+                recipients=[locked_draft.requester],
+                actor=user,
+            )
+            notify_workflow_event(
+                event_type=(
+                    NotificationEventType.REQUEST_ASSIGNED
+                ),
+                correction_request=locked_draft,
+                recipients=[current_owner],
+                actor=user,
             )
 
         return locked_draft

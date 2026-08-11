@@ -63,7 +63,9 @@ def cancel_request(
 
     with transaction.atomic():
         locked_request = (
-            CorrectionRequest.objects.select_for_update()
+            CorrectionRequest.objects.select_for_update(
+                of=("self",)
+            )
             .select_related("requester", "current_owner")
             .get(pk=request.pk)
         )
