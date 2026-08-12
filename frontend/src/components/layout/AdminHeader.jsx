@@ -1,9 +1,7 @@
-import {
-  Bell,
-  Menu,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { env } from "../../config/env";
+import { NotificationBell } from "./NotificationBell";
 import { ProfileMenu } from "./ProfileMenu";
 import { ServerClock } from "./ServerClock";
 
@@ -35,14 +33,7 @@ export function AdminHeader({
       <div className="admin-header__right">
         <ServerClock />
 
-        <button
-          type="button"
-          className="icon-button notification-button"
-          aria-label="Notifications"
-        >
-          <Bell size={20} />
-          <span className="notification-button__dot" />
-        </button>
+        <NotificationBell />
 
         <ProfileMenu />
       </div>

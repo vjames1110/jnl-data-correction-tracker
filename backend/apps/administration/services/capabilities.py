@@ -23,6 +23,8 @@ ADMIN_CAPABILITIES = {
     AdminCapability.MANAGE_DEPARTMENTS,
     AdminCapability.VIEW_VOUCHERS,
     AdminCapability.MANAGE_VOUCHERS,
+    AdminCapability.VIEW_CORRECTION_REQUESTS,
+    AdminCapability.ASSIGN_CORRECTION_REQUESTS,
     AdminCapability.VIEW_REPORTS,
     AdminCapability.EXPORT_REPORTS,
 }
@@ -96,6 +98,17 @@ def build_admin_navigation(
             "icon": "file-text",
             "required_capability": (
                 AdminCapability.VIEW_VOUCHERS.value
+            ),
+        },
+        {
+            "key": "requests",
+            "label": "Correction Requests",
+            "path": "/admin/requests",
+            "icon": "clipboard-list",
+            "required_capability": (
+                AdminCapability
+                .VIEW_CORRECTION_REQUESTS
+                .value
             ),
         },
         {

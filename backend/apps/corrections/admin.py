@@ -7,6 +7,7 @@ from apps.corrections.models import (
     CorrectionRequest,
     CorrectionRequestAttachment,
     CorrectionRequestReferenceSequence,
+    CorrectionRequestResolution,
     CorrectionRequestTimeline,
 )
 
@@ -242,6 +243,31 @@ class CorrectionRequestTimelineAdmin(admin.ModelAdmin):
         "request__reference",
         "actor__employee_id",
         "comment",
+    ]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+    ]
+
+
+@admin.register(CorrectionRequestResolution)
+class CorrectionRequestResolutionAdmin(
+    admin.ModelAdmin
+):
+    list_display = [
+        "request",
+        "resolved_by",
+        "completion_date",
+        "erp_reference",
+        "created_at",
+    ]
+    list_filter = [
+        "completion_date",
+    ]
+    search_fields = [
+        "request__reference",
+        "resolved_by__employee_id",
+        "erp_reference",
     ]
     readonly_fields = [
         "created_at",

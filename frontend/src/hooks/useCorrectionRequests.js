@@ -200,6 +200,34 @@ export function useReopenCorrectionRequest() {
   });
 }
 
+export function useAssignCorrectionRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.assignRequest(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useReassignCorrectionRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.reassignRequest(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
 export function useUploadCorrectionAttachment() {
   const queryClient = useQueryClient();
 

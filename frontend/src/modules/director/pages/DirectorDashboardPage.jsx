@@ -27,6 +27,14 @@ import {
   buildApprovalSummary,
 } from "../utils/approvalMetrics";
 
+function isDecided(step) {
+  return (
+    !(
+      step.status === "PENDING" && step.is_current
+    ) && step.status !== "SKIPPED"
+  );
+}
+
 function KpiCard({
   icon: Icon,
   label,
@@ -63,6 +71,9 @@ export function DirectorDashboardPage() {
         step.status === "PENDING" &&
         step.is_current,
     )
+    .slice(0, 8);
+  const decidedSteps = steps
+    .filter(isDecided)
     .slice(0, 8);
 
   if (approvalsQuery.isLoading) {
@@ -224,6 +235,90 @@ export function DirectorDashboardPage() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SurfaceCard>
+
+      <SurfaceCard title="Recently Decided">
+        {!decidedSteps.length ? (
+          <EmptyState
+            title="No decisions yet"
+            message="Requests you approve, reject or return will appear here with their current owner."
+          />
+        ) : (
+          <div className="data-table-wrapper">
+            <table className="data-table director-approval-table">
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  <th>Requester</th>
+                  <th>Your Decision</th>
+                  <th>Current Status</th>
+                  <th>Current Owner</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decidedSteps.map((step) => (
+                  <tr key={step.id}>
+                    <td>
+                      <strong>
+                        {step.request_reference}
+                      </strong>
+                      <small>
+                        {formatDateTime(
+                          step.decided_at,
+                        )}
+                      </small>
+                    </td>
+                    <td>
+                      {formatPerson({
+                        employeeId:
+                          step.requester_employee_id,
+                        name: step.requester_name,
+                      })}
+                    </td>
+                    <td>
+                      <span
+                        className={`request-status request-status--${approvalStatusTone(
+                          step.status,
+                        )}`}
+                      >
+                        {formatApprovalStatus(
+                          step.status,
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`request-status request-status--${approvalStatusTone(
+                          step.request_status,
+                        )}`}
+                      >
+                        {formatApprovalStatus(
+                          step.request_status,
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      {formatPerson({
+                        employeeId:
+                          step.request_current_owner_employee_id,
+                        name: step.request_current_owner_name,
+                      })}
+                    </td>
+                    <td>
+                      <Link
+                        className="button button--secondary"
+                        to={`/director/approvals/${step.id}`}
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

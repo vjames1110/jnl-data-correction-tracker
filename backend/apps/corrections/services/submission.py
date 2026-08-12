@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -14,6 +13,9 @@ from apps.corrections.models import (
 from apps.corrections.services.approvals import (
     build_approval_route,
     snapshot_approval_route,
+)
+from apps.corrections.services.assignment import (
+    resolve_responsible_person,
 )
 from apps.corrections.services.drafts import (
     validate_draft_access,
@@ -31,7 +33,6 @@ from apps.notifications.services.delivery import (
     notify_workflow_event,
 )
 from apps.employees.models import EmployeeProfile
-from apps.erp.models import ResponsiblePersonMapping
 
 
 BASE_REQUIRED_FIELDS = {
@@ -93,7 +94,7 @@ def submit_request(
         )
         _validate_voucher(locked_draft)
 
-        responsible_mapping = _find_responsible_mapping(
+        responsible_mapping = resolve_responsible_person(
             locked_draft
         )
         if (
@@ -403,51 +404,6 @@ def _validate_voucher(
 
     if errors:
         raise ValidationError(errors)
-
-
-def _find_responsible_mapping(
-    request: CorrectionRequest,
-):
-    queryset = ResponsiblePersonMapping.objects.filter(
-        is_active=True,
-        erp_module_id=request.erp_module_id,
-    ).filter(
-        Q(voucher_type__isnull=True)
-        | Q(voucher_type_id=request.voucher_type_id),
-        Q(department__isnull=True)
-        | Q(department_id=request.department_id),
-        Q(site__isnull=True) | Q(site_id=request.site_id),
-        Q(work_type__isnull=True)
-        | Q(work_type_id=request.work_type_id),
-        Q(priority__isnull=True)
-        | Q(priority_id=request.priority_id),
-    )
-
-    candidates = list(queryset)
-    if not candidates:
-        return None
-
-    return sorted(
-        candidates,
-        key=_mapping_specificity,
-        reverse=True,
-    )[0]
-
-
-def _mapping_specificity(
-    mapping: ResponsiblePersonMapping,
-) -> tuple[int, int]:
-    fields = [
-        mapping.voucher_type_id,
-        mapping.department_id,
-        mapping.site_id,
-        mapping.work_type_id,
-        mapping.priority_id,
-    ]
-    return (
-        sum(1 for value in fields if value),
-        -mapping.display_order,
-    )
 
 
 def _save_or_raise(

@@ -30,3 +30,19 @@ export function isResponsibleRole(role) {
     USER_ROLES.SUPER_ADMIN,
   ].includes(role);
 }
+
+export function portalBasePath(role) {
+  if (isAdminRole(role)) {
+    return "/admin";
+  }
+
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director";
+  }
+
+  if (role === USER_ROLES.RESPONSIBLE_PERSON) {
+    return "/responsible";
+  }
+
+  return "/user";
+}

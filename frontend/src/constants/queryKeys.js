@@ -288,4 +288,18 @@ export const queryKeys = Object.freeze({
     "approvals",
     "pending-counts",
   ],
+  notifications: (params) => [
+    "notifications",
+    "list",
+    params,
+  ],
+  notification: (id) => [
+    "notifications",
+    "detail",
+    id,
+  ],
+  notificationPreferences: [
+    "notifications",
+    "preferences",
+  ],
 });

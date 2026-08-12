@@ -329,6 +329,24 @@ export const correctionRequestService = {
     return resolveItem(response);
   },
 
+  async assignRequest(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/assign/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async reassignRequest(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/reassign/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
   async getTimeline(request) {
     const response = await apiClient.get(
       "/corrections/timeline/",

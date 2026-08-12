@@ -24,6 +24,9 @@ from apps.corrections.models import (
     CorrectionRequestStatus,
     CorrectionTimelineEventType,
 )
+from apps.corrections.services.assignment import (
+    resolve_responsible_person,
+)
 from apps.corrections.services.timeline import (
     record_timeline,
 )
@@ -399,7 +402,65 @@ def approve_step(
             },
         )
 
+        _auto_assign_responsible_person(
+            correction_request=correction_request,
+            actor=user,
+        )
+
         return locked_step
+
+
+def _auto_assign_responsible_person(
+    *,
+    correction_request: CorrectionRequest,
+    actor,
+) -> None:
+    """
+    Immediately route a newly approved request to a matching
+    Responsible Person, when one is configured. Requests without an
+    active mapping remain APPROVED for manual assignment later.
+    """
+    mapping = resolve_responsible_person(
+        correction_request
+    )
+    if mapping is None:
+        return
+
+    from_status = correction_request.current_status
+    correction_request.current_status = (
+        CorrectionRequestStatus.ASSIGNED
+    )
+    correction_request.current_owner = (
+        mapping.responsible_person
+    )
+    correction_request.save(
+        update_fields=[
+            "current_status",
+            "current_owner",
+            "updated_at",
+        ]
+    )
+
+    record_timeline(
+        request=correction_request,
+        actor=actor,
+        event_type=CorrectionTimelineEventType.ASSIGNED,
+        from_status=from_status,
+        to_status=CorrectionRequestStatus.ASSIGNED,
+        comment="Request assigned after final approval.",
+        metadata={
+            "responsible_mapping_id": str(mapping.id),
+            "assigned_to": str(
+                mapping.responsible_person_id
+            ),
+        },
+    )
+    notify_workflow_event(
+        event_type=NotificationEventType.REQUEST_ASSIGNED,
+        correction_request=correction_request,
+        recipients=[mapping.responsible_person],
+        actor=actor,
+    )
 
 
 def reject_step(

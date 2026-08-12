@@ -24,10 +24,16 @@ from apps.corrections.api.serializers import (
     ApprovalDelegateSerializer,
     ApprovalEscalationSerializer,
     CorrectionApprovalStepSerializer,
+    CorrectionRequestAssignSerializer,
     CorrectionRequestAttachmentSerializer,
     CorrectionRequestCancelSerializer,
     CorrectionRequestCommentSerializer,
     CorrectionRequestDraftSerializer,
+    CorrectionRequestHoldSerializer,
+    CorrectionRequestReassignmentRequestSerializer,
+    CorrectionRequestReassignSerializer,
+    CorrectionRequestResolutionSerializer,
+    CorrectionRequestResolveSerializer,
     CorrectionRequestSubmitSerializer,
     CorrectionRequestTimelineSerializer,
 )
@@ -36,12 +42,27 @@ from apps.corrections.models import (
     CorrectionApprovalStep,
     CorrectionRequest,
     CorrectionRequestAttachment,
+    CorrectionRequestResolution,
     CorrectionRequestStatus,
     CorrectionRequestTimeline,
     CorrectionTimelineEventType,
 )
 from apps.corrections.services.access import (
     visible_request_queryset,
+)
+from apps.corrections.services.assignment import (
+    assign_request,
+    reassign_request,
+)
+from apps.corrections.services.resolution import (
+    resolve_work,
+)
+from apps.corrections.services.work import (
+    accept_assignment,
+    hold_work,
+    request_reassignment,
+    resume_work,
+    start_work,
 )
 from apps.corrections.services.attachments import (
     create_attachment,
@@ -325,8 +346,23 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
             "comment",
             "confirm_resolution",
             "reopen",
+            "accept",
+            "start_progress",
+            "resume",
         }:
             return CorrectionRequestCommentSerializer
+        if self.action == "assign":
+            return CorrectionRequestAssignSerializer
+        if self.action == "request_reassignment":
+            return (
+                CorrectionRequestReassignmentRequestSerializer
+            )
+        if self.action == "reassign":
+            return CorrectionRequestReassignSerializer
+        if self.action == "hold":
+            return CorrectionRequestHoldSerializer
+        if self.action == "resolve":
+            return CorrectionRequestResolveSerializer
         return super().get_serializer_class()
 
     def get_queryset(self):
@@ -414,6 +450,103 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
         return success_response(
             message="My correction requests fetched successfully.",
             data=serializer.data,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="my-assignments",
+    )
+    def my_assignments(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                current_owner=request.user
+            )
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(
+                page,
+                many=True,
+            )
+            return self.get_paginated_response(
+                serializer.data
+            )
+
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+        return success_response(
+            message="Assignment inbox fetched successfully.",
+            data=serializer.data,
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="assignment-counts",
+    )
+    def assignment_counts(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        queryset = self.get_queryset().filter(
+            current_owner=request.user
+        )
+        now = timezone.now()
+        today = timezone.localdate()
+        active_statuses = (
+            CorrectionRequestStatus.ASSIGNED,
+            CorrectionRequestStatus.ACCEPTED,
+            CorrectionRequestStatus.IN_PROGRESS,
+            CorrectionRequestStatus.ON_HOLD,
+        )
+
+        return success_response(
+            message="Assignment counts fetched successfully.",
+            data={
+                "newly_assigned": queryset.filter(
+                    current_status=(
+                        CorrectionRequestStatus.ASSIGNED
+                    ),
+                ).count(),
+                "accepted": queryset.filter(
+                    current_status=(
+                        CorrectionRequestStatus.ACCEPTED
+                    ),
+                ).count(),
+                "in_progress": queryset.filter(
+                    current_status=(
+                        CorrectionRequestStatus.IN_PROGRESS
+                    ),
+                ).count(),
+                "on_hold": queryset.filter(
+                    current_status=(
+                        CorrectionRequestStatus.ON_HOLD
+                    ),
+                ).count(),
+                "overdue": queryset.filter(
+                    current_status__in=active_statuses,
+                    sla_deadline__isnull=False,
+                    sla_deadline__lt=now,
+                ).count(),
+                "resolved_today": queryset.filter(
+                    current_status=(
+                        CorrectionRequestStatus.RESOLVED
+                    ),
+                    resolutions__created_at__date=(
+                        today
+                    ),
+                ).distinct().count(),
+            },
         )
 
     @action(
@@ -587,6 +720,280 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
             ).data,
         )
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="assign",
+    )
+    def assign(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        assigned_request = assign_request(
+            request=self.get_object(),
+            responsible_person=serializer.validated_data[
+                "responsible_person"
+            ],
+            actor=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Correction request assigned successfully.",
+            data=CorrectionRequestDraftSerializer(
+                assigned_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="accept",
+    )
+    def accept(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        accepted_request = accept_assignment(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Assignment accepted successfully.",
+            data=CorrectionRequestDraftSerializer(
+                accepted_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="request-reassignment",
+    )
+    def request_reassignment(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        returned_request = request_reassignment(
+            request=self.get_object(),
+            user=request.user,
+            reason=serializer.validated_data[
+                "reason"
+            ],
+        )
+
+        return success_response(
+            message="Reassignment requested successfully.",
+            data=CorrectionRequestDraftSerializer(
+                returned_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="start-progress",
+    )
+    def start_progress(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        in_progress_request = start_work(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Work marked in progress successfully.",
+            data=CorrectionRequestDraftSerializer(
+                in_progress_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="hold",
+    )
+    def hold(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        held_request = hold_work(
+            request=self.get_object(),
+            user=request.user,
+            reason=serializer.validated_data[
+                "reason"
+            ],
+            expected_resume_date=serializer.validated_data.get(
+                "expected_resume_date"
+            ),
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Correction request placed on hold successfully.",
+            data=CorrectionRequestDraftSerializer(
+                held_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="resume",
+    )
+    def resume(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        resumed_request = resume_work(
+            request=self.get_object(),
+            user=request.user,
+            comment=serializer.validated_data.get(
+                "comment",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Work resumed successfully.",
+            data=CorrectionRequestDraftSerializer(
+                resumed_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reassign",
+    )
+    def reassign(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        reassigned_request = reassign_request(
+            request=self.get_object(),
+            responsible_person=serializer.validated_data[
+                "responsible_person"
+            ],
+            actor=request.user,
+            reason=serializer.validated_data[
+                "reason"
+            ],
+        )
+
+        return success_response(
+            message="Correction request reassigned successfully.",
+            data=CorrectionRequestDraftSerializer(
+                reassigned_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="resolve",
+    )
+    def resolve(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(
+            raise_exception=True
+        )
+        resolved_request = resolve_work(
+            request=self.get_object(),
+            user=request.user,
+            erp_action_completed=serializer.validated_data[
+                "erp_action_completed"
+            ],
+            completion_date=serializer.validated_data[
+                "completion_date"
+            ],
+            erp_reference=serializer.validated_data.get(
+                "erp_reference",
+                "",
+            ),
+            access_window_start_used=serializer.validated_data.get(
+                "access_window_start_used"
+            ),
+            access_window_end_used=serializer.validated_data.get(
+                "access_window_end_used"
+            ),
+            actual_amount=serializer.validated_data.get(
+                "actual_amount"
+            ),
+            actual_quantity=serializer.validated_data.get(
+                "actual_quantity"
+            ),
+            final_comments=serializer.validated_data.get(
+                "final_comments",
+                "",
+            ),
+        )
+
+        return success_response(
+            message="Correction request resolved successfully.",
+            data=CorrectionRequestDraftSerializer(
+                resolved_request,
+                context=self.get_serializer_context(),
+            ).data,
+        )
+
 
 class CorrectionRequestAttachmentViewSet(
     viewsets.ModelViewSet
@@ -735,6 +1142,50 @@ class CorrectionRequestTimelineViewSet(
             .select_related(
                 "request",
                 "actor",
+            )
+        )
+
+        queryset = queryset.filter(
+            request_id__in=visible_request_queryset(
+                self.request.user
+            ).values("pk")
+        )
+
+        request_id = self.request.query_params.get(
+            "request"
+        )
+        if request_id:
+            queryset = queryset.filter(
+                request_id=request_id
+            )
+
+        return queryset
+
+
+class CorrectionRequestResolutionViewSet(
+    viewsets.ReadOnlyModelViewSet
+):
+    serializer_class = (
+        CorrectionRequestResolutionSerializer
+    )
+    permission_classes = [HasCorrectionRequestAccess]
+    lookup_field = "id"
+    filterset_fields = [
+        "request",
+        "resolved_by",
+    ]
+    ordering_fields = [
+        "created_at",
+        "completion_date",
+    ]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        queryset = (
+            CorrectionRequestResolution.objects.all()
+            .select_related(
+                "request",
+                "resolved_by",
             )
         )
 

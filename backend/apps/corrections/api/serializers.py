@@ -2,10 +2,15 @@ from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
 
+from apps.authentication.models import (
+    AccountStatus,
+    UserRole,
+)
 from apps.corrections.models import (
     CorrectionApprovalStep,
     CorrectionRequest,
     CorrectionRequestAttachment,
+    CorrectionRequestResolution,
     CorrectionRequestTimeline,
 )
 
@@ -199,6 +204,63 @@ class CorrectionRequestCommentSerializer(
     )
 
 
+class CorrectionRequestAssignSerializer(
+    serializers.Serializer
+):
+    responsible_person = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.filter(
+            role=UserRole.RESPONSIBLE_PERSON,
+            is_active=True,
+            account_status=AccountStatus.ACTIVE,
+        ),
+    )
+    comment = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+
+
+class CorrectionRequestReassignmentRequestSerializer(
+    serializers.Serializer
+):
+    reason = serializers.CharField(
+        trim_whitespace=True,
+    )
+
+
+class CorrectionRequestReassignSerializer(
+    serializers.Serializer
+):
+    responsible_person = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.filter(
+            role=UserRole.RESPONSIBLE_PERSON,
+            is_active=True,
+            account_status=AccountStatus.ACTIVE,
+        ),
+    )
+    reason = serializers.CharField(
+        trim_whitespace=True,
+    )
+
+
+class CorrectionRequestHoldSerializer(
+    serializers.Serializer
+):
+    reason = serializers.CharField(
+        trim_whitespace=True,
+    )
+    expected_resume_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+    )
+    comment = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+
+
 class CorrectionRequestAttachmentSerializer(
     serializers.ModelSerializer
 ):
@@ -297,6 +359,85 @@ class CorrectionRequestTimelineSerializer(
         read_only_fields = fields
 
 
+class CorrectionRequestResolutionSerializer(
+    serializers.ModelSerializer
+):
+    request_reference = serializers.CharField(
+        source="request.reference",
+        read_only=True,
+    )
+    resolved_by_employee_id = serializers.CharField(
+        source="resolved_by.employee_id",
+        read_only=True,
+    )
+    resolved_by_name = serializers.CharField(
+        source="resolved_by.full_name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = CorrectionRequestResolution
+        fields = [
+            "id",
+            "request",
+            "request_reference",
+            "resolved_by",
+            "resolved_by_employee_id",
+            "resolved_by_name",
+            "erp_action_completed",
+            "completion_date",
+            "erp_reference",
+            "access_window_start_used",
+            "access_window_end_used",
+            "actual_amount",
+            "actual_quantity",
+            "final_comments",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CorrectionRequestResolveSerializer(
+    serializers.Serializer
+):
+    erp_action_completed = serializers.CharField(
+        trim_whitespace=True,
+    )
+    completion_date = serializers.DateField()
+    erp_reference = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+    access_window_start_used = (
+        serializers.DateTimeField(
+            required=False,
+            allow_null=True,
+        )
+    )
+    access_window_end_used = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+    )
+    actual_amount = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    actual_quantity = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    final_comments = serializers.CharField(
+        allow_blank=True,
+        required=False,
+        trim_whitespace=True,
+    )
+
+
 class CorrectionApprovalStepSerializer(
     serializers.ModelSerializer
 ):
@@ -306,6 +447,18 @@ class CorrectionApprovalStepSerializer(
     )
     request_status = serializers.CharField(
         source="request.current_status",
+        read_only=True,
+    )
+    request_current_owner_employee_id = (
+        serializers.CharField(
+            source=(
+                "request.current_owner.employee_id"
+            ),
+            read_only=True,
+        )
+    )
+    request_current_owner_name = serializers.CharField(
+        source="request.current_owner.full_name",
         read_only=True,
     )
     requester_employee_id = serializers.CharField(
@@ -386,6 +539,8 @@ class CorrectionApprovalStepSerializer(
             "request",
             "request_reference",
             "request_status",
+            "request_current_owner_employee_id",
+            "request_current_owner_name",
             "requester_employee_id",
             "requester_name",
             "request_submitted_at",

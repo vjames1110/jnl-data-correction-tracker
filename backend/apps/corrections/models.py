@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.core.models import (
     SoftDeleteModel,
@@ -32,7 +33,9 @@ class CorrectionRequestStatus(models.TextChoices):
     )
     APPROVED = "APPROVED", "Approved"
     ASSIGNED = "ASSIGNED", "Assigned"
+    ACCEPTED = "ACCEPTED", "Accepted"
     IN_PROGRESS = "IN_PROGRESS", "In Progress"
+    ON_HOLD = "ON_HOLD", "On Hold"
     RESOLVED = "RESOLVED", "Resolved"
     REOPENED = "REOPENED", "Reopened"
     CLOSED = "CLOSED", "Closed"
@@ -1043,3 +1046,120 @@ class CorrectionRequestTimeline(
             f"{self.request.reference} - "
             f"{self.event_type} - {self.created_at}"
         )
+
+
+class CorrectionRequestResolution(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+):
+    """
+    ERP correction outcome recorded by the Responsible Person.
+
+    A request may accumulate more than one resolution record across
+    its lifetime when it is reopened and resolved again.
+    """
+
+    request = models.ForeignKey(
+        CorrectionRequest,
+        on_delete=models.PROTECT,
+        related_name="resolutions",
+    )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="correction_resolutions",
+    )
+    erp_action_completed = models.TextField()
+    completion_date = models.DateField()
+    erp_reference = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    access_window_start_used = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    access_window_end_used = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    actual_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    actual_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    final_comments = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "correction_request_resolution"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["request", "created_at"],
+                name="corr_resolution_req_date_idx",
+            ),
+        ]
+        verbose_name = "Correction Request Resolution"
+        verbose_name_plural = (
+            "Correction Request Resolutions"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.request.reference} - "
+            f"{self.completion_date}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if (
+            self.completion_date
+            and self.completion_date
+            > timezone.localdate()
+        ):
+            errors["completion_date"] = (
+                "Completion date cannot be in the future."
+            )
+
+        if (
+            self.access_window_start_used
+            and self.access_window_end_used
+            and self.access_window_end_used
+            < self.access_window_start_used
+        ):
+            errors["access_window_end_used"] = (
+                "Access window end cannot be before the start."
+            )
+
+        if (
+            self.actual_amount is not None
+            and self.actual_amount < Decimal("0")
+        ):
+            errors["actual_amount"] = (
+                "Actual amount cannot be negative."
+            )
+
+        if (
+            self.actual_quantity is not None
+            and self.actual_quantity < Decimal("0")
+        ):
+            errors["actual_quantity"] = (
+                "Actual quantity cannot be negative."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)

@@ -474,10 +474,13 @@ export function RequestDetailsPage() {
                   value={request.priority_name}
                 />
                 <DetailItem
-                  label="Current Approver/Owner"
+                  label="Current Owner"
                   value={
-                    request.current_owner_name ||
+                    request.current_owner_name &&
                     request.current_owner_employee_id
+                      ? `${request.current_owner_name} (${request.current_owner_employee_id})`
+                      : request.current_owner_name ||
+                        request.current_owner_employee_id
                   }
                 />
                 <DetailItem

@@ -39,7 +39,7 @@ export function RequestTable({
             <th>Submitted</th>
             <th>ERP</th>
             <th>Status</th>
-            <th>Current Approver</th>
+            <th>Current Owner</th>
             <th>SLA</th>
             <th>Latest Update</th>
             {showActions ? <th>Actions</th> : null}
@@ -92,7 +92,7 @@ export function RequestTable({
                 {request.current_owner_employee_id ||
                   "-"}
                 <span className="table-subtext">
-                  {request.priority_name || "-"}
+                  {request.current_owner_name || "-"}
                 </span>
               </td>
               <td>

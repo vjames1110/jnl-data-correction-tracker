@@ -1,4 +1,4 @@
-export const REQUEST_STATUS_LABELS = {
+const REQUEST_STATUS_LABELS = {
   DRAFT: "Draft",
   SUBMITTED: "Submitted",
   PENDING_APPROVAL: "Pending Approval",
@@ -14,14 +14,14 @@ export const REQUEST_STATUS_LABELS = {
   CANCELLED: "Cancelled",
 };
 
-export function formatStatus(status) {
+export function formatRequestStatus(status) {
   return (
     REQUEST_STATUS_LABELS[status] ??
     String(status ?? "-").replaceAll("_", " ")
   );
 }
 
-export function statusTone(status) {
+export function requestStatusTone(status) {
   if (
     ["RESOLVED", "CLOSED", "APPROVED"].includes(
       status,
@@ -52,23 +52,24 @@ export function statusTone(status) {
   return "neutral";
 }
 
-export function formatDate(value) {
-  if (!value) {
-    return "-";
+export function formatOwner({
+  employeeId,
+  name,
+}) {
+  if (name && employeeId) {
+    return `${name} (${employeeId})`;
   }
 
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-  }).format(new Date(value));
+  return name || employeeId || "-";
 }
 
-export function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
+export const ASSIGNABLE_REQUEST_STATUSES = [
+  "APPROVED",
+  "ASSIGNED",
+];
 
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+export const REASSIGNABLE_REQUEST_STATUSES = [
+  "ACCEPTED",
+  "IN_PROGRESS",
+  "ON_HOLD",
+];

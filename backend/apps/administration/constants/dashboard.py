@@ -38,6 +38,13 @@ class AdminCapability(StrEnum):
     VIEW_VOUCHERS = "view_vouchers"
     MANAGE_VOUCHERS = "manage_vouchers"
 
+    VIEW_CORRECTION_REQUESTS = (
+        "view_correction_requests"
+    )
+    ASSIGN_CORRECTION_REQUESTS = (
+        "assign_correction_requests"
+    )
+
     VIEW_REPORTS = "view_reports"
     EXPORT_REPORTS = "export_reports"
 

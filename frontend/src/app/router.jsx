@@ -8,6 +8,7 @@ import { DirectorLayout } from "../layouts/DirectorLayout";
 import { ResponsibleLayout } from "../layouts/ResponsibleLayout";
 import { UserLayout } from "../layouts/UserLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
+import { CorrectionRequestManagementPage } from "../modules/admin/pages/CorrectionRequestManagementPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
 import { DesignationManagementPage } from "../modules/admin/pages/DesignationManagementPage";
 import { DirectorMappingPage } from "../modules/admin/pages/DirectorMappingPage";
@@ -27,6 +28,7 @@ import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPag
 import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
+import { NotificationsPage } from "../modules/notifications/pages/NotificationsPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
 import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorApprovalDetailPage";
 import { DirectorApprovalInboxPage } from "../modules/director/pages/DirectorApprovalInboxPage";
@@ -105,6 +107,10 @@ export const router = createBrowserRouter([
             path: "/user/requests/:requestId",
             element: <RequestDetailsPage />,
           },
+          {
+            path: "/user/notifications",
+            element: <NotificationsPage />,
+          },
         ],
       },
       {
@@ -132,6 +138,11 @@ export const router = createBrowserRouter([
                 path: "/responsible/analytics",
                 element:
                   <ResponsiblePlaceholderPage />,
+              },
+              {
+                path: "/responsible/notifications",
+                element:
+                  <NotificationsPage />,
               },
             ],
           },
@@ -168,6 +179,11 @@ export const router = createBrowserRouter([
                 element:
                   <DirectorExportPage />,
               },
+              {
+                path: "/director/notifications",
+                element:
+                  <NotificationsPage />,
+              },
             ],
           },
         ],
@@ -187,6 +203,11 @@ export const router = createBrowserRouter([
                 path: "/admin/users",
                 element:
                   <EmployeeManagementPage />,
+              },
+              {
+                path: "/admin/requests",
+                element:
+                  <CorrectionRequestManagementPage />,
               },
               {
                 path: "/admin/organization",
@@ -267,6 +288,11 @@ export const router = createBrowserRouter([
                 path: "/admin/reports",
                 element:
                   <PlaceholderAdminPage />,
+              },
+              {
+                path: "/admin/notifications",
+                element:
+                  <NotificationsPage />,
               },
               {
                 path: "/admin/audit",

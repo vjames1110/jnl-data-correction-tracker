@@ -33,6 +33,11 @@ import {
 import {
   useUsersDropdown,
 } from "../../../hooks/useOrganization";
+import { AssignmentPanel } from "../../corrections/components/AssignmentPanel";
+import {
+  ASSIGNABLE_REQUEST_STATUSES,
+  REASSIGNABLE_REQUEST_STATUSES,
+} from "../../corrections/utils/requestStatusDisplay";
 import {
   approvalStatusTone,
   formatApprovalStatus,
@@ -773,6 +778,18 @@ export function DirectorApprovalDetailPage() {
               />
             </dl>
           </SurfaceCard>
+
+          {request &&
+          (ASSIGNABLE_REQUEST_STATUSES.includes(
+            request.current_status,
+          ) ||
+            REASSIGNABLE_REQUEST_STATUSES.includes(
+              request.current_status,
+            )) ? (
+            <SurfaceCard title="Assignment">
+              <AssignmentPanel request={request} />
+            </SurfaceCard>
+          ) : null}
         </aside>
       </div>
     </div>

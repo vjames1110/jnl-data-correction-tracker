@@ -5,6 +5,7 @@ from apps.corrections.api.views import (
     CorrectionApprovalStepViewSet,
     CorrectionRequestAttachmentViewSet,
     CorrectionRequestDraftViewSet,
+    CorrectionRequestResolutionViewSet,
     CorrectionRequestViewSet,
     CorrectionRequestTimelineViewSet,
 )
@@ -32,6 +33,11 @@ router.register(
     "timeline",
     CorrectionRequestTimelineViewSet,
     basename="timeline",
+)
+router.register(
+    "resolutions",
+    CorrectionRequestResolutionViewSet,
+    basename="resolutions",
 )
 router.register(
     "approvals",
