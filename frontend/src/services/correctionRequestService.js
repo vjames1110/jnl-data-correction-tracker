@@ -118,6 +118,86 @@ function buildDashboard(items) {
   };
 }
 
+function buildAssignmentAnalytics(items) {
+  const moduleMap = new Map();
+  const turnaroundHours = [];
+  const slaOutcomes = [];
+  let completed = 0;
+  let reopened = 0;
+
+  items.forEach((request) => {
+    incrementMap(
+      moduleMap,
+      request.erp_module_name ||
+        request.erp_module_code,
+    );
+
+    if (
+      ["RESOLVED", "CLOSED"].includes(
+        request.current_status,
+      )
+    ) {
+      completed += 1;
+
+      const turnaround = hoursBetween(
+        request.submitted_at ??
+          request.created_at,
+        request.updated_at,
+      );
+      if (turnaround !== null) {
+        turnaroundHours.push(turnaround);
+      }
+
+      if (request.sla_deadline) {
+        slaOutcomes.push(
+          new Date(request.updated_at).getTime() <=
+            new Date(
+              request.sla_deadline,
+            ).getTime(),
+        );
+      }
+    }
+
+    if (request.current_status === "REOPENED") {
+      reopened += 1;
+    }
+  });
+
+  const total = items.length || 1;
+  const averageTurnaroundHours =
+    turnaroundHours.length > 0
+      ? Math.round(
+          (turnaroundHours.reduce(
+            (sum, value) => sum + value,
+            0,
+          ) /
+            turnaroundHours.length) *
+            10,
+        ) / 10
+      : null;
+  const slaComplianceRate =
+    slaOutcomes.length > 0
+      ? Math.round(
+          (slaOutcomes.filter(Boolean).length /
+            slaOutcomes.length) *
+            1000,
+        ) / 10
+      : null;
+
+  return {
+    completed_requests: completed,
+    average_turnaround_hours:
+      averageTurnaroundHours,
+    sla_compliance_rate: slaComplianceRate,
+    reopen_rate:
+      Math.round((reopened / total) * 1000) / 10,
+    workload_by_module: mapToSeries(
+      moduleMap,
+      "module",
+    ),
+  };
+}
+
 function incrementMap(map, key) {
   const value = key || "Not specified";
   map.set(value, (map.get(value) ?? 0) + 1);
@@ -236,6 +316,39 @@ export const correctionRequestService = {
     };
   },
 
+  async getMyAssignments(params = {}) {
+    const response = await apiClient.get(
+      "/corrections/requests/my-assignments/",
+      {
+        params,
+      },
+    );
+
+    return {
+      items: resolveItems(response),
+      meta: resolveMeta(response),
+    };
+  },
+
+  async getAssignmentCounts() {
+    const response = await apiClient.get(
+      "/corrections/requests/assignment-counts/",
+    );
+
+    return resolveItem(response) ?? {};
+  },
+
+  async getAssignmentAnalytics() {
+    const response = await this.getMyAssignments({
+      page_size: 500,
+      ordering: "-updated_at",
+    });
+
+    return buildAssignmentAnalytics(
+      response.items,
+    );
+  },
+
   async getRequest(id) {
     const response = await apiClient.get(
       `/corrections/requests/${id}/`,
@@ -341,6 +454,60 @@ export const correctionRequestService = {
   async reassignRequest(id, payload) {
     const response = await apiClient.post(
       `/corrections/requests/${id}/reassign/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async acceptAssignment(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/accept/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async requestReassignment(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/request-reassignment/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async startProgress(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/start-progress/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async holdWork(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/hold/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async resumeWork(id, payload = {}) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/resume/`,
+      payload,
+    );
+
+    return resolveItem(response);
+  },
+
+  async resolveWork(id, payload) {
+    const response = await apiClient.post(
+      `/corrections/requests/${id}/resolve/`,
       payload,
     );
 

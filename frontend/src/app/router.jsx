@@ -34,8 +34,10 @@ import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorAp
 import { DirectorApprovalInboxPage } from "../modules/director/pages/DirectorApprovalInboxPage";
 import { DirectorDashboardPage } from "../modules/director/pages/DirectorDashboardPage";
 import { DirectorExportPage } from "../modules/director/pages/DirectorExportPage";
+import { ResponsibleAnalyticsPage } from "../modules/responsible/pages/ResponsibleAnalyticsPage";
+import { ResponsibleAssignmentDetailPage } from "../modules/responsible/pages/ResponsibleAssignmentDetailPage";
+import { ResponsibleAssignmentsPage } from "../modules/responsible/pages/ResponsibleAssignmentsPage";
 import { ResponsibleDashboardPage } from "../modules/responsible/pages/ResponsibleDashboardPage";
-import { ResponsiblePlaceholderPage } from "../modules/responsible/pages/ResponsiblePlaceholderPage";
 import { CreateTrackerPage } from "../modules/user/pages/CreateTrackerPage";
 import { RequestDetailsPage } from "../modules/user/pages/RequestDetailsPage";
 import { UserAnalyticsPage } from "../modules/user/pages/UserAnalyticsPage";
@@ -127,17 +129,17 @@ export const router = createBrowserRouter([
               {
                 path: "/responsible/assignments",
                 element:
-                  <ResponsiblePlaceholderPage />,
+                  <ResponsibleAssignmentsPage />,
               },
               {
                 path: "/responsible/assignments/:assignmentId",
                 element:
-                  <ResponsiblePlaceholderPage />,
+                  <ResponsibleAssignmentDetailPage />,
               },
               {
                 path: "/responsible/analytics",
                 element:
-                  <ResponsiblePlaceholderPage />,
+                  <ResponsibleAnalyticsPage />,
               },
               {
                 path: "/responsible/notifications",

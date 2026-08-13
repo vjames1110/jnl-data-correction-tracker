@@ -46,6 +46,13 @@ REASSIGNABLE_STATUSES = {
     CorrectionRequestStatus.ACCEPTED,
     CorrectionRequestStatus.IN_PROGRESS,
     CorrectionRequestStatus.ON_HOLD,
+    CorrectionRequestStatus.RESOLVED,
+    CorrectionRequestStatus.REOPENED,
+}
+
+REQUESTER_REASSIGNABLE_STATUSES = {
+    CorrectionRequestStatus.RESOLVED,
+    CorrectionRequestStatus.REOPENED,
 }
 
 
@@ -178,6 +185,12 @@ def reassign_request(
     live the next time an assignment is resolved since it is computed
     from each candidate's current active requests rather than a
     stored counter.
+
+    A resolved or reopened request may also be reassigned by its own
+    requester (in addition to an admin or authorized approver) so a
+    correction that was not actually completed, or completed
+    incorrectly, can be routed to a different Responsible Person with
+    a reason, without waiting on an admin.
     """
     cleaned_reason = reason.strip()
     if not cleaned_reason:
@@ -196,14 +209,16 @@ def reassign_request(
         actor=actor,
         allowed_statuses=REASSIGNABLE_STATUSES,
         status_error=(
-            "Only accepted, in-progress or on-hold "
-            "requests can be reassigned."
+            "Only accepted, in-progress, on-hold, "
+            "resolved or reopened requests can be "
+            "reassigned."
         ),
         note=cleaned_reason,
         metadata={
             "reassigned": True,
             "reason": cleaned_reason,
         },
+        ensure_permission=_ensure_can_reassign,
     )
 
 
@@ -216,8 +231,12 @@ def _apply_assignment(
     status_error: str,
     note: str,
     metadata: dict,
+    ensure_permission=None,
 ) -> CorrectionRequest:
-    _ensure_can_assign(
+    ensure_permission = (
+        ensure_permission or _ensure_can_assign
+    )
+    ensure_permission(
         request=request,
         actor=actor,
     )
@@ -240,7 +259,7 @@ def _apply_assignment(
             )
             .get(pk=request.pk)
         )
-        _ensure_can_assign(
+        ensure_permission(
             request=locked_request,
             actor=actor,
         )
@@ -317,6 +336,38 @@ def _ensure_can_assign(
     raise PermissionDenied(
         "Only an admin or an authorized approver can "
         "assign this request."
+    )
+
+
+def _ensure_can_reassign(
+    *,
+    request: CorrectionRequest,
+    actor,
+) -> None:
+    if not can_access_request(
+        request=request,
+        user=actor,
+    ):
+        raise PermissionDenied(
+            "You do not have access to this correction request."
+        )
+
+    if _is_admin_user(actor) or actor.has_role(
+        UserRole.DIRECTOR
+    ):
+        return
+
+    if (
+        request.requester_id == actor.id
+        and request.current_status
+        in REQUESTER_REASSIGNABLE_STATUSES
+    ):
+        return
+
+    raise PermissionDenied(
+        "Only an admin, an authorized approver, or "
+        "the requester of a resolved or reopened "
+        "request can reassign this request."
     )
 
 

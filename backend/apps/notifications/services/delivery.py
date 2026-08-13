@@ -66,6 +66,14 @@ EVENT_DEFAULTS = {
         "title": "SLA breached",
         "severity": NotificationSeverity.CRITICAL,
     },
+    NotificationEventType.AUTO_CLOSE_REMINDER: {
+        "title": "Confirm resolution soon",
+        "severity": NotificationSeverity.WARNING,
+    },
+    NotificationEventType.REQUEST_AUTO_CLOSED: {
+        "title": "Request auto-closed",
+        "severity": NotificationSeverity.INFO,
+    },
 }
 
 

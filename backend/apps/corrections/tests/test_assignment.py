@@ -1055,6 +1055,142 @@ class ReassignmentApiTests(TransactionTestCase):
             status.HTTP_403_FORBIDDEN,
         )
 
+    def test_requester_can_reassign_resolved_request(
+        self,
+    ):
+        resolved = self._resolved_request(
+            "JV-REAS-005"
+        )
+        self.assertEqual(
+            resolved.current_status,
+            CorrectionRequestStatus.RESOLVED,
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/requests/{resolved.id}/reassign/",
+            {
+                "responsible_person": str(
+                    self.person_b.id
+                ),
+                "reason": (
+                    "Voucher was not actually "
+                    "corrected in the ERP."
+                ),
+            },
+            format="json",
+        )
+        resolved.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            resolved.current_status,
+            CorrectionRequestStatus.ASSIGNED,
+        )
+        self.assertEqual(
+            resolved.current_owner_id,
+            self.person_b.id,
+        )
+
+    def test_requester_can_reassign_reopened_request(
+        self,
+    ):
+        reopened = self._reopened_request(
+            "JV-REAS-006"
+        )
+        self.assertEqual(
+            reopened.current_status,
+            CorrectionRequestStatus.REOPENED,
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/requests/{reopened.id}/reassign/",
+            {
+                "responsible_person": str(
+                    self.person_b.id
+                ),
+                "reason": (
+                    "Send to a different responsible "
+                    "person after reopening."
+                ),
+            },
+            format="json",
+        )
+        reopened.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            reopened.current_status,
+            CorrectionRequestStatus.ASSIGNED,
+        )
+        self.assertEqual(
+            reopened.current_owner_id,
+            self.person_b.id,
+        )
+
+    def test_other_requester_cannot_reassign_resolved_request(
+        self,
+    ):
+        resolved = self._resolved_request(
+            "JV-REAS-007"
+        )
+
+        self.client.force_authenticate(
+            self.person_a
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/requests/{resolved.id}/reassign/",
+            {
+                "responsible_person": str(
+                    self.person_b.id
+                ),
+                "reason": "Not the requester.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_requester_cannot_reassign_in_progress_request(
+        self,
+    ):
+        in_progress = self._in_progress_request(
+            "JV-REAS-008"
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/requests/{in_progress.id}/reassign/",
+            {
+                "responsible_person": str(
+                    self.person_b.id
+                ),
+                "reason": "Too early to reassign.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
     def _assigned_request(self, voucher_number):
         draft = create_draft(
             requester=self.requester,
@@ -1109,6 +1245,49 @@ class ReassignmentApiTests(TransactionTestCase):
         )
         assigned.refresh_from_db()
         return assigned
+
+    def _resolved_request(self, voucher_number):
+        in_progress = self._in_progress_request(
+            voucher_number
+        )
+
+        self.client.force_authenticate(
+            self.person_a
+        )
+        self.client.post(
+            f"/api/v1/corrections/requests/{in_progress.id}/resolve/",
+            {
+                "erp_action_completed": (
+                    "Voucher corrected in ERP."
+                ),
+                "completion_date": (
+                    timezone.localdate().isoformat()
+                ),
+            },
+            format="json",
+        )
+        in_progress.refresh_from_db()
+        return in_progress
+
+    def _reopened_request(self, voucher_number):
+        resolved = self._resolved_request(
+            voucher_number
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        self.client.post(
+            f"/api/v1/corrections/requests/{resolved.id}/reopen/",
+            {
+                "comment": (
+                    "Voucher is still incorrect."
+                ),
+            },
+            format="json",
+        )
+        resolved.refresh_from_db()
+        return resolved
 
     def _create_user(
         self,

@@ -27,6 +27,10 @@ import {
   useSubmitCorrectionRequest,
   useUploadCorrectionAttachment,
 } from "../../../hooks/useCorrectionRequests";
+import { AssignmentPanel } from "../../corrections/components/AssignmentPanel";
+import {
+  REQUESTER_REASSIGNABLE_REQUEST_STATUSES,
+} from "../../corrections/utils/requestStatusDisplay";
 import {
   formatDate,
   formatDateTime,
@@ -525,6 +529,57 @@ export function RequestDetailsPage() {
             </div>
           </SurfaceCard>
 
+          {request.closed_at ? (
+            <SurfaceCard>
+              <div className="surface-card__header">
+                <h2>Closure Details</h2>
+              </div>
+              <div className="surface-card__body">
+                <dl className="request-details-grid">
+                  <DetailItem
+                    label="Closure Type"
+                    value={String(
+                      request.closure_type || "-",
+                    ).replaceAll("_", " ")}
+                  />
+                  <DetailItem
+                    label="Closed By"
+                    value={
+                      request.closed_by_name &&
+                      request.closed_by_employee_id
+                        ? `${request.closed_by_name} (${request.closed_by_employee_id})`
+                        : request.closed_by_name ||
+                          request.closed_by_employee_id ||
+                          "System"
+                    }
+                  />
+                  <DetailItem
+                    label="Closed At"
+                    value={formatDateTime(
+                      request.closed_at,
+                    )}
+                  />
+                  <DetailItem
+                    label="Final SLA Result"
+                    value={String(
+                      request.final_sla_result ||
+                        "-",
+                    ).replaceAll("_", " ")}
+                  />
+                  <DetailItem
+                    label="Resolution Duration"
+                    value={
+                      request.resolution_duration_hours !=
+                      null
+                        ? `${request.resolution_duration_hours} hrs`
+                        : "-"
+                    }
+                  />
+                </dl>
+              </div>
+            </SurfaceCard>
+          ) : null}
+
           <SurfaceCard>
             <div className="surface-card__header">
               <h2>Timeline</h2>
@@ -723,6 +778,34 @@ export function RequestDetailsPage() {
               ) : null}
             </div>
           </SurfaceCard>
+
+          {REQUESTER_REASSIGNABLE_REQUEST_STATUSES.includes(
+            request.current_status,
+          ) ? (
+            <SurfaceCard>
+              <div className="surface-card__header">
+                <h2>
+                  Not Actually Fixed?
+                </h2>
+              </div>
+              <div className="surface-card__body">
+                <p className="assignment-panel__hint">
+                  If the correction was not
+                  completed properly, reassign this
+                  request to a different responsible
+                  person with a reason instead of
+                  confirming resolution.
+                </p>
+                <AssignmentPanel
+                  request={request}
+                  assignableStatuses={[]}
+                  reassignableStatuses={
+                    REQUESTER_REASSIGNABLE_REQUEST_STATUSES
+                  }
+                />
+              </div>
+            </SurfaceCard>
+          ) : null}
 
           <SurfaceCard>
             <div className="surface-card__header">

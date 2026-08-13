@@ -43,6 +43,20 @@ class CorrectionRequestStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
+class ClosureType(models.TextChoices):
+    CONFIRMED = "CONFIRMED", "Confirmed By Requester"
+    AUTO_CLOSED = "AUTO_CLOSED", "Auto-Closed"
+
+
+class SlaResult(models.TextChoices):
+    MET = "MET", "Met"
+    BREACHED = "BREACHED", "Breached"
+    NOT_APPLICABLE = (
+        "NOT_APPLICABLE",
+        "Not Applicable",
+    )
+
+
 class CorrectionAttachmentType(models.TextChoices):
     SUPPORTING_DOCUMENT = (
         "SUPPORTING_DOCUMENT",
@@ -307,6 +321,34 @@ class CorrectionRequest(
     duplicate_override_reason = models.TextField(
         blank=True,
     )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="closed_correction_requests",
+        null=True,
+        blank=True,
+    )
+    closure_type = models.CharField(
+        max_length=20,
+        choices=ClosureType.choices,
+        blank=True,
+    )
+    final_sla_result = models.CharField(
+        max_length=20,
+        choices=SlaResult.choices,
+        blank=True,
+    )
+    resolution_duration_hours = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "correction_request"
@@ -411,6 +453,86 @@ class CorrectionRequest(
         if self.current_owner_id is None:
             self.current_owner = self.requester
 
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class CorrectionAutoCloseSettings(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+):
+    """
+    Singleton policy controlling automatic closure of resolved
+    requests the requester never confirms or reopens.
+    """
+
+    is_enabled = models.BooleanField(
+        default=False,
+    )
+    auto_close_after_days = models.PositiveIntegerField(
+        default=7,
+    )
+    reminder_before_days = models.PositiveIntegerField(
+        default=2,
+    )
+    exclude_critical_priority = models.BooleanField(
+        default=True,
+    )
+
+    class Meta:
+        db_table = "correction_auto_close_settings"
+        verbose_name = "Auto-Close Settings"
+        verbose_name_plural = "Auto-Close Settings"
+
+    def __str__(self) -> str:
+        return (
+            "Auto-close settings "
+            f"({'enabled' if self.is_enabled else 'disabled'})"
+        )
+
+    @classmethod
+    def get_solo(cls) -> "CorrectionAutoCloseSettings":
+        instance = cls.objects.order_by(
+            "created_at"
+        ).first()
+        if instance is not None:
+            return instance
+
+        return cls.objects.create()
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if self.auto_close_after_days < 1:
+            errors["auto_close_after_days"] = (
+                "Auto-close must occur at least 1 day "
+                "after resolution."
+            )
+
+        if (
+            self.reminder_before_days
+            >= self.auto_close_after_days
+        ):
+            errors["reminder_before_days"] = (
+                "The reminder must be sent before the "
+                "auto-close day is reached."
+            )
+
+        if CorrectionAutoCloseSettings.objects.exclude(
+            pk=self.pk
+        ).exists():
+            errors["__all__"] = (
+                "Auto-close settings already exist; "
+                "edit the existing record instead of "
+                "creating a new one."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
 

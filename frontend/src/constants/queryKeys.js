@@ -243,6 +243,22 @@ export const queryKeys = Object.freeze({
     "my",
     params,
   ],
+  correctionMyAssignments: (params) => [
+    "corrections",
+    "requests",
+    "my-assignments",
+    params,
+  ],
+  correctionAssignmentCounts: [
+    "corrections",
+    "requests",
+    "assignment-counts",
+  ],
+  correctionAssignmentAnalytics: [
+    "corrections",
+    "requests",
+    "assignment-analytics",
+  ],
   correctionDashboard: [
     "corrections",
     "dashboard",

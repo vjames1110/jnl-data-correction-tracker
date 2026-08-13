@@ -6,12 +6,16 @@ from rest_framework.exceptions import (
 )
 
 from apps.corrections.models import (
+    ClosureType,
     CorrectionRequest,
     CorrectionRequestStatus,
     CorrectionTimelineEventType,
 )
 from apps.corrections.services.access import (
     can_access_request,
+)
+from apps.corrections.services.closure import (
+    apply_closure,
 )
 from apps.corrections.services.timeline import (
     record_timeline,
@@ -109,22 +113,15 @@ def confirm_resolution(
                 }
             )
 
-        locked_request.current_status = (
-            CorrectionRequestStatus.CLOSED
-        )
-        locked_request.current_owner = user
-        _save_or_raise(locked_request)
-
-        record_timeline(
+        apply_closure(
             request=locked_request,
-            actor=user,
-            event_type=CorrectionTimelineEventType.CLOSED,
-            from_status=CorrectionRequestStatus.RESOLVED,
-            to_status=CorrectionRequestStatus.CLOSED,
+            closure_type=ClosureType.CONFIRMED,
             comment=(
                 comment.strip()
                 or "Resolution confirmed by requester."
             ),
+            closed_by=user,
+            reassign_owner_to=user,
         )
 
         return locked_request

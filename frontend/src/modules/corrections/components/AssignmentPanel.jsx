@@ -16,6 +16,8 @@ import {
 export function AssignmentPanel({
   request,
   onAssigned,
+  assignableStatuses = ASSIGNABLE_REQUEST_STATUSES,
+  reassignableStatuses = REASSIGNABLE_REQUEST_STATUSES,
 }) {
   const [responsiblePerson, setResponsiblePerson] =
     useState("");
@@ -29,13 +31,12 @@ export function AssignmentPanel({
   const reassignMutation =
     useReassignCorrectionRequest();
 
-  const isAssign =
-    ASSIGNABLE_REQUEST_STATUSES.includes(
-      request.current_status,
-    );
+  const isAssign = assignableStatuses.includes(
+    request.current_status,
+  );
   const isReassign =
     !isAssign &&
-    REASSIGNABLE_REQUEST_STATUSES.includes(
+    reassignableStatuses.includes(
       request.current_status,
     );
 

@@ -94,6 +94,125 @@ export function useMyCorrectionRequests(params) {
   });
 }
 
+export function useMyAssignments(params) {
+  return useQuery({
+    queryKey:
+      queryKeys.correctionMyAssignments(params),
+    queryFn: () =>
+      correctionRequestService.getMyAssignments(
+        params,
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAssignmentCounts() {
+  return useQuery({
+    queryKey: queryKeys.correctionAssignmentCounts,
+    queryFn:
+      correctionRequestService.getAssignmentCounts.bind(
+        correctionRequestService,
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAssignmentAnalytics() {
+  return useQuery({
+    queryKey:
+      queryKeys.correctionAssignmentAnalytics,
+    queryFn:
+      correctionRequestService.getAssignmentAnalytics.bind(
+        correctionRequestService,
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAcceptAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.acceptAssignment(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useRequestReassignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.requestReassignment(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useStartProgress() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.startProgress(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useHoldWork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.holdWork(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useResumeWork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.resumeWork(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
+export function useResolveWork() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      correctionRequestService.resolveWork(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateCorrectionQueries(queryClient),
+  });
+}
+
 export function useCreateCorrectionDraft() {
   const queryClient = useQueryClient();
 

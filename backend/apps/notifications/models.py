@@ -52,6 +52,14 @@ class NotificationEventType(models.TextChoices):
     )
     SLA_WARNING = "SLA_WARNING", "SLA Warning"
     SLA_BREACH = "SLA_BREACH", "SLA Breach"
+    AUTO_CLOSE_REMINDER = (
+        "AUTO_CLOSE_REMINDER",
+        "Auto-Close Reminder",
+    )
+    REQUEST_AUTO_CLOSED = (
+        "REQUEST_AUTO_CLOSED",
+        "Request Auto-Closed",
+    )
 
 
 class NotificationSeverity(models.TextChoices):

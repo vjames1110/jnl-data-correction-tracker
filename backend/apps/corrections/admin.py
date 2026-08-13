@@ -4,6 +4,7 @@ from apps.corrections.models import (
     ApprovalWorkflowLevel,
     ApprovalWorkflowPolicy,
     CorrectionApprovalStep,
+    CorrectionAutoCloseSettings,
     CorrectionRequest,
     CorrectionRequestAttachment,
     CorrectionRequestReferenceSequence,
@@ -66,7 +67,39 @@ class CorrectionRequestAdmin(admin.ModelAdmin):
         "updated_at",
         "deleted_at",
         "deleted_by",
+        "closed_at",
+        "closed_by",
+        "closure_type",
+        "final_sla_result",
+        "resolution_duration_hours",
     ]
+
+
+@admin.register(CorrectionAutoCloseSettings)
+class CorrectionAutoCloseSettingsAdmin(
+    admin.ModelAdmin
+):
+    list_display = [
+        "is_enabled",
+        "auto_close_after_days",
+        "reminder_before_days",
+        "exclude_critical_priority",
+        "updated_at",
+    ]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+    ]
+
+    def has_add_permission(self, request):
+        return not CorrectionAutoCloseSettings.objects.exists()
+
+    def has_delete_permission(
+        self,
+        request,
+        obj=None,
+    ):
+        return False
 
 
 class ApprovalWorkflowLevelInline(admin.TabularInline):

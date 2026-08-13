@@ -90,6 +90,14 @@ class CorrectionRequestDraftSerializer(
         source="priority.priority_name",
         read_only=True,
     )
+    closed_by_employee_id = serializers.CharField(
+        source="closed_by.employee_id",
+        read_only=True,
+    )
+    closed_by_name = serializers.CharField(
+        source="closed_by.full_name",
+        read_only=True,
+    )
 
     class Meta:
         model = CorrectionRequest
@@ -135,6 +143,13 @@ class CorrectionRequestDraftSerializer(
             "sla_deadline",
             "submitted_at",
             "duplicate_override_reason",
+            "closed_at",
+            "closed_by",
+            "closed_by_employee_id",
+            "closed_by_name",
+            "closure_type",
+            "final_sla_result",
+            "resolution_duration_hours",
             "created_at",
             "updated_at",
         ]
@@ -165,6 +180,13 @@ class CorrectionRequestDraftSerializer(
             "sla_deadline",
             "submitted_at",
             "duplicate_override_reason",
+            "closed_at",
+            "closed_by",
+            "closed_by_employee_id",
+            "closed_by_name",
+            "closure_type",
+            "final_sla_result",
+            "resolution_duration_hours",
             "created_at",
             "updated_at",
         ]

@@ -54,6 +54,10 @@ from apps.corrections.services.assignment import (
     assign_request,
     reassign_request,
 )
+from apps.corrections.services.closure import (
+    run_auto_close_reminder_sweep,
+    run_auto_close_sweep,
+)
 from apps.corrections.services.resolution import (
     resolve_work,
 )
@@ -992,6 +996,45 @@ class CorrectionRequestViewSet(viewsets.ModelViewSet):
                 resolved_request,
                 context=self.get_serializer_context(),
             ).data,
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="run-auto-close",
+    )
+    def run_auto_close(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        """
+        Close resolved requests the requester never confirmed or
+        reopened within the configured auto-close window, and send
+        reminders for the ones approaching it.
+
+        Intended to be triggered by a scheduled job (see the
+        `run_auto_close` management command) or on demand by an
+        admin; policy is configured through
+        `CorrectionAutoCloseSettings` (Django Admin for now).
+        """
+        if not _is_admin_user(request.user):
+            raise PermissionDenied(
+                "The auto-close sweep requires admin access."
+            )
+
+        closed_summary = run_auto_close_sweep()
+        reminder_summary = (
+            run_auto_close_reminder_sweep()
+        )
+
+        return success_response(
+            message="Auto-close sweep completed successfully.",
+            data={
+                "auto_close": closed_summary,
+                "reminders": reminder_summary,
+            },
         )
 
 
