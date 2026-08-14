@@ -1,9 +1,12 @@
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
   ClipboardCheck,
+  Filter,
   RotateCcw,
+  Search,
   XCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -58,12 +61,39 @@ function KpiCard({
   );
 }
 
+function matchesSearch(step, search) {
+  if (!search) {
+    return true;
+  }
+
+  const haystack = [
+    step.request_reference,
+    step.voucher_number,
+    step.voucher_name,
+    step.requester_employee_id,
+    step.requester_name,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(
+    search.toLowerCase(),
+  );
+}
+
 export function DirectorDashboardPage() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("");
+
   const approvalsQuery = useApprovalSteps({
     page_size: 500,
     ordering: "-updated_at",
   });
-  const steps = approvalsQuery.data?.items ?? [];
+  const steps = useMemo(
+    () => approvalsQuery.data?.items ?? [],
+    [approvalsQuery.data],
+  );
   const summary = buildApprovalSummary(steps);
   const pendingSteps = steps
     .filter(
@@ -75,6 +105,17 @@ export function DirectorDashboardPage() {
   const decidedSteps = steps
     .filter(isDecided)
     .slice(0, 8);
+  const filteredSteps = useMemo(
+    () =>
+      steps.filter(
+        (step) =>
+          matchesSearch(step, search) &&
+          (!statusFilter ||
+            step.request_status ===
+              statusFilter),
+      ),
+    [search, statusFilter, steps],
+  );
 
   if (approvalsQuery.isLoading) {
     return (
@@ -319,6 +360,144 @@ export function DirectorDashboardPage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SurfaceCard>
+
+      <SurfaceCard title="Search Requests">
+        <div className="user-request-toolbar">
+          <label className="input-control">
+            <Search size={16} />
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search ticket number, voucher or requester"
+            />
+          </label>
+
+          <label className="filter-control">
+            <Filter size={15} />
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">
+                All statuses
+              </option>
+              <option value="PENDING_APPROVAL">
+                Pending approval
+              </option>
+              <option value="APPROVED">
+                Approved
+              </option>
+              <option value="ASSIGNED">
+                Assigned
+              </option>
+              <option value="IN_PROGRESS">
+                In progress
+              </option>
+              <option value="RESOLVED">
+                Resolved
+              </option>
+              <option value="CLOSED">
+                Closed
+              </option>
+              <option value="REJECTED">
+                Rejected
+              </option>
+            </select>
+          </label>
+        </div>
+
+        {!filteredSteps.length ? (
+          <EmptyState
+            title="No matching requests"
+            message="Adjust the ticket number search or status filter."
+          />
+        ) : (
+          <div className="data-table-wrapper">
+            <table className="data-table director-approval-table">
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  <th>Requester</th>
+                  <th>Approval Status</th>
+                  <th>Current Status</th>
+                  <th>Current Owner</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSteps
+                  .slice(0, 25)
+                  .map((step) => (
+                    <tr key={step.id}>
+                      <td>
+                        <strong>
+                          {
+                            step.request_reference
+                          }
+                        </strong>
+                        <small>
+                          {formatDateTime(
+                            step.request_submitted_at,
+                          )}
+                        </small>
+                      </td>
+                      <td>
+                        {formatPerson({
+                          employeeId:
+                            step.requester_employee_id,
+                          name: step.requester_name,
+                        })}
+                      </td>
+                      <td>
+                        <span
+                          className={`request-status request-status--${approvalStatusTone(
+                            step.status,
+                          )}`}
+                        >
+                          {formatApprovalStatus(
+                            step.status,
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`request-status request-status--${approvalStatusTone(
+                            step.request_status,
+                          )}`}
+                        >
+                          {formatApprovalStatus(
+                            step.request_status,
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        {formatPerson({
+                          employeeId:
+                            step.request_current_owner_employee_id,
+                          name: step.request_current_owner_name,
+                        })}
+                      </td>
+                      <td>
+                        <Link
+                          className="button button--secondary"
+                          to={`/director/approvals/${step.id}`}
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

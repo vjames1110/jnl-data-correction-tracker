@@ -32,9 +32,19 @@ export const queryKeys = Object.freeze({
     "employees",
     "filter-options",
   ],
-  employeeDropdown: [
+  employeeDropdown: (params) => [
     "employees",
     "dropdown",
+    params,
+  ],
+  employeeImportColumns: [
+    "employees",
+    "import-columns",
+  ],
+  siteImportColumns: [
+    "organization",
+    "sites",
+    "import-columns",
   ],
   employeeLoginHistory: (profileId) => [
     "employees",

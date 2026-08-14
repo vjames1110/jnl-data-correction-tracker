@@ -10,11 +10,11 @@ from apps.authentication.managers import UserManager
 class UserRole(models.TextChoices):
     SUPER_ADMIN = "SUPER_ADMIN", "Super Admin"
     ADMIN = "ADMIN", "Admin"
-    USER = "USER", "User"
+    USER = "USER", "Request Creator"
     DIRECTOR = "DIRECTOR", "Director"
     RESPONSIBLE_PERSON = (
         "RESPONSIBLE_PERSON",
-        "Responsible Person",
+        "Work Assignee",
     )
 
 

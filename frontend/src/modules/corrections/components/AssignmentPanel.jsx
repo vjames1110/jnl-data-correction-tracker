@@ -85,8 +85,8 @@ export function AssignmentPanel({
         <UserRoundPlus size={16} />
         <strong>
           {isAssign
-            ? "Assign Responsible Person"
-            : "Reassign Responsible Person"}
+            ? "Assign Work Assignee"
+            : "Reassign Work Assignee"}
         </strong>
       </div>
 
@@ -112,7 +112,7 @@ export function AssignmentPanel({
       ) : null}
 
       <label className="form-field">
-        <span>Responsible person</span>
+        <span>Work assignee</span>
         <select
           value={responsiblePerson}
           onChange={(event) =>
@@ -123,7 +123,7 @@ export function AssignmentPanel({
           required
         >
           <option value="" disabled hidden>
-            Select responsible person
+            Select work assignee
           </option>
           {(usersQuery.data ?? []).map((user) => (
             <option key={user.id} value={user.id}>

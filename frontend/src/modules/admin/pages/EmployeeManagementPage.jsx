@@ -43,6 +43,7 @@ import {
   useEmployeeDashboard,
   useEmployeeDropdown,
   useEmployeeFilterOptions,
+  useEmployeeImportColumns,
   useEmployeeLoginHistory,
   useEmployeeProfileExport,
   useEmployeeProfiles,
@@ -85,10 +86,13 @@ const emptyForm = {
 
 const fallbackOptions = {
   roles: [
-    { value: "USER", label: "User" },
+    {
+      value: "USER",
+      label: "Request Creator",
+    },
     {
       value: "RESPONSIBLE_PERSON",
-      label: "Responsible Person",
+      label: "Work Assignee",
     },
     { value: "DIRECTOR", label: "Director" },
     { value: "ADMIN", label: "Admin" },
@@ -1088,6 +1092,10 @@ function EmployeeImportPanel({ onClose }) {
     useState(null);
   const downloadTemplate =
     useDownloadEmployeeTemplate();
+  const importColumnsQuery =
+    useEmployeeImportColumns();
+  const importColumns =
+    importColumnsQuery.data ?? {};
   const previewImport =
     usePreviewEmployeeImport();
   const importEmployees =
@@ -1218,6 +1226,20 @@ function EmployeeImportPanel({ onClose }) {
             Excel Template
           </button>
         </div>
+        {importColumns.columns?.length ? (
+          <p className="assignment-panel__hint">
+            Expected columns:{" "}
+            {importColumns.columns
+              .map((column) =>
+                importColumns.required_columns?.includes(
+                  column,
+                )
+                  ? `${column} (required)`
+                  : column,
+              )
+              .join(", ")}
+          </p>
+        ) : null}
       </section>
 
       <section className="employee-form-section">

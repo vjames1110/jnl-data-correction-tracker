@@ -312,7 +312,7 @@ describe("ERP final phase pages", () => {
     });
   });
 
-  it("creates a responsible person mapping", async () => {
+  it("creates a work assignee mapping", async () => {
     const createMapping = mutationMock();
     hooks.useCreateErpResponsiblePersonMappingMock.mockReturnValue(
       createMapping,
@@ -343,7 +343,7 @@ describe("ERP final phase pages", () => {
     );
     await userEvent.selectOptions(
       screen.getByLabelText(
-        /^responsible person$/i,
+        /^work assignee$/i,
       ),
       "person-1",
     );

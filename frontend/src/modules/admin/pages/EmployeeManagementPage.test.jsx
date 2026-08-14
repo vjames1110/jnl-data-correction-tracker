@@ -26,6 +26,7 @@ const hooks = vi.hoisted(() => ({
   useEmployeeDashboardMock: vi.fn(),
   useEmployeeDropdownMock: vi.fn(),
   useEmployeeFilterOptionsMock: vi.fn(),
+  useEmployeeImportColumnsMock: vi.fn(),
   useEmployeeLoginHistoryMock: vi.fn(),
   useEmployeeProfileExportMock: vi.fn(),
   useEmployeeProfilesMock: vi.fn(),
@@ -60,6 +61,8 @@ vi.mock("../../../hooks/useEmployees", () => ({
     hooks.useEmployeeDropdownMock(...args),
   useEmployeeFilterOptions: (...args) =>
     hooks.useEmployeeFilterOptionsMock(...args),
+  useEmployeeImportColumns: (...args) =>
+    hooks.useEmployeeImportColumnsMock(...args),
   useEmployeeLoginHistory: (...args) =>
     hooks.useEmployeeLoginHistoryMock(...args),
   useEmployeeProfileExport: (...args) =>
@@ -223,6 +226,14 @@ describe("EmployeeManagementPage", () => {
         },
       ],
     });
+    hooks.useEmployeeImportColumnsMock.mockReturnValue(
+      {
+        data: {
+          columns: [],
+          required_columns: [],
+        },
+      },
+    );
     hooks.useCreateEmployeeProfileMock.mockReturnValue(
       mutationMock(),
     );

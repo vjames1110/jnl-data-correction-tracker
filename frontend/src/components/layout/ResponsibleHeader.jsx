@@ -25,7 +25,7 @@ export function ResponsibleHeader({
             {env.companyName}
           </span>
           <strong className="user-header__portal">
-            Responsible Person Portal
+            Work Assignee Portal
           </strong>
         </div>
       </div>

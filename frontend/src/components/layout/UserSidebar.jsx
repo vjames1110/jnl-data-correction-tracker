@@ -84,7 +84,7 @@ export function UserSidebar({
         {!collapsed ? (
           <div>
             <strong>Data Correction</strong>
-            <span>User Portal</span>
+            <span>Request Creator Portal</span>
           </div>
         ) : null}
       </div>

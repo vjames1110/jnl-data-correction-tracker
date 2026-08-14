@@ -46,7 +46,7 @@ export function ResponsibleAnalyticsPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Responsible Person Portal
+            Work Assignee Portal
           </span>
           <h1>Personal Analytics</h1>
           <p>

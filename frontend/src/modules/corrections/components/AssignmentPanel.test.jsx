@@ -88,7 +88,7 @@ describe("AssignmentPanel", () => {
 
     expect(
       screen.getByText(
-        "Assign Responsible Person",
+        "Assign Work Assignee",
       ),
     ).toBeInTheDocument();
   });
@@ -112,7 +112,7 @@ describe("AssignmentPanel", () => {
 
     expect(
       screen.getByText(
-        "Reassign Responsible Person",
+        "Reassign Work Assignee",
       ),
     ).toBeInTheDocument();
     expect(

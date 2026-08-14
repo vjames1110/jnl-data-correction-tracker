@@ -295,6 +295,36 @@ class CorrectionRequest(
         null=True,
         blank=True,
     )
+    ho_work_authority = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="ho_work_authority_requests",
+        null=True,
+        blank=True,
+        help_text=(
+            "HO person whose action caused this issue."
+        ),
+    )
+    site_work_authority = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="site_work_authority_requests",
+        null=True,
+        blank=True,
+        help_text=(
+            "Site person whose action caused this issue."
+        ),
+    )
+    root_cause_person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="root_cause_correction_requests",
+        null=True,
+        blank=True,
+        help_text=(
+            "Main person responsible for the issue."
+        ),
+    )
     current_status = models.CharField(
         max_length=30,
         choices=CorrectionRequestStatus.choices,
@@ -438,6 +468,62 @@ class CorrectionRequest(
             errors["quantity"] = (
                 "Quantity cannot be negative."
             )
+
+        if (
+            self.ho_work_authority_id
+            or self.site_work_authority_id
+        ):
+            from apps.employees.models import (
+                EmployeeProfile,
+            )
+
+            if self.ho_work_authority_id:
+                ho_profile = (
+                    EmployeeProfile.objects.filter(
+                        user_id=(
+                            self.ho_work_authority_id
+                        ),
+                    )
+                    .select_related("site")
+                    .first()
+                )
+                if not (
+                    ho_profile
+                    and ho_profile.site_id
+                    and ho_profile.site.site_code
+                    == "HO"
+                ):
+                    errors[
+                        "ho_work_authority"
+                    ] = (
+                        "Selected user's site is "
+                        "not Head Office (HO)."
+                    )
+
+            if self.site_work_authority_id:
+                site_profile = (
+                    EmployeeProfile.objects.filter(
+                        user_id=(
+                            self.site_work_authority_id
+                        ),
+                    ).first()
+                )
+                if not (
+                    site_profile
+                    and self.site_id
+                    and site_profile.site_id
+                    == self.site_id
+                    and self.department_id
+                    and site_profile.department_id
+                    == self.department_id
+                ):
+                    errors[
+                        "site_work_authority"
+                    ] = (
+                        "Selected user must belong "
+                        "to this request's site and "
+                        "department."
+                    )
 
         if errors:
             raise ValidationError(errors)

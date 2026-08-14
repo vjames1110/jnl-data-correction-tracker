@@ -48,6 +48,7 @@ from apps.organization.models import (
     SiteDepartmentMapping,
 )
 from apps.organization.services.site_imports import (
+    REQUIRED_SITE_IMPORT_COLUMNS,
     SITE_IMPORT_COLUMNS,
     build_site_csv_template,
     build_site_xlsx_template,
@@ -433,6 +434,29 @@ class SiteViewSet(OrganizationModelViewSet):
             "Content-Disposition"
         ] = "attachment; filename=site-import-template.csv"
         return response
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="import-columns",
+    )
+    def import_columns(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        return success_response(
+            message=(
+                "Site import columns retrieved successfully."
+            ),
+            data={
+                "columns": SITE_IMPORT_COLUMNS,
+                "required_columns": (
+                    REQUIRED_SITE_IMPORT_COLUMNS
+                ),
+            },
+        )
 
     @action(
         detail=False,

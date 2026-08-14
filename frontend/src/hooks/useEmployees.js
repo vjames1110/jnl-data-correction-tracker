@@ -51,10 +51,14 @@ export function useEmployeeFilterOptions() {
   });
 }
 
-export function useEmployeeDropdown() {
+export function useEmployeeDropdown(
+  params = {},
+) {
   return useQuery({
-    queryKey: queryKeys.employeeDropdown,
-    queryFn: employeeService.getDropdown,
+    queryKey:
+      queryKeys.employeeDropdown(params),
+    queryFn: () =>
+      employeeService.getDropdown(params),
   });
 }
 
@@ -204,6 +208,14 @@ export function useDownloadEmployeeTemplate() {
   return useMutation({
     mutationFn:
       employeeService.downloadTemplate,
+  });
+}
+
+export function useEmployeeImportColumns() {
+  return useQuery({
+    queryKey: queryKeys.employeeImportColumns,
+    queryFn:
+      employeeService.getImportColumns,
   });
 }
 

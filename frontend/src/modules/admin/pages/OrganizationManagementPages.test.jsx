@@ -497,4 +497,90 @@ describe("Organization management pages", () => {
       departmentHod: "director-1",
     });
   });
+
+  it("collapses and expands the Site PM and Department HOD sections", async () => {
+    hooks.useUpdateSiteHodMock.mockReturnValue(
+      mutationMock(),
+    );
+    hooks.useUpdateDepartmentHodMock.mockReturnValue(
+      mutationMock(),
+    );
+    hooks.useHodMappingsMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        summary: {
+          sites: 1,
+          departments: 1,
+          missing_site_hods: 0,
+          missing_department_hods: 0,
+          incomplete_mapping_history: 0,
+          total_missing: 0,
+        },
+        sites: [
+          {
+            id: "site-1",
+            company_code: "JNL",
+            site_code: "BKN",
+            site_name: "Bikaner Site",
+            site_hod: null,
+            site_hod_detail: null,
+          },
+        ],
+        departments: [
+          {
+            id: "department-1",
+            company_code: "JNL",
+            department_code: "FIN",
+            department_name: "Finance",
+            department_hod: null,
+            department_hod_detail: null,
+          },
+        ],
+        site_department_mappings: [],
+        users: [],
+        missing: {
+          site_hods: [],
+          department_hods: [],
+        },
+      },
+    });
+
+    renderWithRouter(<HodMappingPage />);
+
+    expect(
+      screen.getByRole("combobox", {
+        name: /site pm for bikaner site/i,
+      }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /collapse site pm section/i,
+      }),
+    );
+
+    expect(
+      screen.queryByRole("combobox", {
+        name: /site pm for bikaner site/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", {
+        name: /department hod for finance/i,
+      }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /expand site pm section/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("combobox", {
+        name: /site pm for bikaner site/i,
+      }),
+    ).toBeInTheDocument();
+  });
 });

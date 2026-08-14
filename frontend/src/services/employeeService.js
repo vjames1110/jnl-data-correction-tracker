@@ -112,9 +112,12 @@ export const employeeService = {
     return response.data?.data ?? {};
   },
 
-  async getDropdown() {
+  async getDropdown(params = {}) {
     const response = await apiClient.get(
       "/employees/profiles/dropdown/",
+      {
+        params,
+      },
     );
 
     return resolveItems(response);
@@ -230,6 +233,14 @@ export const employeeService = {
     );
 
     return response.data;
+  },
+
+  async getImportColumns() {
+    const response = await apiClient.get(
+      "/employees/profiles/import-columns/",
+    );
+
+    return response.data?.data ?? {};
   },
 
   async previewImport(file) {

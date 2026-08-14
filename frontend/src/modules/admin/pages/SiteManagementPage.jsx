@@ -31,6 +31,7 @@ import {
   useImportSites,
   usePreviewSiteImport,
   useSiteExport,
+  useSiteImportColumns,
   useSites,
   useUpdateSite,
   useUsersDropdown,
@@ -563,6 +564,10 @@ function SiteImportPanel({ onClose }) {
     useState(null);
   const downloadTemplate =
     useDownloadSiteTemplate();
+  const importColumnsQuery =
+    useSiteImportColumns();
+  const importColumns =
+    importColumnsQuery.data ?? {};
   const previewImport =
     usePreviewSiteImport();
   const importSites = useImportSites();
@@ -690,6 +695,20 @@ function SiteImportPanel({ onClose }) {
             Excel Template
           </button>
         </div>
+        {importColumns.columns?.length ? (
+          <p className="assignment-panel__hint">
+            Expected columns:{" "}
+            {importColumns.columns
+              .map((column) =>
+                importColumns.required_columns?.includes(
+                  column,
+                )
+                  ? `${column} (required)`
+                  : column,
+              )
+              .join(", ")}
+          </p>
+        ) : null}
       </section>
 
       <section className="employee-form-section">

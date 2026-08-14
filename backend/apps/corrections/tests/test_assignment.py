@@ -1139,6 +1139,48 @@ class ReassignmentApiTests(TransactionTestCase):
             self.person_b.id,
         )
 
+    def test_requester_can_reassign_closed_request(
+        self,
+    ):
+        closed = self._closed_request(
+            "JV-REAS-009"
+        )
+        self.assertEqual(
+            closed.current_status,
+            CorrectionRequestStatus.CLOSED,
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/requests/{closed.id}/reassign/",
+            {
+                "responsible_person": str(
+                    self.person_b.id
+                ),
+                "reason": (
+                    "Confirmed too soon; the "
+                    "correction was not actually done."
+                ),
+            },
+            format="json",
+        )
+        closed.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            closed.current_status,
+            CorrectionRequestStatus.ASSIGNED,
+        )
+        self.assertEqual(
+            closed.current_owner_id,
+            self.person_b.id,
+        )
+
     def test_other_requester_cannot_reassign_resolved_request(
         self,
     ):
@@ -1283,6 +1325,24 @@ class ReassignmentApiTests(TransactionTestCase):
                 "comment": (
                     "Voucher is still incorrect."
                 ),
+            },
+            format="json",
+        )
+        resolved.refresh_from_db()
+        return resolved
+
+    def _closed_request(self, voucher_number):
+        resolved = self._resolved_request(
+            voucher_number
+        )
+
+        self.client.force_authenticate(
+            self.requester
+        )
+        self.client.post(
+            f"/api/v1/corrections/requests/{resolved.id}/confirm-resolution/",
+            {
+                "comment": "Confirmed.",
             },
             format="json",
         )

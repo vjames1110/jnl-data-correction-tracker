@@ -18,6 +18,7 @@ import {
 
 import { AppLoader } from "../../../components/common/AppLoader";
 import { ErrorState } from "../../../components/common/ErrorState";
+import { SearchableSelect } from "../../../components/common/SearchableSelect";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import {
   useCreateCorrectionDraft,
@@ -27,8 +28,10 @@ import {
   useUpdateCorrectionDraft,
   useUploadCorrectionAttachment,
 } from "../../../hooks/useCorrectionRequests";
+import { useEmployeeDropdown } from "../../../hooks/useEmployees";
 import {
   useDepartmentsDropdown,
+  useSites,
   useSitesDropdown,
 } from "../../../hooks/useOrganization";
 import {
@@ -50,6 +53,9 @@ const emptyForm = {
   voucher_number: "",
   voucher_date: "",
   erp_email_date: "",
+  ho_work_authority: "",
+  site_work_authority: "",
+  root_cause_person: "",
   reason_category: "",
   priority: "",
   description: "",
@@ -117,6 +123,12 @@ function normalizePayload(form) {
     voucher_date: form.voucher_date || null,
     erp_email_date:
       form.erp_email_date || null,
+    ho_work_authority:
+      form.ho_work_authority || null,
+    site_work_authority:
+      form.site_work_authority || null,
+    root_cause_person:
+      form.root_cause_person || null,
     requested_window_start:
       form.requested_window_start || null,
     requested_window_end:
@@ -138,6 +150,15 @@ function selectLabel(items, id) {
   return item.code
     ? `${item.code} - ${item.label}`
     : item.label;
+}
+
+function toPersonOptions(employees) {
+  return (employees ?? [])
+    .filter((employee) => employee.user)
+    .map((employee) => ({
+      value: employee.user,
+      label: employee.label,
+    }));
 }
 
 function errorMessage(error) {
@@ -207,6 +228,10 @@ export function CreateTrackerPage() {
     useState("");
 
   const sitesQuery = useSitesDropdown();
+  const sitesDetailQuery = useSites({
+    is_active: true,
+    page_size: 500,
+  });
   const departmentsQuery =
     useDepartmentsDropdown();
   const modulesQuery =
@@ -249,6 +274,52 @@ export function CreateTrackerPage() {
         : {}),
     }),
     [formKey, formState, loadedForm],
+  );
+
+  const employeesQuery = useEmployeeDropdown(
+    form.site
+      ? { site: form.site }
+      : undefined,
+  );
+
+  const hoSite = useMemo(
+    () =>
+      (
+        sitesDetailQuery.data?.items ?? []
+      ).find(
+        (site) => site.site_code === "HO",
+      ) ?? null,
+    [sitesDetailQuery.data],
+  );
+  const hoEmployeesQuery = useEmployeeDropdown(
+    hoSite ? { site: hoSite.id } : undefined,
+  );
+  const siteAuthorityEmployeesQuery =
+    useEmployeeDropdown(
+      form.site && form.department
+        ? {
+            site: form.site,
+            department: form.department,
+          }
+        : undefined,
+    );
+
+  const rootCausePersonOptions = useMemo(
+    () =>
+      toPersonOptions(employeesQuery.data),
+    [employeesQuery.data],
+  );
+  const hoWorkAuthorityOptions = useMemo(
+    () =>
+      toPersonOptions(hoEmployeesQuery.data),
+    [hoEmployeesQuery.data],
+  );
+  const siteWorkAuthorityOptions = useMemo(
+    () =>
+      toPersonOptions(
+        siteAuthorityEmployeesQuery.data,
+      ),
+    [siteAuthorityEmployeesQuery.data],
   );
 
   const createDraft = useCreateCorrectionDraft();
@@ -789,6 +860,19 @@ export function CreateTrackerPage() {
                     ))}
                   </select>
                 </label>
+                <label className="form-field">
+                  <span>Site PM</span>
+                  <input
+                    value={
+                      sitesDetailQuery.data?.items?.find(
+                        (site) =>
+                          site.id === form.site,
+                      )?.site_hod_detail
+                        ?.full_name ?? "-"
+                    }
+                    readOnly
+                  />
+                </label>
               </div>
             </SurfaceCard>
 
@@ -929,6 +1013,81 @@ export function CreateTrackerPage() {
                   />
                   </label>
                 ) : null}
+                <label className="form-field">
+                  <span>Root Cause Person</span>
+                  <SearchableSelect
+                    ariaLabel="Root Cause Person"
+                    value={
+                      form.root_cause_person
+                    }
+                    onChange={(nextValue) =>
+                      setField(
+                        "root_cause_person",
+                        nextValue,
+                      )
+                    }
+                    options={
+                      rootCausePersonOptions
+                    }
+                    disabled={!form.site}
+                    placeholder={
+                      form.site
+                        ? "Search employee by name"
+                        : "Select a site first"
+                    }
+                  />
+                </label>
+                <label className="form-field">
+                  <span>HO Work Authority</span>
+                  <SearchableSelect
+                    ariaLabel="HO Work Authority"
+                    value={
+                      form.ho_work_authority
+                    }
+                    onChange={(nextValue) =>
+                      setField(
+                        "ho_work_authority",
+                        nextValue,
+                      )
+                    }
+                    options={
+                      hoWorkAuthorityOptions
+                    }
+                    disabled={!hoSite}
+                    placeholder={
+                      hoSite
+                        ? "Search HO employee by name"
+                        : "No Head Office site configured"
+                    }
+                  />
+                </label>
+                <label className="form-field">
+                  <span>Site Work Authority</span>
+                  <SearchableSelect
+                    ariaLabel="Site Work Authority"
+                    value={
+                      form.site_work_authority
+                    }
+                    onChange={(nextValue) =>
+                      setField(
+                        "site_work_authority",
+                        nextValue,
+                      )
+                    }
+                    options={
+                      siteWorkAuthorityOptions
+                    }
+                    disabled={
+                      !form.site ||
+                      !form.department
+                    }
+                    placeholder={
+                      form.site && form.department
+                        ? "Search employee by name"
+                        : "Select a site and department first"
+                    }
+                  />
+                </label>
               </div>
             </SurfaceCard>
 

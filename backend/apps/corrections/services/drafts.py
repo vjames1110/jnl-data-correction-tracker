@@ -33,6 +33,9 @@ DRAFT_MUTABLE_FIELDS = {
     "requested_window_end",
     "amount",
     "quantity",
+    "ho_work_authority",
+    "site_work_authority",
+    "root_cause_person",
 }
 
 

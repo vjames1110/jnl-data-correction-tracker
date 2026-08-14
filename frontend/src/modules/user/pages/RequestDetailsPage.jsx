@@ -47,6 +47,14 @@ function DetailItem({ label, value }) {
   );
 }
 
+function formatPersonPair(name, employeeId) {
+  if (name && employeeId) {
+    return `${name} (${employeeId})`;
+  }
+
+  return name || employeeId || "";
+}
+
 function downloadRequestDetails({
   request,
   timeline,
@@ -486,6 +494,34 @@ export function RequestDetailsPage() {
                       : request.current_owner_name ||
                         request.current_owner_employee_id
                   }
+                />
+                <DetailItem
+                  label="Site PM"
+                  value={formatPersonPair(
+                    request.site_pm_name,
+                    request.site_pm_employee_id,
+                  )}
+                />
+                <DetailItem
+                  label="Root Cause Person"
+                  value={formatPersonPair(
+                    request.root_cause_person_name,
+                    request.root_cause_person_employee_id,
+                  )}
+                />
+                <DetailItem
+                  label="HO Work Authority"
+                  value={formatPersonPair(
+                    request.ho_work_authority_name,
+                    request.ho_work_authority_employee_id,
+                  )}
+                />
+                <DetailItem
+                  label="Site Work Authority"
+                  value={formatPersonPair(
+                    request.site_work_authority_name,
+                    request.site_work_authority_employee_id,
+                  )}
                 />
                 <DetailItem
                   label="SLA Deadline"

@@ -141,7 +141,9 @@ describe("ResponsibleDashboardPage", () => {
     renderPage();
 
     expect(
-      screen.getByText(/no assignments yet/i),
+      screen.getByText(
+        /no matching assignments/i,
+      ),
     ).toBeInTheDocument();
   });
 });

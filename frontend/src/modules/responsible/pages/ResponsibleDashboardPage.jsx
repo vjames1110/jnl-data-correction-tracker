@@ -1,9 +1,12 @@
+import { useMemo, useState } from "react";
 import {
   BriefcaseBusiness,
   CheckCircle2,
   Clock3,
+  Filter,
   PauseCircle,
   PlayCircle,
+  Search,
   TimerReset,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -48,16 +51,56 @@ function WorkKpiCard({
   );
 }
 
+function matchesSearch(request, search) {
+  if (!search) {
+    return true;
+  }
+
+  const haystack = [
+    request.reference,
+    request.voucher_number,
+    request.voucher_name,
+    request.description,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(
+    search.toLowerCase(),
+  );
+}
+
 export function ResponsibleDashboardPage() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("");
+
   const countsQuery = useAssignmentCounts();
   const assignmentsQuery = useMyAssignments({
-    page_size: 8,
+    page_size: 500,
     ordering: "-updated_at",
   });
 
   const counts = countsQuery.data ?? {};
-  const assignments =
-    assignmentsQuery.data?.items ?? [];
+  const allAssignments = useMemo(
+    () => assignmentsQuery.data?.items ?? [],
+    [assignmentsQuery.data],
+  );
+  const filteredAssignments = useMemo(
+    () =>
+      allAssignments.filter(
+        (request) =>
+          matchesSearch(request, search) &&
+          (!statusFilter ||
+            request.current_status ===
+              statusFilter),
+      ),
+    [allAssignments, search, statusFilter],
+  );
+  const assignments = filteredAssignments.slice(
+    0,
+    25,
+  );
 
   const isLoading =
     countsQuery.isLoading ||
@@ -92,7 +135,7 @@ export function ResponsibleDashboardPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Responsible Person Portal
+            Work Assignee Portal
           </span>
           <h1>Work Dashboard</h1>
           <p>
@@ -147,10 +190,57 @@ export function ResponsibleDashboardPage() {
       </div>
 
       <SurfaceCard title="Assigned Work">
+        <div className="user-request-toolbar">
+          <label className="input-control">
+            <Search size={16} />
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search ticket number, voucher or description"
+            />
+          </label>
+
+          <label className="filter-control">
+            <Filter size={15} />
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">
+                All statuses
+              </option>
+              <option value="ASSIGNED">
+                Newly assigned
+              </option>
+              <option value="ACCEPTED">
+                Accepted
+              </option>
+              <option value="IN_PROGRESS">
+                In progress
+              </option>
+              <option value="ON_HOLD">
+                On hold
+              </option>
+              <option value="RESOLVED">
+                Resolved
+              </option>
+              <option value="CLOSED">
+                Closed
+              </option>
+            </select>
+          </label>
+        </div>
+
         {!assignments.length ? (
           <EmptyState
-            title="No assignments yet"
-            message="Requests assigned to you will appear here."
+            title="No matching assignments"
+            message="Adjust the ticket number search or status filter."
           />
         ) : (
           <div className="data-table-wrapper">

@@ -132,6 +132,119 @@
   border: 0;
 }
 
+.searchable-select {
+  position: relative;
+}
+
+.searchable-select__control {
+  min-height: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-500);
+  border-radius: var(--radius-sm);
+  cursor: text;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.searchable-select__control:focus-within {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 2px var(--color-primary-100);
+}
+
+.form-field .searchable-select__control input,
+.searchable-select__control input {
+  min-width: 0;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  color: var(--color-neutral-900);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+}
+
+.form-field .searchable-select__control input:focus,
+.searchable-select__control input:focus {
+  border: 0;
+  box-shadow: none;
+  outline: 0;
+}
+
+.searchable-select__control input:disabled {
+  cursor: not-allowed;
+}
+
+.searchable-select__clear,
+.searchable-select__chevron {
+  flex-shrink: 0;
+  color: var(--color-neutral-500);
+}
+
+.searchable-select__clear {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.searchable-select__clear:hover {
+  color: var(--color-neutral-900);
+  background: var(--color-neutral-100);
+}
+
+.searchable-select__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  list-style: none;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.searchable-select__empty {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.searchable-select__option {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-neutral-900);
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.searchable-select__option--highlighted {
+  background: var(--color-neutral-50);
+}
+
+.searchable-select__option--selected {
+  color: var(--color-primary-600);
+  font-weight: 600;
+}
+
 .inline-alert {
   display: flex;
   align-items: flex-start;

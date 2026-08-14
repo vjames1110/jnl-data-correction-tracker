@@ -1042,15 +1042,16 @@
 }
 
 .details-list dt {
-  color: var(--color-neutral-600);
+  color: var(--color-neutral-800);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .details-list dd {
   margin: 4px 0 0;
   color: var(--color-neutral-900);
   font-size: 13px;
+  font-weight: 600;
 }
 
 .assignment-panel {
@@ -1073,6 +1074,22 @@
   color: var(--color-neutral-600);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.work-authority-add-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.work-authority-add-form .form-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.work-authority-add-form .button {
+  flex-shrink: 0;
 }
 
 .data-table-wrapper {

@@ -87,7 +87,7 @@ export function ResponsibleAssignmentsPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Responsible Person Portal
+            Work Assignee Portal
           </span>
           <h1>Assignments</h1>
           <p>

@@ -169,7 +169,7 @@ function ErpResponsibleMappingForm({
             </select>
           </label>
           <label className="form-field">
-            <span>Responsible Person</span>
+            <span>Work Assignee</span>
             <select
               value={form.responsible_person}
               onChange={(event) =>
@@ -497,7 +497,7 @@ export function ErpResponsibleMappingPage() {
         },
         {
           key: "responsible_person",
-          label: "Responsible Person ID",
+          label: "Work Assignee ID",
         },
         {
           key: "display_order",
@@ -518,7 +518,7 @@ export function ErpResponsibleMappingPage() {
           <span className="page-eyebrow">
             ERP Masters
           </span>
-          <h1>Responsible Person Mapping</h1>
+          <h1>Work Assignee Mapping</h1>
           <p>
             Route approved ERP correction work to
             responsible users by module and context.

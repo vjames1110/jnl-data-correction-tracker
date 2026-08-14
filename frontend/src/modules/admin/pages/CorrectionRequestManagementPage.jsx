@@ -120,6 +120,42 @@ function RequestDetailsDrawer({
           <dd>{request.priority_name || "-"}</dd>
         </div>
         <div>
+          <dt>Site PM</dt>
+          <dd>
+            {formatOwner({
+              employeeId:
+                request.site_pm_employee_id,
+              name: request.site_pm_name,
+            })}
+          </dd>
+        </div>
+        <div>
+          <dt>Root Cause Person</dt>
+          <dd>
+            {formatOwner({
+              employeeId:
+                request.root_cause_person_employee_id,
+              name: request.root_cause_person_name,
+            })}
+          </dd>
+        </div>
+        <div>
+          <dt>HO / Site Work Authority</dt>
+          <dd>
+            {formatOwner({
+              employeeId:
+                request.ho_work_authority_employee_id,
+              name: request.ho_work_authority_name,
+            })}{" "}
+            /{" "}
+            {formatOwner({
+              employeeId:
+                request.site_work_authority_employee_id,
+              name: request.site_work_authority_name,
+            })}
+          </dd>
+        </div>
+        <div>
           <dt>Submitted</dt>
           <dd>
             {formatDateTime(request.submitted_at)}
@@ -185,7 +221,7 @@ export function CorrectionRequestManagementPage() {
           <h1>All Requests</h1>
           <p>
             Track every correction request and
-            assign a Responsible Person when needed.
+            assign a Work Assignee when needed.
           </p>
         </div>
       </div>

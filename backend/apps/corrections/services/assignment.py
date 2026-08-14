@@ -48,11 +48,13 @@ REASSIGNABLE_STATUSES = {
     CorrectionRequestStatus.ON_HOLD,
     CorrectionRequestStatus.RESOLVED,
     CorrectionRequestStatus.REOPENED,
+    CorrectionRequestStatus.CLOSED,
 }
 
 REQUESTER_REASSIGNABLE_STATUSES = {
     CorrectionRequestStatus.RESOLVED,
     CorrectionRequestStatus.REOPENED,
+    CorrectionRequestStatus.CLOSED,
 }
 
 
@@ -210,8 +212,8 @@ def reassign_request(
         allowed_statuses=REASSIGNABLE_STATUSES,
         status_error=(
             "Only accepted, in-progress, on-hold, "
-            "resolved or reopened requests can be "
-            "reassigned."
+            "resolved, reopened or closed requests "
+            "can be reassigned."
         ),
         note=cleaned_reason,
         metadata={
@@ -366,8 +368,8 @@ def _ensure_can_reassign(
 
     raise PermissionDenied(
         "Only an admin, an authorized approver, or "
-        "the requester of a resolved or reopened "
-        "request can reassign this request."
+        "the requester of a resolved, reopened or "
+        "closed request can reassign this request."
     )
 
 

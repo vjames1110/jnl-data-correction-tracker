@@ -383,6 +383,38 @@ export function DirectorApprovalDetailPage() {
                   value={request.priority_name}
                 />
                 <DetailItem
+                  label="Site PM"
+                  value={formatPerson({
+                    employeeId:
+                      request.site_pm_employee_id,
+                    name: request.site_pm_name,
+                  })}
+                />
+                <DetailItem
+                  label="Root Cause Person"
+                  value={formatPerson({
+                    employeeId:
+                      request.root_cause_person_employee_id,
+                    name: request.root_cause_person_name,
+                  })}
+                />
+                <DetailItem
+                  label="HO Work Authority"
+                  value={formatPerson({
+                    employeeId:
+                      request.ho_work_authority_employee_id,
+                    name: request.ho_work_authority_name,
+                  })}
+                />
+                <DetailItem
+                  label="Site Work Authority"
+                  value={formatPerson({
+                    employeeId:
+                      request.site_work_authority_employee_id,
+                    name: request.site_work_authority_name,
+                  })}
+                />
+                <DetailItem
                   label="Submitted"
                   value={formatDateTime(
                     request.submitted_at,

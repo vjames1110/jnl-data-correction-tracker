@@ -181,6 +181,14 @@ export function useDownloadSiteTemplate() {
   });
 }
 
+export function useSiteImportColumns() {
+  return useQuery({
+    queryKey: queryKeys.siteImportColumns,
+    queryFn:
+      organizationService.getSiteImportColumns,
+  });
+}
+
 export function usePreviewSiteImport() {
   return useMutation({
     mutationFn:

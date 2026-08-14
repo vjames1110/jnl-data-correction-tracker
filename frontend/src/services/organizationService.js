@@ -287,6 +287,14 @@ export const organizationService = {
     return response.data;
   },
 
+  async getSiteImportColumns() {
+    const response = await apiClient.get(
+      "/organization/sites/import-columns/",
+    );
+
+    return response.data?.data ?? {};
+  },
+
   async previewSiteImport(file) {
     const formData = new FormData();
     formData.append("file", file);

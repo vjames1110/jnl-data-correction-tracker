@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   Building2,
   Check,
+  ChevronDown,
+  ChevronUp,
   Download,
   History,
   MapPin,
@@ -104,6 +106,35 @@ function HodCoverageChip({ assigned }) {
   );
 }
 
+function CollapseToggle({
+  expanded,
+  onClick,
+  label,
+}) {
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      aria-label={
+        expanded
+          ? `Collapse ${label}`
+          : `Expand ${label}`
+      }
+      aria-expanded={expanded}
+      title={
+        expanded ? "Collapse" : "Expand"
+      }
+      onClick={onClick}
+    >
+      {expanded ? (
+        <ChevronUp size={17} />
+      ) : (
+        <ChevronDown size={17} />
+      )}
+    </button>
+  );
+}
+
 function CoverageAlert({ summary }) {
   const missing =
     summary.total_missing ?? 0;
@@ -146,6 +177,12 @@ export function HodMappingPage() {
     useState({});
   const [departmentDrafts, setDepartmentDrafts] =
     useState({});
+  const [isSitePmExpanded, setIsSitePmExpanded] =
+    useState(true);
+  const [
+    isDepartmentHodExpanded,
+    setIsDepartmentHodExpanded,
+  ] = useState(true);
 
   const data = mappingsQuery.data ?? {};
   const sites = data.sites ?? [];
@@ -283,8 +320,21 @@ export function HodMappingPage() {
       </section>
 
       <section className="organization-grid">
-        <SurfaceCard title="Site PM">
-          {!sites.length ? (
+        <SurfaceCard
+          title="Site PM"
+          action={
+            <CollapseToggle
+              expanded={isSitePmExpanded}
+              label="Site PM section"
+              onClick={() =>
+                setIsSitePmExpanded(
+                  (current) => !current,
+                )
+              }
+            />
+          }
+        >
+          {!isSitePmExpanded ? null : !sites.length ? (
             <EmptyState
               title="No sites found"
               message="Add sites before assigning project managers."
@@ -402,8 +452,23 @@ export function HodMappingPage() {
           )}
         </SurfaceCard>
 
-        <SurfaceCard title="Department HOD">
-          {!departments.length ? (
+        <SurfaceCard
+          title="Department HOD"
+          action={
+            <CollapseToggle
+              expanded={
+                isDepartmentHodExpanded
+              }
+              label="Department HOD section"
+              onClick={() =>
+                setIsDepartmentHodExpanded(
+                  (current) => !current,
+                )
+              }
+            />
+          }
+        >
+          {!isDepartmentHodExpanded ? null : !departments.length ? (
             <EmptyState
               title="No departments found"
               message="Add departments before assigning HODs."

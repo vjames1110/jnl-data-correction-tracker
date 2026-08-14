@@ -25,6 +25,7 @@ const hooks = vi.hoisted(() => ({
   useImportSitesMock: vi.fn(),
   usePreviewSiteImportMock: vi.fn(),
   useSiteExportMock: vi.fn(),
+  useSiteImportColumnsMock: vi.fn(),
   useSitesMock: vi.fn(),
   useUpdateSiteMock: vi.fn(),
   useUsersDropdownMock: vi.fn(),
@@ -49,6 +50,8 @@ vi.mock("../../../hooks/useOrganization", () => ({
     hooks.usePreviewSiteImportMock(...args),
   useSiteExport: (...args) =>
     hooks.useSiteExportMock(...args),
+  useSiteImportColumns: (...args) =>
+    hooks.useSiteImportColumnsMock(...args),
   useSites: (...args) =>
     hooks.useSitesMock(...args),
   useUpdateSite: (...args) =>
@@ -89,6 +92,12 @@ function mockMutations() {
   hooks.useExportSiteFailedRowsMock.mockReturnValue({
     mutateAsync: vi.fn(),
     isPending: false,
+  });
+  hooks.useSiteImportColumnsMock.mockReturnValue({
+    data: {
+      columns: [],
+      required_columns: [],
+    },
   });
 
   return { createSite };

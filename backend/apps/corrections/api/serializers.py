@@ -98,6 +98,44 @@ class CorrectionRequestDraftSerializer(
         source="closed_by.full_name",
         read_only=True,
     )
+    ho_work_authority_employee_id = (
+        serializers.CharField(
+            source="ho_work_authority.employee_id",
+            read_only=True,
+        )
+    )
+    ho_work_authority_name = serializers.CharField(
+        source="ho_work_authority.full_name",
+        read_only=True,
+    )
+    site_work_authority_employee_id = (
+        serializers.CharField(
+            source="site_work_authority.employee_id",
+            read_only=True,
+        )
+    )
+    site_work_authority_name = serializers.CharField(
+        source="site_work_authority.full_name",
+        read_only=True,
+    )
+    root_cause_person_employee_id = (
+        serializers.CharField(
+            source="root_cause_person.employee_id",
+            read_only=True,
+        )
+    )
+    root_cause_person_name = serializers.CharField(
+        source="root_cause_person.full_name",
+        read_only=True,
+    )
+    site_pm_employee_id = serializers.CharField(
+        source="site.site_hod.employee_id",
+        read_only=True,
+    )
+    site_pm_name = serializers.CharField(
+        source="site.site_hod.full_name",
+        read_only=True,
+    )
 
     class Meta:
         model = CorrectionRequest
@@ -136,6 +174,17 @@ class CorrectionRequestDraftSerializer(
             "requested_window_end",
             "amount",
             "quantity",
+            "ho_work_authority",
+            "ho_work_authority_employee_id",
+            "ho_work_authority_name",
+            "site_work_authority",
+            "site_work_authority_employee_id",
+            "site_work_authority_name",
+            "root_cause_person",
+            "root_cause_person_employee_id",
+            "root_cause_person_name",
+            "site_pm_employee_id",
+            "site_pm_name",
             "current_status",
             "current_owner",
             "current_owner_employee_id",
@@ -173,6 +222,14 @@ class CorrectionRequestDraftSerializer(
             "reason_name",
             "priority_code",
             "priority_name",
+            "ho_work_authority_employee_id",
+            "ho_work_authority_name",
+            "site_work_authority_employee_id",
+            "site_work_authority_name",
+            "root_cause_person_employee_id",
+            "root_cause_person_name",
+            "site_pm_employee_id",
+            "site_pm_name",
             "current_status",
             "current_owner",
             "current_owner_employee_id",
