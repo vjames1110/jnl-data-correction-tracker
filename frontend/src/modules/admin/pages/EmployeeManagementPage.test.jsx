@@ -111,6 +111,7 @@ const filterOptions = {
   roles: [
     { value: "USER", label: "User" },
     { value: "ADMIN", label: "Admin" },
+    { value: "EMPLOYEE", label: "Employee" },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },
@@ -419,6 +420,45 @@ describe("EmployeeManagementPage", () => {
     expect(
       screen.getByText("TmpPass123!"),
     ).toBeInTheDocument();
+  });
+
+  it("auto-unchecks and disables account creation when role is set to Employee", async () => {
+    hooks.useCreateEmployeeProfileMock.mockReturnValue(
+      mutationMock(),
+    );
+    hooks.useCreateEmployeeAccountMock.mockReturnValue(
+      mutationMock(),
+    );
+
+    render(<EmployeeManagementPage />);
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /add employee/i,
+      }),
+    );
+
+    const panel = screen.getByRole("complementary");
+    const createAccountCheckbox =
+      within(panel).getByLabelText(
+        /create user account/i,
+      );
+
+    expect(
+      createAccountCheckbox,
+    ).toBeChecked();
+
+    await userEvent.selectOptions(
+      within(panel).getByLabelText(/^role$/i),
+      "EMPLOYEE",
+    );
+
+    expect(
+      createAccountCheckbox,
+    ).not.toBeChecked();
+    expect(
+      createAccountCheckbox,
+    ).toBeDisabled();
   });
 
   it("opens employee details and resets temporary password", async () => {

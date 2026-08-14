@@ -169,11 +169,15 @@ class Site(BusinessModel):
         blank=True,
     )
     site_hod = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        "employees.EmployeeProfile",
         on_delete=models.SET_NULL,
         related_name="hod_sites",
         null=True,
         blank=True,
+        help_text=(
+            "Site PM. Not restricted to employees "
+            "with a login account."
+        ),
     )
     cost_centre = models.CharField(
         max_length=50,

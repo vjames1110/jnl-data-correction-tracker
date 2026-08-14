@@ -4,6 +4,7 @@ export const USER_ROLES = Object.freeze({
   USER: "USER",
   DIRECTOR: "DIRECTOR",
   RESPONSIBLE_PERSON: "RESPONSIBLE_PERSON",
+  EMPLOYEE: "EMPLOYEE",
 });
 
 export const ADMIN_ROLES = Object.freeze([

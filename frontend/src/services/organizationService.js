@@ -136,6 +136,7 @@ export const organizationService = {
       departmentsResponse,
       siteDepartmentMappingsResponse,
       usersResponse,
+      employeesResponse,
     ] = await Promise.all([
       apiClient.get(
         "/organization/sites/export/",
@@ -149,6 +150,9 @@ export const organizationService = {
       apiClient.get(
         "/organization/users/dropdown/",
       ),
+      apiClient.get(
+        "/employees/profiles/dropdown/",
+      ),
     ]);
 
     const sites = resolveItems(sitesResponse);
@@ -159,6 +163,9 @@ export const organizationService = {
       siteDepartmentMappingsResponse,
     );
     const users = resolveItems(usersResponse);
+    const employees = resolveItems(
+      employeesResponse,
+    );
 
     const missingSiteHods = sites.filter(
       (site) => !site.site_hod,
@@ -195,6 +202,7 @@ export const organizationService = {
       site_department_mappings:
         siteDepartmentMappings,
       users,
+      employees,
       missing: {
         site_hods: missingSiteHods,
         department_hods:

@@ -100,6 +100,10 @@ const fallbackOptions = {
       value: "SUPER_ADMIN",
       label: "Super Admin",
     },
+    {
+      value: "EMPLOYEE",
+      label: "Employee",
+    },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },
@@ -278,6 +282,13 @@ function EmployeeCreatePanel({
     setForm((current) => ({
       ...current,
       [field]: value,
+      ...(field === "role" &&
+      value === "EMPLOYEE"
+        ? {
+            create_account: false,
+            send_notification: false,
+          }
+        : {}),
     }));
   };
 
@@ -615,6 +626,9 @@ function EmployeeCreatePanel({
                 <input
                   type="checkbox"
                   checked={form.create_account}
+                  disabled={
+                    form.role === "EMPLOYEE"
+                  }
                   onChange={(event) =>
                     updateField(
                       "create_account",
@@ -624,6 +638,15 @@ function EmployeeCreatePanel({
                 />
                 <span>Create user account</span>
               </label>
+              {form.role === "EMPLOYEE" ? (
+                <p className="assignment-panel__hint">
+                  Employees don&apos;t get a
+                  dashboard login. They can still
+                  be selected as Site PM, Root
+                  Cause Person or Work Authority
+                  when creating a request.
+                </p>
+              ) : null}
               <label className="toggle-field">
                 <input
                   type="checkbox"
@@ -631,7 +654,8 @@ function EmployeeCreatePanel({
                     form.send_notification
                   }
                   disabled={
-                    !form.create_account
+                    !form.create_account ||
+                    form.role === "EMPLOYEE"
                   }
                   onChange={(event) =>
                     updateField(

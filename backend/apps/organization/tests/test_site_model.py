@@ -7,8 +7,8 @@ from django.db import IntegrityError
 
 from apps.authentication.tests.factories import (
     DirectorUserFactory,
-    UserFactory,
 )
+from apps.employees.models import EmployeeProfile
 from apps.organization.models import (
     Company,
     Site,
@@ -125,7 +125,9 @@ def test_site_keeps_director_and_hod_references(company):
         first_name="Site",
         last_name="Director",
     )
-    hod = UserFactory(
+    # Site PM (site_hod) is an EmployeeProfile, not a User — a Site
+    # PM does not need a login account.
+    hod = EmployeeProfile.objects.create(
         employee_id="HOD001",
         first_name="Site",
         last_name="HOD",
@@ -141,6 +143,7 @@ def test_site_keeps_director_and_hod_references(company):
 
     assert site.site_director == director
     assert site.site_hod == hod
+    assert site.site_hod.user_id is None
 
 
 @pytest.mark.django_db

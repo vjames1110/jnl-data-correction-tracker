@@ -188,6 +188,7 @@ export function HodMappingPage() {
   const sites = data.sites ?? [];
   const departments = data.departments ?? [];
   const users = data.users ?? [];
+  const employees = data.employees ?? [];
   const mappingHistory =
     data.site_department_mappings ?? [];
   const summary = data.summary ?? {};
@@ -386,7 +387,7 @@ export function HodMappingPage() {
                         <td className="mapping-select-cell">
                           <HodSelect
                             label={`Site PM for ${site.site_name}`}
-                            users={users}
+                            users={employees}
                             value={value}
                             onChange={(nextValue) =>
                               setSiteDrafts(

@@ -30,15 +30,14 @@ def _create_user(employee_id, role, **extra):
 
 def _create_profile(
     *,
-    user,
-    site,
-    department,
+    employee_id,
+    site=None,
+    department=None,
 ):
     return EmployeeProfile.objects.create(
-        user=user,
-        employee_id=user.employee_id,
-        first_name=user.first_name,
-        role=user.role,
+        employee_id=employee_id,
+        first_name=employee_id,
+        role=UserRole.EMPLOYEE,
         site=site,
         department=department,
     )
@@ -46,12 +45,14 @@ def _create_profile(
 
 class WorkAuthorityRuleTests(TestCase):
     """
-    HO Work Authority and Site Work Authority are no longer a
-    manually curated list; eligibility is derived automatically from
-    each candidate's own EmployeeProfile: a Head Office (site_code
-    "HO") employee is eligible as HO Work Authority, while a Site
-    Work Authority must belong to the exact site and department the
-    request itself is for.
+    HO Work Authority, Site Work Authority and Root Cause Person are
+    all EmployeeProfile references, so an employee never needs a
+    login account (User) to be selectable for any of them. HO/Site
+    eligibility is derived automatically from the profile's own site
+    (and, for Site Work Authority, department): a Head Office
+    (site_code "HO") employee is eligible as HO Work Authority,
+    while a Site Work Authority must belong to the exact site and
+    department the request itself is for.
     """
 
     def setUp(self):
@@ -89,49 +90,31 @@ class WorkAuthorityRuleTests(TestCase):
             )
         )
 
-        self.ho_employee = _create_user(
-            "WAHO001",
-            UserRole.USER,
-        )
-        _create_profile(
-            user=self.ho_employee,
+        # None of these employees have a User account — they are
+        # exactly the "Employee" role people who don't need a
+        # dashboard login.
+        self.ho_employee = _create_profile(
+            employee_id="WAHO001",
             site=self.ho_site,
             department=self.department,
         )
-
-        self.site_dept_employee = _create_user(
-            "WASD001",
-            UserRole.USER,
-        )
-        _create_profile(
-            user=self.site_dept_employee,
+        self.site_dept_employee = _create_profile(
+            employee_id="WASD001",
             site=self.site,
             department=self.department,
         )
-
-        self.other_dept_employee = _create_user(
-            "WAOD001",
-            UserRole.USER,
-        )
-        _create_profile(
-            user=self.other_dept_employee,
+        self.other_dept_employee = _create_profile(
+            employee_id="WAOD001",
             site=self.site,
             department=self.other_department,
         )
-
-        self.other_site_employee = _create_user(
-            "WAOS001",
-            UserRole.USER,
-        )
-        _create_profile(
-            user=self.other_site_employee,
+        self.other_site_employee = _create_profile(
+            employee_id="WAOS001",
             site=self.other_site,
             department=self.department,
         )
-
-        self.no_profile_user = _create_user(
-            "WANP001",
-            UserRole.USER,
+        self.no_site_employee = _create_profile(
+            employee_id="WANS001",
         )
 
     def test_ho_site_employee_accepted_as_ho_authority(
@@ -151,6 +134,9 @@ class WorkAuthorityRuleTests(TestCase):
         self.assertEqual(
             draft.ho_work_authority_id,
             self.ho_employee.id,
+        )
+        self.assertIsNone(
+            draft.ho_work_authority.user_id
         )
 
     def test_non_ho_employee_rejected_as_ho_authority(
@@ -175,7 +161,7 @@ class WorkAuthorityRuleTests(TestCase):
             context.exception.detail,
         )
 
-    def test_user_without_profile_rejected_as_ho_authority(
+    def test_employee_without_site_rejected_as_ho_authority(
         self,
     ):
         with self.assertRaises(
@@ -187,7 +173,7 @@ class WorkAuthorityRuleTests(TestCase):
                     "site": self.site,
                     "department": self.department,
                     "ho_work_authority": (
-                        self.no_profile_user
+                        self.no_site_employee
                     ),
                 },
             )
@@ -281,7 +267,7 @@ class WorkAuthorityRuleTests(TestCase):
             context.exception.detail,
         )
 
-    def test_root_cause_person_accepts_any_user(
+    def test_root_cause_person_accepts_any_account_less_employee(
         self,
     ):
         draft = create_draft(
@@ -290,12 +276,15 @@ class WorkAuthorityRuleTests(TestCase):
                 "site": self.site,
                 "department": self.department,
                 "root_cause_person": (
-                    self.no_profile_user
+                    self.no_site_employee
                 ),
             },
         )
 
         self.assertEqual(
             draft.root_cause_person_id,
-            self.no_profile_user.id,
+            self.no_site_employee.id,
+        )
+        self.assertIsNone(
+            draft.root_cause_person.user_id
         )

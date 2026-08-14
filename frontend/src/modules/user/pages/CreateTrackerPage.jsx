@@ -153,12 +153,10 @@ function selectLabel(items, id) {
 }
 
 function toPersonOptions(employees) {
-  return (employees ?? [])
-    .filter((employee) => employee.user)
-    .map((employee) => ({
-      value: employee.user,
-      label: employee.label,
-    }));
+  return (employees ?? []).map((employee) => ({
+    value: employee.id,
+    label: employee.label,
+  }));
 }
 
 function errorMessage(error) {

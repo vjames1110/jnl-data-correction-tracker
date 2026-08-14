@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.authentication.models import User
+from apps.employees.models import EmployeeProfile
 from apps.organization.models import (
     Company,
     Department,
@@ -50,6 +51,24 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
+        fields = [
+            "id",
+            "employee_id",
+            "full_name",
+            "role",
+            "is_active",
+        ]
+
+
+class EmployeeBriefSerializer(
+    serializers.ModelSerializer
+):
+    full_name = serializers.CharField(
+        read_only=True,
+    )
+
+    class Meta:
+        model = EmployeeProfile
         fields = [
             "id",
             "employee_id",
@@ -139,7 +158,7 @@ class SiteSerializer(CleanModelSerializer):
         source="site_director",
         read_only=True,
     )
-    site_hod_detail = UserBriefSerializer(
+    site_hod_detail = EmployeeBriefSerializer(
         source="site_hod",
         read_only=True,
     )

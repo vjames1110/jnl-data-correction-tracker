@@ -7,6 +7,7 @@ from apps.authentication.models import (
     User,
     UserRole,
 )
+from apps.employees.models import EmployeeProfile
 from apps.organization.models import (
     Company,
     Department,
@@ -31,9 +32,13 @@ class SitePmFieldTests(TestCase):
             "SPMREQ001",
             UserRole.USER,
         )
-        self.site_pm = _create_user(
-            "SPMPM001",
-            UserRole.USER,
+        # Site PM is an EmployeeProfile, not a User — Site PMs do
+        # not need a login account.
+        self.site_pm = EmployeeProfile.objects.create(
+            employee_id="SPMPM001",
+            first_name="Site",
+            last_name="PM",
+            role=UserRole.EMPLOYEE,
         )
         self.company = Company.objects.create(
             company_code="JNL",
@@ -53,6 +58,8 @@ class SitePmFieldTests(TestCase):
     def test_draft_api_exposes_site_pm_from_site_hod(
         self,
     ):
+        self.assertIsNone(self.site_pm.user_id)
+
         client = APIClient()
         client.force_authenticate(self.requester)
 

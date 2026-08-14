@@ -431,6 +431,12 @@ describe("Organization management pages", () => {
             label: "DIR001 - Site Director",
           },
         ],
+        employees: [
+          {
+            id: "employee-1",
+            label: "SPM001 - Site PM Candidate",
+          },
+        ],
         missing: {
           site_hods: [
             {
@@ -463,7 +469,7 @@ describe("Organization management pages", () => {
       screen.getByRole("combobox", {
         name: /site pm for bikaner site/i,
       }),
-      "director-1",
+      "employee-1",
     );
     await userEvent.click(
       screen.getByRole("button", {
@@ -475,7 +481,7 @@ describe("Organization management pages", () => {
       updateSiteHod.mutateAsync,
     ).toHaveBeenCalledWith({
       id: "site-1",
-      siteHod: "director-1",
+      siteHod: "employee-1",
     });
 
     await userEvent.selectOptions(
