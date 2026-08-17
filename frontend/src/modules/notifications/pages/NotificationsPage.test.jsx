@@ -15,10 +15,18 @@ import {
 import { NotificationsPage } from "./NotificationsPage";
 
 const {
+  useMarkAllNotificationsReadMock,
+  useMarkNotificationReadMock,
+  useMarkNotificationUnreadMock,
+  useNotificationUnreadCountMock,
   useNotificationsMock,
   useNotificationPreferencesMock,
   useUpdateNotificationPreferencesMock,
 } = vi.hoisted(() => ({
+  useMarkAllNotificationsReadMock: vi.fn(),
+  useMarkNotificationReadMock: vi.fn(),
+  useMarkNotificationUnreadMock: vi.fn(),
+  useNotificationUnreadCountMock: vi.fn(),
   useNotificationsMock: vi.fn(),
   useNotificationPreferencesMock: vi.fn(),
   useUpdateNotificationPreferencesMock: vi.fn(),
@@ -27,6 +35,14 @@ const {
 vi.mock("../../../hooks/useNotifications", () => ({
   useNotifications: (...args) =>
     useNotificationsMock(...args),
+  useNotificationUnreadCount: () =>
+    useNotificationUnreadCountMock(),
+  useMarkNotificationRead: () =>
+    useMarkNotificationReadMock(),
+  useMarkNotificationUnread: () =>
+    useMarkNotificationUnreadMock(),
+  useMarkAllNotificationsRead: () =>
+    useMarkAllNotificationsReadMock(),
   useNotificationPreferences: () =>
     useNotificationPreferencesMock(),
   useUpdateNotificationPreferences: () =>
@@ -43,9 +59,30 @@ function renderPage() {
 
 describe("NotificationsPage", () => {
   beforeEach(() => {
+    useMarkAllNotificationsReadMock.mockReset();
+    useMarkNotificationReadMock.mockReset();
+    useMarkNotificationUnreadMock.mockReset();
+    useNotificationUnreadCountMock.mockReset();
     useNotificationsMock.mockReset();
     useNotificationPreferencesMock.mockReset();
     useUpdateNotificationPreferencesMock.mockReset();
+    useNotificationUnreadCountMock.mockReturnValue({
+      data: {
+        unread_count: 0,
+      },
+    });
+    useMarkNotificationReadMock.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    });
+    useMarkNotificationUnreadMock.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    });
+    useMarkAllNotificationsReadMock.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    });
     useUpdateNotificationPreferencesMock.mockReturnValue(
       {
         mutate: vi.fn(),
@@ -116,7 +153,15 @@ describe("NotificationsPage", () => {
       screen.getByText("Approval pending"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Unread"),
+      screen.getAllByText("Unread").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByText("DCT-2026-000001"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /mark read/i,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", {
@@ -126,6 +171,104 @@ describe("NotificationsPage", () => {
       "href",
       "/director/approvals/1",
     );
+  });
+
+  it("can mark one notification as read", async () => {
+    const markRead = vi.fn();
+    useMarkNotificationReadMock.mockReturnValue({
+      mutate: markRead,
+      isPending: false,
+    });
+    useNotificationsMock.mockReturnValue({
+      isLoading: false,
+      data: {
+        items: [
+          {
+            id: "1",
+            title: "Approval pending",
+            event_type: "APPROVAL_PENDING",
+            severity: "WARNING",
+            is_read: false,
+            created_at: new Date().toISOString(),
+          },
+        ],
+        meta: {},
+      },
+    });
+
+    renderPage();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /mark read/i,
+      }),
+    );
+
+    expect(markRead).toHaveBeenCalledWith("1");
+  });
+
+  it("can mark one notification as unread", async () => {
+    const markUnread = vi.fn();
+    useMarkNotificationUnreadMock.mockReturnValue({
+      mutate: markUnread,
+      isPending: false,
+    });
+    useNotificationsMock.mockReturnValue({
+      isLoading: false,
+      data: {
+        items: [
+          {
+            id: "1",
+            title: "Request approved",
+            event_type: "REQUEST_APPROVED",
+            severity: "SUCCESS",
+            is_read: true,
+            created_at: new Date().toISOString(),
+          },
+        ],
+        meta: {},
+      },
+    });
+
+    renderPage();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /mark unread/i,
+      }),
+    );
+
+    expect(markUnread).toHaveBeenCalledWith("1");
+  });
+
+  it("can mark all notifications as read", async () => {
+    const markAllRead = vi.fn();
+    useNotificationUnreadCountMock.mockReturnValue({
+      data: {
+        unread_count: 3,
+      },
+    });
+    useMarkAllNotificationsReadMock.mockReturnValue({
+      mutate: markAllRead,
+      isPending: false,
+    });
+    useNotificationsMock.mockReturnValue({
+      isLoading: false,
+      data: {
+        items: [],
+        meta: {},
+      },
+    });
+
+    renderPage();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /mark all read/i,
+      }),
+    );
+
+    expect(markAllRead).toHaveBeenCalled();
   });
 
   it("shows an empty state when there are no notifications", () => {

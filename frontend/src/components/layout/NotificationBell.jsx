@@ -4,7 +4,12 @@ import { Link } from "react-router-dom";
 
 import { portalBasePath } from "../../constants/roles";
 import { useAuth } from "../../hooks/useAuth";
-import { useNotifications } from "../../hooks/useNotifications";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+  useNotificationUnreadCount,
+} from "../../hooks/useNotifications";
 import { formatRelativeTime } from "../../utils/dates";
 import {
   formatNotificationEvent,
@@ -28,12 +33,30 @@ export function NotificationBell() {
   );
   const notifications =
     notificationsQuery.data?.items ?? [];
-  const hasUnread = notifications.some(
+  const unreadCountQuery =
+    useNotificationUnreadCount();
+  const unreadCount =
+    unreadCountQuery.data?.unread_count ?? 0;
+  const hasUnread = unreadCount > 0;
+  const markReadMutation =
+    useMarkNotificationRead();
+  const markAllReadMutation =
+    useMarkAllNotificationsRead();
+  const hasUnreadInPanel = notifications.some(
     (notification) => !notification.is_read,
   );
   const notificationsPath = `${portalBasePath(
     user?.role,
   )}/notifications`;
+
+  const handleNotificationClick = (
+    notification,
+  ) => {
+    setIsOpen(false);
+    if (!notification.is_read) {
+      markReadMutation.mutate(notification.id);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -80,7 +103,9 @@ export function NotificationBell() {
       >
         <Bell size={19} />
         {hasUnread ? (
-          <span className="notification-button__dot" />
+          <span className="notification-button__dot">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         ) : null}
       </button>
 
@@ -95,6 +120,22 @@ export function NotificationBell() {
               View all
             </Link>
           </div>
+          {hasUnreadInPanel ? (
+            <div className="notification-panel__tools">
+              <button
+                type="button"
+                className="button button--tertiary notification-panel__action"
+                disabled={
+                  markAllReadMutation.isPending
+                }
+                onClick={() =>
+                  markAllReadMutation.mutate()
+                }
+              >
+                Mark all read
+              </button>
+            </div>
+          ) : null}
 
           <div className="notification-panel__body">
             {notificationsQuery.isLoading ? (
@@ -156,7 +197,9 @@ export function NotificationBell() {
                               notification.deep_link
                             }
                             onClick={() =>
-                              setIsOpen(false)
+                              handleNotificationClick(
+                                notification,
+                              )
                             }
                           >
                             {itemContent}

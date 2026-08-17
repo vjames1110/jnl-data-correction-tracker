@@ -310,6 +310,133 @@ class NotificationTests(TransactionTestCase):
             [NotificationEventType.SLA_WARNING],
         )
 
+    def test_read_unread_api_actions(self):
+        self.client.force_authenticate(self.requester)
+        created = notify_users(
+            recipients=[self.requester],
+            event_type=(
+                NotificationEventType.REQUEST_SUBMITTED
+            ),
+            message="Read state test.",
+        )
+        notification = created[0]
+
+        count_response = self.client.get(
+            "/api/v1/notifications/unread-count/"
+        )
+        read_response = self.client.post(
+            f"/api/v1/notifications/{notification.id}/mark-read/"
+        )
+        notification.refresh_from_db()
+
+        self.assertEqual(
+            count_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            count_response.data["data"]["unread_count"],
+            1,
+        )
+        self.assertEqual(
+            read_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertTrue(notification.is_read)
+        self.assertTrue(
+            read_response.data["data"]["is_read"]
+        )
+
+        unread_response = self.client.post(
+            f"/api/v1/notifications/{notification.id}/mark-unread/"
+        )
+        notification.refresh_from_db()
+
+        self.assertEqual(
+            unread_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertFalse(notification.is_read)
+        self.assertFalse(
+            unread_response.data["data"]["is_read"]
+        )
+
+    def test_mark_all_read_only_updates_current_user(self):
+        self.client.force_authenticate(self.requester)
+        notify_users(
+            recipients=[self.requester, self.director],
+            event_type=(
+                NotificationEventType.APPROVAL_PENDING
+            ),
+        )
+
+        response = self.client.post(
+            "/api/v1/notifications/mark-all-read/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            response.data["data"]["updated_count"],
+            1,
+        )
+        self.assertTrue(
+            Notification.objects.get(
+                recipient=self.requester
+            ).is_read
+        )
+        self.assertFalse(
+            Notification.objects.get(
+                recipient=self.director
+            ).is_read
+        )
+
+    def test_notification_list_filters_read_state(self):
+        self.client.force_authenticate(self.requester)
+        created = notify_users(
+            recipients=[self.requester],
+            event_type=(
+                NotificationEventType.REQUEST_SUBMITTED
+            ),
+            message="Unread notification.",
+        )
+        read_notification = created[0]
+        read_notification.mark_read()
+        notify_users(
+            recipients=[self.requester],
+            event_type=(
+                NotificationEventType.APPROVAL_PENDING
+            ),
+            message="Unread notification.",
+        )
+
+        unread_response = self.client.get(
+            "/api/v1/notifications/",
+            {"read_state": "unread"},
+        )
+        read_response = self.client.get(
+            "/api/v1/notifications/",
+            {"read_state": "read"},
+        )
+
+        self.assertEqual(
+            unread_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            read_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(len(unread_response.data["data"]), 1)
+        self.assertEqual(len(read_response.data["data"]), 1)
+        self.assertFalse(
+            unread_response.data["data"][0]["is_read"]
+        )
+        self.assertTrue(
+            read_response.data["data"][0]["is_read"]
+        )
+
     def test_submit_request_creates_workflow_notifications(self):
         draft = create_draft(
             requester=self.requester,

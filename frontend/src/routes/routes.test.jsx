@@ -21,6 +21,7 @@ import { DirectorRoute } from "./DirectorRoute";
 import { GuestRoute } from "./GuestRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { ResponsibleRoute } from "./ResponsibleRoute";
+import { UserRoute } from "./UserRoute";
 
 const { useAuthMock } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
@@ -173,6 +174,33 @@ function renderResponsibleRoute(
   );
 }
 
+function renderUserRoute(
+  initialPath = "/user/dashboard",
+) {
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route
+          element={<UserRoute />}
+        >
+          <Route
+            path="/user/dashboard"
+            element={<div>User Dashboard</div>}
+          />
+        </Route>
+        <Route
+          path="/admin/change-password"
+          element={<div>Change Password</div>}
+        />
+        <Route
+          path="/forbidden"
+          element={<div>Forbidden</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("route guards", () => {
   beforeEach(() => {
     useAuthMock.mockReset();
@@ -205,6 +233,51 @@ describe("route guards", () => {
 
     expect(
       screen.getByText("Dashboard"),
+    ).toBeInTheDocument();
+  });
+
+  it("sends temporary-password request creators to password change", async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.USER,
+        must_change_password: true,
+      },
+    });
+
+    renderUserRoute();
+
+    expect(
+      await screen.findByText("Change Password"),
+    ).toBeInTheDocument();
+  });
+
+  it("allows request creators through user routes", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.USER,
+        must_change_password: false,
+      },
+    });
+
+    renderUserRoute();
+
+    expect(
+      screen.getByText("User Dashboard"),
+    ).toBeInTheDocument();
+  });
+
+  it("blocks non-request creators from user routes", async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.DIRECTOR,
+        must_change_password: false,
+      },
+    });
+
+    renderUserRoute();
+
+    expect(
+      await screen.findByText("Forbidden"),
     ).toBeInTheDocument();
   });
 

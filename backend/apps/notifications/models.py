@@ -169,6 +169,13 @@ class Notification(models.Model):
                 update_fields=["read_at", "updated_at"]
             )
 
+    def mark_unread(self):
+        if self.read_at is not None:
+            self.read_at = None
+            self.save(
+                update_fields=["read_at", "updated_at"]
+            )
+
 
 class NotificationPreference(models.Model):
     id = models.UUIDField(

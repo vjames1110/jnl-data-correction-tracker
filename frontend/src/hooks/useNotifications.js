@@ -33,6 +33,62 @@ export function useNotificationPreferences() {
   });
 }
 
+export function useNotificationUnreadCount(
+  options = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.notificationUnreadCount,
+    queryFn:
+      notificationService.getUnreadCount.bind(
+        notificationService,
+      ),
+    enabled: options.enabled ?? true,
+    refetchInterval:
+      options.refetchInterval ?? 60_000,
+  });
+}
+
+function invalidateNotificationQueries(queryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ["notifications"],
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id) =>
+      notificationService.markRead(id),
+    onSuccess: () =>
+      invalidateNotificationQueries(queryClient),
+  });
+}
+
+export function useMarkNotificationUnread() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id) =>
+      notificationService.markUnread(id),
+    onSuccess: () =>
+      invalidateNotificationQueries(queryClient),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      notificationService.markAllRead.bind(
+        notificationService,
+      ),
+    onSuccess: () =>
+      invalidateNotificationQueries(queryClient),
+  });
+}
+
 export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
 

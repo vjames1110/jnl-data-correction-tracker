@@ -29,8 +29,10 @@ from apps.erp.models import (
     WorkType,
 )
 from apps.organization.models import (
+    ApprovalAuthorityType,
     Company,
     Department,
+    DirectorMapping,
     Site,
 )
 
@@ -276,6 +278,87 @@ class ApprovalApiTests(TestCase):
         self.assertEqual(
             director_response.status_code,
             status.HTTP_400_BAD_REQUEST,
+        )
+
+    def test_mapped_director_can_see_and_approve_admin_fallback_step(
+        self,
+    ):
+        admin_only_site = Site.objects.create(
+            company=self.company,
+            site_code="ADM",
+            site_name="Admin Fallback Site",
+        )
+        draft = create_draft(
+            requester=self.requester,
+            data={
+                "site": admin_only_site,
+                "department": self.department,
+                "erp_module": self.module,
+                "voucher_type": self.voucher,
+                "work_type": self.work_type,
+                "voucher_number": "JV-LATE-DIR-001",
+                "voucher_date": timezone.localdate(),
+                "erp_email_date": timezone.localdate(),
+                "description": (
+                    "Approval should be visible after "
+                    "director mapping is added."
+                ),
+                "reason_category": self.reason,
+                "priority": self.priority,
+            },
+        )
+        submitted = submit_request(
+            draft=draft,
+            user=self.requester,
+            override_duplicates=True,
+            duplicate_override_reason=(
+                "Director mapping fallback regression test."
+            ),
+        )
+        step = submitted.approval_steps.get()
+        self.assertEqual(
+            step.approver_type,
+            ApprovalApproverType.ADMIN_FINAL,
+        )
+
+        DirectorMapping.objects.create(
+            director=self.approver_one,
+            site=admin_only_site,
+            authority_type=ApprovalAuthorityType.PRIMARY,
+        )
+
+        self.client.force_authenticate(
+            self.approver_one
+        )
+        inbox_response = self.client.get(
+            "/api/v1/corrections/approvals/inbox/"
+        )
+        approve_response = self.client.post(
+            f"/api/v1/corrections/approvals/{step.id}/approve/",
+            {"comment": "Mapped director approved."},
+            format="json",
+        )
+        submitted.refresh_from_db()
+
+        self.assertEqual(
+            inbox_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            len(inbox_response.data["data"]),
+            1,
+        )
+        self.assertEqual(
+            approve_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.APPROVED,
+        )
+        self.assertEqual(
+            submitted.current_owner,
+            self.approver_one,
         )
 
     def test_unauthorized_and_repeat_approval_are_rejected(

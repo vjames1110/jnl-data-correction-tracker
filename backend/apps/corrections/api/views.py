@@ -100,6 +100,7 @@ from apps.corrections.services.submission import (
     preview_duplicates,
     submit_request,
 )
+from apps.organization.models import DirectorMapping
 
 
 def _request_queryset():
@@ -1281,6 +1282,44 @@ def _is_admin_user(user) -> bool:
     )
 
 
+def _director_approval_scope_query(user) -> Q:
+    today = timezone.localdate()
+    mappings = DirectorMapping.objects.filter(
+        director=user,
+        is_active=True,
+    ).filter(
+        Q(effective_from__isnull=True)
+        | Q(effective_from__lte=today),
+        Q(effective_to__isnull=True)
+        | Q(effective_to__gte=today),
+    )
+
+    site_ids = list(
+        mappings.exclude(site__isnull=True).values_list(
+            "site_id",
+            flat=True,
+        )
+    )
+    department_ids = list(
+        mappings.exclude(
+            department__isnull=True
+        ).values_list(
+            "department_id",
+            flat=True,
+        )
+    )
+
+    query = Q()
+    if site_ids:
+        query |= Q(request__site_id__in=site_ids)
+    if department_ids:
+        query |= Q(
+            request__department_id__in=department_ids
+        )
+
+    return query
+
+
 class CorrectionApprovalStepViewSet(
     viewsets.ReadOnlyModelViewSet
 ):
@@ -1335,10 +1374,16 @@ class CorrectionApprovalStepViewSet(
         if _is_admin_user(user):
             return queryset
 
+        visibility = Q(approver=user)
+        if user.has_role(UserRole.DIRECTOR):
+            visibility |= _director_approval_scope_query(
+                user
+            )
+
         return queryset.filter(
-            approver=user,
+            visibility,
             request__is_deleted=False,
-        )
+        ).distinct()
 
     @action(
         detail=False,

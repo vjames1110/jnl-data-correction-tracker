@@ -51,6 +51,7 @@ import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
 import { ResponsibleRoute } from "../routes/ResponsibleRoute";
+import { UserRoute } from "../routes/UserRoute";
 import { CapabilityRoute } from "../routes/CapabilityRoute";
 import {
   ADMIN_CAPABILITIES,
@@ -83,35 +84,40 @@ export const router = createBrowserRouter([
         element: <ChangePasswordPage />,
       },
       {
-        element: <UserLayout />,
+        element: <UserRoute />,
         children: [
           {
-            path: "/user/dashboard",
-            element: <UserDashboardPage />,
-          },
-          {
-            path: "/user/requests",
-            element: <UserRequestsPage />,
-          },
-          {
-            path: "/user/analytics",
-            element: <UserAnalyticsPage />,
-          },
-          {
-            path: "/user/requests/new",
-            element: <CreateTrackerPage />,
-          },
-          {
-            path: "/user/requests/:requestId/continue",
-            element: <CreateTrackerPage />,
-          },
-          {
-            path: "/user/requests/:requestId",
-            element: <RequestDetailsPage />,
-          },
-          {
-            path: "/user/notifications",
-            element: <NotificationsPage />,
+            element: <UserLayout />,
+            children: [
+              {
+                path: "/user/dashboard",
+                element: <UserDashboardPage />,
+              },
+              {
+                path: "/user/requests",
+                element: <UserRequestsPage />,
+              },
+              {
+                path: "/user/analytics",
+                element: <UserAnalyticsPage />,
+              },
+              {
+                path: "/user/requests/new",
+                element: <CreateTrackerPage />,
+              },
+              {
+                path: "/user/requests/:requestId/continue",
+                element: <CreateTrackerPage />,
+              },
+              {
+                path: "/user/requests/:requestId",
+                element: <RequestDetailsPage />,
+              },
+              {
+                path: "/user/notifications",
+                element: <NotificationsPage />,
+              },
+            ],
           },
         ],
       },

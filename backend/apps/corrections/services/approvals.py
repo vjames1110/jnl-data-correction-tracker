@@ -868,8 +868,19 @@ def _validate_action_allowed(
 
     is_admin = _is_admin_user(user)
     admin_override = allow_admin and is_admin
+    director_override = (
+        user.has_role(UserRole.DIRECTOR)
+        and _director_authorized_for_request(
+            request=step.request,
+            user=user,
+        )
+    )
 
-    if not admin_override and step.approver_id != user.id:
+    if (
+        not admin_override
+        and not director_override
+        and step.approver_id != user.id
+    ):
         raise PermissionDenied(
             "Only the current approver can act on this approval step."
         )
@@ -898,6 +909,7 @@ def _validate_action_allowed(
 
     if (
         not admin_override
+        and not director_override
         and not _has_context_access(step=step, user=user)
     ):
         raise PermissionDenied(

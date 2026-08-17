@@ -1,12 +1,24 @@
 import { useMemo, useState } from "react";
-import { Filter, Search, Settings2 } from "lucide-react";
+import {
+  CheckCheck,
+  Filter,
+  MailOpen,
+  Search,
+  Settings2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { useNotifications } from "../../../hooks/useNotifications";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useMarkNotificationUnread,
+  useNotifications,
+  useNotificationUnreadCount,
+} from "../../../hooks/useNotifications";
 import { formatDateTime } from "../../../utils/dates";
 import { NotificationPreferencesPanel } from "../components/NotificationPreferencesPanel";
 import {
@@ -31,6 +43,7 @@ export function NotificationsPage() {
   const [filters, setFilters] = useState({
     search: "",
     severity: "",
+    read_state: "",
     ordering: "-created_at",
     page: 1,
   });
@@ -46,6 +59,16 @@ export function NotificationsPage() {
     notificationsQuery.data?.items ?? [];
   const pagination =
     notificationsQuery.data?.meta?.pagination;
+  const unreadCountQuery =
+    useNotificationUnreadCount();
+  const unreadCount =
+    unreadCountQuery.data?.unread_count ?? 0;
+  const markReadMutation =
+    useMarkNotificationRead();
+  const markUnreadMutation =
+    useMarkNotificationUnread();
+  const markAllReadMutation =
+    useMarkAllNotificationsRead();
 
   const setFilter = (field, value) => {
     setFilters((current) => ({
@@ -53,6 +76,23 @@ export function NotificationsPage() {
       [field]: value,
       page: field === "page" ? value : 1,
     }));
+  };
+
+  const handleOpenNotification = (
+    notification,
+  ) => {
+    if (!notification.is_read) {
+      markReadMutation.mutate(notification.id);
+    }
+  };
+
+  const toggleReadState = (notification) => {
+    if (notification.is_read) {
+      markUnreadMutation.mutate(notification.id);
+      return;
+    }
+
+    markReadMutation.mutate(notification.id);
   };
 
   return (
@@ -70,6 +110,20 @@ export function NotificationsPage() {
         </div>
 
         <div className="page-actions">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={
+              unreadCount === 0 ||
+              markAllReadMutation.isPending
+            }
+            onClick={() =>
+              markAllReadMutation.mutate()
+            }
+          >
+            <CheckCheck size={16} />
+            Mark all read
+          </button>
           <button
             type="button"
             className="button button--secondary"
@@ -131,6 +185,23 @@ export function NotificationsPage() {
               <option value="CRITICAL">
                 Critical
               </option>
+            </select>
+          </label>
+
+          <label className="filter-control">
+            <MailOpen size={15} />
+            <select
+              value={filters.read_state}
+              onChange={(event) =>
+                setFilter(
+                  "read_state",
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">All states</option>
+              <option value="unread">Unread</option>
+              <option value="read">Read</option>
             </select>
           </label>
 
@@ -239,6 +310,11 @@ export function NotificationsPage() {
                     <Link
                       to={notification.deep_link}
                       className="notification-list__link"
+                      onClick={() =>
+                        handleOpenNotification(
+                          notification,
+                        )
+                      }
                     >
                       {itemContent}
                     </Link>
@@ -247,6 +323,23 @@ export function NotificationsPage() {
                       {itemContent}
                     </div>
                   )}
+                  <div className="notification-list__actions">
+                    <button
+                      type="button"
+                      className="button button--tertiary notification-list__action"
+                      disabled={
+                        markReadMutation.isPending ||
+                        markUnreadMutation.isPending
+                      }
+                      onClick={() =>
+                        toggleReadState(notification)
+                      }
+                    >
+                      {notification.is_read
+                        ? "Mark unread"
+                        : "Mark read"}
+                    </button>
+                  </div>
                 </li>
               );
             })}

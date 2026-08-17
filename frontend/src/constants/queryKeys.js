@@ -324,6 +324,10 @@ export const queryKeys = Object.freeze({
     "detail",
     id,
   ],
+  notificationUnreadCount: [
+    "notifications",
+    "unread-count",
+  ],
   notificationPreferences: [
     "notifications",
     "preferences",

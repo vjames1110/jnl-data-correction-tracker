@@ -37,6 +37,40 @@ export const notificationService = {
     return resolveItem(response);
   },
 
+  async getUnreadCount() {
+    const response = await apiClient.get(
+      "/notifications/unread-count/",
+    );
+
+    return resolveItem(response) ?? {
+      unread_count: 0,
+    };
+  },
+
+  async markRead(id) {
+    const response = await apiClient.post(
+      `/notifications/${id}/mark-read/`,
+    );
+
+    return resolveItem(response);
+  },
+
+  async markUnread(id) {
+    const response = await apiClient.post(
+      `/notifications/${id}/mark-unread/`,
+    );
+
+    return resolveItem(response);
+  },
+
+  async markAllRead() {
+    const response = await apiClient.post(
+      "/notifications/mark-all-read/",
+    );
+
+    return resolveItem(response);
+  },
+
   async getPreferences() {
     const response = await apiClient.get(
       "/notifications/preferences/",
