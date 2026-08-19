@@ -38,7 +38,7 @@ import {
   useErpModulesDropdown,
   useErpPriorities,
   useErpRequestFieldConfigurations,
-  useErpReasonCategoriesDropdown,
+  useErpReasonCategories,
   useErpVoucherTypes,
   useErpWorkTypes,
 } from "../../../hooks/useErp";
@@ -242,8 +242,10 @@ export function CreateTrackerPage() {
     page_size: 500,
     is_active: true,
   });
-  const reasonsQuery =
-    useErpReasonCategoriesDropdown();
+  const reasonsQuery = useErpReasonCategories({
+    page_size: 500,
+    is_active: true,
+  });
   const prioritiesQuery = useErpPriorities({
     page_size: 500,
     is_active: true,
@@ -339,6 +341,10 @@ export function CreateTrackerPage() {
     () => prioritiesQuery.data?.items ?? [],
     [prioritiesQuery.data],
   );
+  const reasons = useMemo(
+    () => reasonsQuery.data?.items ?? [],
+    [reasonsQuery.data],
+  );
   const fieldConfigurations = useMemo(
     () =>
       fieldConfigurationsQuery.data?.items ?? [],
@@ -378,6 +384,22 @@ export function CreateTrackerPage() {
       form.erp_module,
       voucherTypes,
     ],
+  );
+
+  const filteredReasons = useMemo(
+    () =>
+      reasons.filter((reason) => {
+        if (!form.voucher_type) {
+          return true;
+        }
+        if (!reason.voucher_types?.length) {
+          return true;
+        }
+        return reason.voucher_types.includes(
+          form.voucher_type,
+        );
+      }),
+    [form.voucher_type, reasons],
   );
 
   const dynamicFieldStates = useMemo(() => {
@@ -555,6 +577,11 @@ export function CreateTrackerPage() {
           ...(field === "erp_module" ||
           field === "department"
             ? { voucher_type: "" }
+            : {}),
+          ...(field === "erp_module" ||
+          field === "department" ||
+          field === "voucher_type"
+            ? { reason_category: "" }
             : {}),
         },
       };
@@ -1142,14 +1169,14 @@ export function CreateTrackerPage() {
                     <option value="" disabled hidden>
                       Select reason
                     </option>
-                    {(reasonsQuery.data ?? []).map(
+                    {filteredReasons.map(
                       (reason) => (
                         <option
                           key={reason.id}
                           value={reason.id}
                         >
-                          {reason.code} -{" "}
-                          {reason.label}
+                          {reason.reason_code} -{" "}
+                          {reason.reason_name}
                         </option>
                       ),
                     )}

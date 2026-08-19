@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
 import { USER_ROLES } from "../../constants/roles";
 import { useAuth } from "../../hooks/useAuth";
@@ -78,12 +79,15 @@ export function UserSidebar({
     >
       <div className="user-sidebar__brand">
         <div className="user-sidebar__logo">
-          {env.companyShortName}
+          <img
+            src={logoMark}
+            alt={env.companyShortName}
+          />
         </div>
 
         {!collapsed ? (
           <div>
-            <strong>Data Correction</strong>
+            <strong>Approval Management</strong>
             <span>Request Creator Portal</span>
           </div>
         ) : null}

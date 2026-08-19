@@ -45,4 +45,4 @@ services:
       - key: BREVO_SENDER_EMAIL
         value: correctionjnl@gmail.com
       - key: BREVO_SENDER_NAME
-        value: JNL Correction Tracker
+        value: JNL Approval Management System

@@ -130,6 +130,47 @@ def test_reason_category_normalizes_and_generates_code():
 
 
 @pytest.mark.django_db
+def test_reason_category_voucher_types_defaults_to_all():
+    reason = ReasonCategory.objects.create(
+        reason_name="Other",
+    )
+
+    assert list(
+        reason.voucher_types.all()
+    ) == []
+
+
+@pytest.mark.django_db
+def test_reason_category_can_be_scoped_to_voucher_types():
+    module = ErpModule.objects.create(
+        module_name="Accounts"
+    )
+    journal_voucher = VoucherType.objects.create(
+        erp_module=module,
+        voucher_name="Journal Voucher",
+    )
+    payment_voucher = VoucherType.objects.create(
+        erp_module=module,
+        voucher_name="Payment Voucher",
+    )
+    reason = ReasonCategory.objects.create(
+        reason_name="Wrong Ledger",
+    )
+    reason.voucher_types.add(journal_voucher)
+
+    assert list(
+        reason.voucher_types.all()
+    ) == [journal_voucher]
+    assert (
+        payment_voucher
+        not in reason.voucher_types.all()
+    )
+    assert reason in (
+        journal_voucher.reason_categories.all()
+    )
+
+
+@pytest.mark.django_db
 def test_priority_validates_sla_and_escalation_duration():
     priority = Priority.objects.create(
         priority_name=" Critical ",

@@ -148,11 +148,11 @@ def _build_brevo_payload(notification: Notification) -> dict:
                 "name": recipient_name,
             }
         ],
-        "subject": f"[JNL Correction Tracker] {notification.title}",
+        "subject": f"[JNL Approval Management System] {notification.title}",
         "htmlContent": _html_content(notification),
         "textContent": _text_content(notification),
         "tags": [
-            "jnl-correction-tracker",
+            "jnl-approval-management-system",
             event_tag,
         ],
         "headers": {
@@ -195,7 +195,7 @@ def _html_content(notification: Notification) -> str:
         f"{request_block}"
         f"{action_link}"
         "<p>This is an automated notification from "
-        "JNL Data Correction Tracker.</p>"
+        "JNL Approval Management System.</p>"
         "</div></body></html>"
     )
 
@@ -222,7 +222,7 @@ def _text_content(notification: Notification) -> str:
         [
             "",
             "This is an automated notification from "
-            "JNL Data Correction Tracker.",
+            "JNL Approval Management System.",
         ]
     )
     return "\n".join(lines)

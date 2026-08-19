@@ -330,6 +330,44 @@ def test_admin_can_create_reason_category(
 
 
 @pytest.mark.django_db
+def test_admin_can_scope_reason_category_to_voucher_types(
+    api_client,
+    erp_master_data,
+):
+    admin_user = AdminUserFactory()
+    api_client.force_authenticate(user=admin_user)
+    voucher_id = str(
+        erp_master_data["voucher"].id
+    )
+
+    response = api_client.post(
+        reverse("erp-api:reason-categories-list"),
+        {
+            "reason_name": "Wrong Ledger",
+            "voucher_types": [voucher_id],
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_201_CREATED
+    )
+    assert [
+        str(item)
+        for item in response.data["data"][
+            "voucher_types"
+        ]
+    ] == [voucher_id]
+    assert (
+        response.data["data"][
+            "voucher_type_details"
+        ][0]["id"]
+        == voucher_id
+    )
+
+
+@pytest.mark.django_db
 def test_admin_can_create_priority(
     api_client,
 ):

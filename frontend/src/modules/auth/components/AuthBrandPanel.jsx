@@ -1,10 +1,10 @@
 import {
   BarChart3,
-  Building2,
   ShieldCheck,
   Workflow,
 } from "lucide-react";
 
+import logoMark from "../../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../../config/env";
 
 export function AuthBrandPanel() {
@@ -15,7 +15,10 @@ export function AuthBrandPanel() {
       <div className="auth-brand-panel__content">
         <div className="auth-brand">
           <div className="auth-brand__mark">
-            <Building2 size={28} />
+            <img
+              src={logoMark}
+              alt={env.companyShortName}
+            />
           </div>
 
           <div>
@@ -30,7 +33,7 @@ export function AuthBrandPanel() {
           </span>
 
           <h1>
-            Data corrections managed with
+            Approvals managed with
             accountability.
           </h1>
 

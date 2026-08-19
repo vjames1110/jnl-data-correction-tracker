@@ -108,6 +108,7 @@ class ReasonCategoryAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         "is_active",
+        "voucher_types",
     ]
     search_fields = [
         "reason_code",
@@ -117,6 +118,9 @@ class ReasonCategoryAdmin(admin.ModelAdmin):
     ordering = [
         "display_order",
         "reason_name",
+    ]
+    filter_horizontal = [
+        "voucher_types",
     ]
 
 

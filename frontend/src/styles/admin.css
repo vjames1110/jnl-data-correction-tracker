@@ -35,16 +35,25 @@
 }
 
 .admin-sidebar__logo {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
   display: grid;
   place-items: center;
-  color: var(--color-white);
-  background: var(--color-primary-600);
+  background: var(--color-white);
   border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 700;
+  padding: 4px;
+}
+
+.admin-sidebar--collapsed .admin-sidebar__brand {
+  padding: 0 8px;
+  justify-content: center;
+}
+
+.admin-sidebar__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .admin-sidebar__brand > div:last-child {

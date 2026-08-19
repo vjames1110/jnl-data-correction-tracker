@@ -318,6 +318,16 @@ class ReasonCategory(BusinessModel):
         default=0,
         db_index=True,
     )
+    voucher_types = models.ManyToManyField(
+        VoucherType,
+        related_name="reason_categories",
+        blank=True,
+        help_text=(
+            "Voucher types this reason applies to. "
+            "Leave empty to make it available for "
+            "every voucher type."
+        ),
+    )
 
     class Meta:
         db_table = "erp_reason_category"

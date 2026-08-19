@@ -173,6 +173,12 @@ class ReasonCategorySerializer(ErpCleanModelSerializer):
         required=False,
         allow_blank=True,
     )
+    voucher_types = serializers.PrimaryKeyRelatedField(
+        queryset=VoucherType.objects.all(),
+        many=True,
+        required=False,
+    )
+    voucher_type_details = serializers.SerializerMethodField()
 
     class Meta:
         model = ReasonCategory
@@ -182,14 +188,30 @@ class ReasonCategorySerializer(ErpCleanModelSerializer):
             "reason_name",
             "description",
             "display_order",
+            "voucher_types",
+            "voucher_type_details",
             "is_active",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
+            "voucher_type_details",
             "created_at",
             "updated_at",
+        ]
+
+    def get_voucher_type_details(
+        self,
+        obj: ReasonCategory,
+    ) -> list[dict[str, str]]:
+        return [
+            {
+                "id": str(voucher_type.id),
+                "code": voucher_type.voucher_code,
+                "label": voucher_type.voucher_name,
+            }
+            for voucher_type in obj.voucher_types.all()
         ]
 
 

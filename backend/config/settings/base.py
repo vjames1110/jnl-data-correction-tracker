@@ -371,7 +371,7 @@ BREVO_SENDER_EMAIL = config(
 )
 BREVO_SENDER_NAME = config(
     "BREVO_SENDER_NAME",
-    default="JNL Correction Tracker",
+    default="JNL Approval Management System",
 )
 
 
@@ -380,10 +380,10 @@ BREVO_SENDER_NAME = config(
 # ---------------------------------------------------------------------------
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "JNL Data Correction Tracker API",
+    "TITLE": "JNL Approval Management System API",
     "DESCRIPTION": (
         "Backend API for the Jhajharia Nirman Limited "
-        "Data Correction Tracker."
+        "Approval Management System."
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,

@@ -44,7 +44,7 @@ class HealthCheckAPIView(APIView):
 
         return success_response(
             message=(
-                "JNL Data Correction Tracker API is operational."
+                "JNL Approval Management System API is operational."
                 if is_healthy
                 else "The API is running in a degraded state."
             ),

@@ -18,6 +18,7 @@ import {
   useDeactivateErpReasonCategory,
   useErpReasonCategories,
   useErpReasonCategoryExport,
+  useErpVoucherTypesDropdown,
   useUpdateErpReasonCategory,
 } from "../../../hooks/useErp";
 import {
@@ -34,8 +35,15 @@ const emptyForm = {
   reason_name: "",
   description: "",
   display_order: 0,
+  voucher_types: [],
   is_active: true,
 };
+
+function selectedOptions(options) {
+  return Array.from(options)
+    .filter((option) => option.selected)
+    .map((option) => option.value);
+}
 
 function ErpReasonCategoryForm({
   error,
@@ -43,6 +51,7 @@ function ErpReasonCategoryForm({
   onClose,
   onSubmit,
   reasonCategory,
+  voucherTypes,
 }) {
   const [form, setForm] = useState(() =>
     reasonCategory
@@ -55,6 +64,10 @@ function ErpReasonCategoryForm({
             reasonCategory.description ?? "",
           display_order:
             reasonCategory.display_order ?? 0,
+          voucher_types:
+            reasonCategory.voucher_types?.map(
+              String,
+            ) ?? [],
           is_active:
             reasonCategory.is_active ?? true,
         }
@@ -133,6 +146,41 @@ function ErpReasonCategoryForm({
               )
             }
           />
+        </label>
+
+        <label className="form-field">
+          <span>Applicable Voucher Types</span>
+          <select
+            multiple
+            value={form.voucher_types}
+            onChange={(event) =>
+              setField(
+                "voucher_types",
+                selectedOptions(
+                  event.target.options,
+                ),
+              )
+            }
+            size={Math.min(
+              Math.max(voucherTypes.length, 3),
+              7,
+            )}
+          >
+            {voucherTypes.map((voucherType) => (
+              <option
+                key={voucherType.id}
+                value={voucherType.id}
+              >
+                {voucherType.code} -{" "}
+                {voucherType.label}
+              </option>
+            ))}
+          </select>
+          <span className="assignment-panel__hint">
+            Leave nothing selected to make this
+            reason available for every voucher
+            type.
+          </span>
         </label>
 
         <div className="form-grid">
@@ -218,6 +266,8 @@ export function ErpReasonCategoryManagementPage() {
 
   const reasonCategoriesQuery =
     useErpReasonCategories(queryParams);
+  const voucherTypesQuery =
+    useErpVoucherTypesDropdown();
   const exportQuery =
     useErpReasonCategoryExport(exportParams);
   const createReasonCategory =
@@ -411,6 +461,7 @@ export function ErpReasonCategoryManagementPage() {
                 <tr>
                   <th>Code</th>
                   <th>Reason</th>
+                  <th>Voucher Types</th>
                   <th>Order</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -427,6 +478,17 @@ export function ErpReasonCategoryManagementPage() {
                       <span className="table-subtext">
                         {reason.description || "-"}
                       </span>
+                    </td>
+                    <td>
+                      {reason.voucher_type_details
+                        ?.length
+                        ? reason.voucher_type_details
+                            .map(
+                              (voucherType) =>
+                                voucherType.code,
+                            )
+                            .join(", ")
+                        : "All"}
                     </td>
                     <td>{reason.display_order}</td>
                     <td>
@@ -540,6 +602,9 @@ export function ErpReasonCategoryManagementPage() {
           }}
           onSubmit={handleSubmit}
           reasonCategory={editingReasonCategory}
+          voucherTypes={
+            voucherTypesQuery.data ?? []
+          }
         />
       ) : null}
     </div>

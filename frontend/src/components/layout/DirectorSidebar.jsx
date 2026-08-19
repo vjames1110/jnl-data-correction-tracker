@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
 
 const navItems = [
@@ -51,7 +52,10 @@ export function DirectorSidebar({
     >
       <div className="user-sidebar__brand">
         <div className="user-sidebar__logo">
-          {env.companyShortName}
+          <img
+            src={logoMark}
+            alt={env.companyShortName}
+          />
         </div>
 
         {!collapsed ? (

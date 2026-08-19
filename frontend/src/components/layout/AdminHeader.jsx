@@ -25,7 +25,7 @@ export function AdminHeader({
             {env.companyName}
           </span>
           <strong className="admin-header__portal">
-            Data Correction Tracker
+            Approval Management System
           </strong>
         </div>
       </div>

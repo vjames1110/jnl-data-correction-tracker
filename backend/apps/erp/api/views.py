@@ -395,6 +395,9 @@ class WorkTypeViewSet(ErpMasterViewSet):
 class ReasonCategoryViewSet(ErpMasterViewSet):
     queryset = ReasonCategory.objects.all()
     serializer_class = ReasonCategorySerializer
+    prefetch_related_fields = (
+        "voucher_types",
+    )
     search_fields = [
         "reason_code",
         "reason_name",

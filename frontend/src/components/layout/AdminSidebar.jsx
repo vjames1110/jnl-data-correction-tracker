@@ -14,6 +14,7 @@ import {
   NavLink,
 } from "react-router-dom";
 
+import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
 import { AppLoader } from "../common/AppLoader";
 import { ErrorState } from "../common/ErrorState";
@@ -49,13 +50,16 @@ export function AdminSidebar({
     >
       <div className="admin-sidebar__brand">
         <div className="admin-sidebar__logo">
-          {env.companyShortName}
+          <img
+            src={logoMark}
+            alt={env.companyShortName}
+          />
         </div>
 
         {!collapsed ? (
           <div>
             <strong>
-              Data Correction
+              Approval Management
             </strong>
             <span>Administration</span>
           </div>
