@@ -6,6 +6,7 @@ import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { DirectorLayout } from "../layouts/DirectorLayout";
 import { ResponsibleLayout } from "../layouts/ResponsibleLayout";
+import { StoreLayout } from "../layouts/StoreLayout";
 import { UserLayout } from "../layouts/UserLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { CorrectionRequestManagementPage } from "../modules/admin/pages/CorrectionRequestManagementPage";
@@ -26,6 +27,12 @@ import { HodMappingPage } from "../modules/admin/pages/HodMappingPage";
 import { OrganizationDashboardPage } from "../modules/admin/pages/OrganizationDashboardPage";
 import { PlaceholderAdminPage } from "../modules/admin/pages/PlaceholderAdminPage";
 import { SiteManagementPage } from "../modules/admin/pages/SiteManagementPage";
+import { StoreItemCategoryManagementPage } from "../modules/admin/pages/StoreItemCategoryManagementPage";
+import { StoreItemManagementPage } from "../modules/admin/pages/StoreItemManagementPage";
+import { StoreItemStandardManagementPage } from "../modules/admin/pages/StoreItemStandardManagementPage";
+import { StoreReconciliationDashboardPage } from "../modules/admin/pages/StoreReconciliationDashboardPage";
+import { StoreSiteItemConfigManagementPage } from "../modules/admin/pages/StoreSiteItemConfigManagementPage";
+import { StoreToleranceSettingsPage } from "../modules/admin/pages/StoreToleranceSettingsPage";
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { NotificationsPage } from "../modules/notifications/pages/NotificationsPage";
@@ -38,6 +45,12 @@ import { ResponsibleAnalyticsPage } from "../modules/responsible/pages/Responsib
 import { ResponsibleAssignmentDetailPage } from "../modules/responsible/pages/ResponsibleAssignmentDetailPage";
 import { ResponsibleAssignmentsPage } from "../modules/responsible/pages/ResponsibleAssignmentsPage";
 import { ResponsibleDashboardPage } from "../modules/responsible/pages/ResponsibleDashboardPage";
+import { StoreApprovalInboxPage } from "../modules/store/pages/StoreApprovalInboxPage";
+import { StoreDashboardPage } from "../modules/store/pages/StoreDashboardPage";
+import { StoreEntryPage } from "../modules/store/pages/StoreEntryPage";
+import { StoreReconciliationReportsPage } from "../modules/store/pages/StoreReconciliationReportsPage";
+import { StoreSettingsPage } from "../modules/store/pages/StoreSettingsPage";
+import { StoreStatementPackPage } from "../modules/store/pages/StoreStatementPackPage";
 import { CreateTrackerPage } from "../modules/user/pages/CreateTrackerPage";
 import { RequestDetailsPage } from "../modules/user/pages/RequestDetailsPage";
 import { UserAnalyticsPage } from "../modules/user/pages/UserAnalyticsPage";
@@ -51,6 +64,8 @@ import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
 import { ResponsibleRoute } from "../routes/ResponsibleRoute";
+import { StoreHoRoute } from "../routes/StoreHoRoute";
+import { StoreRoute } from "../routes/StoreRoute";
 import { UserRoute } from "../routes/UserRoute";
 import { CapabilityRoute } from "../routes/CapabilityRoute";
 import {
@@ -157,6 +172,79 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        element: <StoreRoute />,
+        children: [
+          {
+            element: <StoreLayout />,
+            children: [
+              {
+                path: "/store/dashboard",
+                element:
+                  <StoreDashboardPage />,
+              },
+              {
+                path: "/store/entry",
+                element: <StoreEntryPage />,
+              },
+              {
+                path: "/store/reports",
+                element: (
+                  <StoreReconciliationReportsPage />
+                ),
+              },
+              {
+                path: "/store/statement-pack",
+                element: (
+                  <StoreStatementPackPage />
+                ),
+              },
+              {
+                path: "/store/settings",
+                element: <StoreHoRoute />,
+                children: [
+                  {
+                    index: true,
+                    element: (
+                      <StoreSettingsPage />
+                    ),
+                  },
+                  {
+                    path: "categories",
+                    element: (
+                      <StoreItemCategoryManagementPage />
+                    ),
+                  },
+                  {
+                    path: "items",
+                    element: (
+                      <StoreItemManagementPage />
+                    ),
+                  },
+                  {
+                    path: "standards",
+                    element: (
+                      <StoreItemStandardManagementPage />
+                    ),
+                  },
+                  {
+                    path: "site-configs",
+                    element: (
+                      <StoreSiteItemConfigManagementPage />
+                    ),
+                  },
+                  {
+                    path: "tolerance-settings",
+                    element: (
+                      <StoreToleranceSettingsPage />
+                    ),
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
         element: <DirectorRoute />,
         children: [
           {
@@ -181,6 +269,24 @@ export const router = createBrowserRouter([
                 path: "/director/analytics",
                 element:
                   <DirectorAnalyticsPage />,
+              },
+              {
+                path: "/director/reconciliation",
+                element: (
+                  <StoreReconciliationReportsPage />
+                ),
+              },
+              {
+                path: "/director/reconciliation-pack",
+                element: (
+                  <StoreStatementPackPage />
+                ),
+              },
+              {
+                path: "/director/reconciliation-approvals",
+                element: (
+                  <StoreApprovalInboxPage />
+                ),
               },
               {
                 path: "/director/export",
@@ -291,6 +397,54 @@ export const router = createBrowserRouter([
                 path: "/admin/vouchers/import-export",
                 element:
                   <ErpImportExportPage />,
+              },
+              {
+                path: "/admin/reconciliation",
+                element:
+                  <StoreReconciliationDashboardPage />,
+              },
+              {
+                path: "/admin/reconciliation/categories",
+                element:
+                  <StoreItemCategoryManagementPage />,
+              },
+              {
+                path: "/admin/reconciliation/items",
+                element:
+                  <StoreItemManagementPage />,
+              },
+              {
+                path: "/admin/reconciliation/standards",
+                element:
+                  <StoreItemStandardManagementPage />,
+              },
+              {
+                path: "/admin/reconciliation/site-configs",
+                element:
+                  <StoreSiteItemConfigManagementPage />,
+              },
+              {
+                path: "/admin/reconciliation/tolerance-settings",
+                element:
+                  <StoreToleranceSettingsPage />,
+              },
+              {
+                path: "/admin/reconciliation/approvals",
+                element: (
+                  <StoreApprovalInboxPage />
+                ),
+              },
+              {
+                path: "/admin/reconciliation/reports",
+                element: (
+                  <StoreReconciliationReportsPage />
+                ),
+              },
+              {
+                path: "/admin/reconciliation/statement-pack",
+                element: (
+                  <StoreStatementPackPage />
+                ),
               },
               {
                 path: "/admin/reports",

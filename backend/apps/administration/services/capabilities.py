@@ -23,6 +23,8 @@ ADMIN_CAPABILITIES = {
     AdminCapability.MANAGE_DEPARTMENTS,
     AdminCapability.VIEW_VOUCHERS,
     AdminCapability.MANAGE_VOUCHERS,
+    AdminCapability.VIEW_RECONCILIATION,
+    AdminCapability.MANAGE_RECONCILIATION,
     AdminCapability.VIEW_CORRECTION_REQUESTS,
     AdminCapability.ASSIGN_CORRECTION_REQUESTS,
     AdminCapability.VIEW_REPORTS,
@@ -98,6 +100,17 @@ def build_admin_navigation(
             "icon": "file-text",
             "required_capability": (
                 AdminCapability.VIEW_VOUCHERS.value
+            ),
+        },
+        {
+            "key": "reconciliation",
+            "label": "Store Reconciliation",
+            "path": "/admin/reconciliation",
+            "icon": "package",
+            "required_capability": (
+                AdminCapability
+                .VIEW_RECONCILIATION
+                .value
             ),
         },
         {

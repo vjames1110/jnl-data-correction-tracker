@@ -5,6 +5,7 @@ export const USER_ROLES = Object.freeze({
   DIRECTOR: "DIRECTOR",
   RESPONSIBLE_PERSON: "RESPONSIBLE_PERSON",
   EMPLOYEE: "EMPLOYEE",
+  STORE_HO: "STORE_HO",
 });
 
 export const ADMIN_ROLES = Object.freeze([
@@ -32,6 +33,20 @@ export function isResponsibleRole(role) {
   ].includes(role);
 }
 
+export function isStoreRole(role) {
+  return [
+    USER_ROLES.STORE_HO,
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+  ].includes(role);
+}
+
+export function reconciliationOverviewPath(role) {
+  return role === USER_ROLES.STORE_HO
+    ? "/store/settings"
+    : "/admin/reconciliation";
+}
+
 export function portalBasePath(role) {
   if (isAdminRole(role)) {
     return "/admin";
@@ -43,6 +58,10 @@ export function portalBasePath(role) {
 
   if (role === USER_ROLES.RESPONSIBLE_PERSON) {
     return "/responsible";
+  }
+
+  if (role === USER_ROLES.STORE_HO) {
+    return "/store";
   }
 
   return "/user";

@@ -38,6 +38,9 @@ class AdminCapability(StrEnum):
     VIEW_VOUCHERS = "view_vouchers"
     MANAGE_VOUCHERS = "manage_vouchers"
 
+    VIEW_RECONCILIATION = "view_reconciliation"
+    MANAGE_RECONCILIATION = "manage_reconciliation"
+
     VIEW_CORRECTION_REQUESTS = (
         "view_correction_requests"
     )

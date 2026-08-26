@@ -5,6 +5,8 @@ import {
   ClipboardCheck,
   Download,
   LayoutDashboard,
+  Package,
+  PackageCheck,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -35,6 +37,18 @@ const navItems = [
     label: "Export",
     path: "/director/export",
     icon: Download,
+  },
+  {
+    key: "reconciliation",
+    label: "Store Reconciliation",
+    path: "/director/reconciliation",
+    icon: Package,
+  },
+  {
+    key: "reconciliation-approvals",
+    label: "Reconciliation Approvals",
+    path: "/director/reconciliation-approvals",
+    icon: PackageCheck,
   },
 ];
 

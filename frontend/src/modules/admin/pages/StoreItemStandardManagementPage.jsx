@@ -1,0 +1,614 @@
+import { useMemo, useState } from "react";
+import {
+  Download,
+  Pencil,
+  Plus,
+  Power,
+  Search,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+
+import { AppLoader } from "../../../components/common/AppLoader";
+import { EmptyState } from "../../../components/common/EmptyState";
+import { ErrorState } from "../../../components/common/ErrorState";
+import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { reconciliationOverviewPath } from "../../../constants/roles";
+import { useAuth } from "../../../hooks/useAuth";
+import {
+  useActivateReconciliationItemStandard,
+  useCreateReconciliationItemStandard,
+  useDeactivateReconciliationItemStandard,
+  useReconciliationItemStandardExport,
+  useReconciliationItemStandards,
+  useReconciliationItems,
+  useUpdateReconciliationItemStandard,
+} from "../../../hooks/useReconciliation";
+import {
+  ManagementPanel,
+  StatusChip,
+} from "../components/OrganizationControls";
+import {
+  buildParams,
+  downloadCsv,
+} from "../utils/organizationUtils";
+
+const emptyForm = {
+  item: "",
+  grade_label: "",
+  rate: "",
+  mix_ratio: "",
+  effective_from: "",
+  notes: "",
+  is_active: true,
+};
+
+function ItemStandardForm({
+  error,
+  isSubmitting,
+  items,
+  onClose,
+  onSubmit,
+  standard,
+}) {
+  const [form, setForm] = useState(() =>
+    standard
+      ? {
+          item: standard.item ?? "",
+          grade_label:
+            standard.grade_label ?? "",
+          rate: standard.rate ?? "",
+          mix_ratio: standard.mix_ratio ?? "",
+          effective_from:
+            standard.effective_from ?? "",
+          notes: standard.notes ?? "",
+          is_active:
+            standard.is_active ?? true,
+        }
+      : emptyForm,
+  );
+
+  const setField = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const selectedItem = items.find(
+    (item) => item.id === form.item,
+  );
+  const isNormBased =
+    selectedItem?.reconciliation_type ===
+    "NORM_BASED";
+
+  return (
+    <ManagementPanel
+      eyebrow="Company Default Rate / Mix"
+      title={
+        standard
+          ? "Edit Company Default"
+          : "Add Company Default"
+      }
+      onClose={onClose}
+    >
+      {error ? (
+        <div className="inline-alert inline-alert--error">
+          <strong>{error.message}</strong>
+        </div>
+      ) : null}
+
+      <form
+        className="site-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit({
+            ...form,
+            mix_ratio: isNormBased
+              ? form.mix_ratio
+              : null,
+          });
+        }}
+      >
+        <label className="form-field">
+          <span>Item</span>
+          <select
+            value={form.item}
+            onChange={(event) =>
+              setField(
+                "item",
+                event.target.value,
+              )
+            }
+            disabled={Boolean(standard)}
+            required
+          >
+            <option value="" disabled hidden>
+              Select item
+            </option>
+            {items.map((item) => (
+              <option
+                key={item.id}
+                value={item.id}
+              >
+                {item.item_code} -{" "}
+                {item.item_name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {isNormBased ? (
+          <label className="form-field">
+            <span>Grade (optional)</span>
+            <input
+              value={form.grade_label}
+              onChange={(event) =>
+                setField(
+                  "grade_label",
+                  event.target.value,
+                )
+              }
+              disabled={Boolean(standard)}
+              placeholder="Leave blank to apply to every grade, or set e.g. M20"
+            />
+          </label>
+        ) : null}
+
+        <div className="form-grid">
+          <label className="form-field">
+            <span>Rate</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.rate}
+              onChange={(event) =>
+                setField(
+                  "rate",
+                  event.target.value,
+                )
+              }
+              required
+            />
+          </label>
+          {isNormBased ? (
+            <label className="form-field">
+              <span>Mix Ratio</span>
+              <input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={form.mix_ratio}
+                onChange={(event) =>
+                  setField(
+                    "mix_ratio",
+                    event.target.value,
+                  )
+                }
+                required={isNormBased}
+              />
+            </label>
+          ) : null}
+        </div>
+
+        <label className="form-field">
+          <span>Effective From</span>
+          <input
+            type="date"
+            value={form.effective_from}
+            onChange={(event) =>
+              setField(
+                "effective_from",
+                event.target.value,
+              )
+            }
+            required
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Notes</span>
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(event) =>
+              setField(
+                "notes",
+                event.target.value,
+              )
+            }
+          />
+        </label>
+
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(event) =>
+              setField(
+                "is_active",
+                event.target.checked,
+              )
+            }
+          />
+          <span>Active</span>
+        </label>
+
+        <div className="management-panel__actions">
+          <button
+            type="button"
+            className="button button--tertiary"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? "Saving..."
+              : "Save Default"}
+          </button>
+        </div>
+      </form>
+    </ManagementPanel>
+  );
+}
+
+export function StoreItemStandardManagementPage() {
+  const { user } = useAuth();
+  const [filters, setFilters] = useState({
+    search: "",
+    is_active: "",
+    ordering: "-effective_from",
+    page: 1,
+  });
+  const [editingStandard, setEditingStandard] =
+    useState(null);
+  const [isFormOpen, setIsFormOpen] =
+    useState(false);
+
+  const queryParams = useMemo(
+    () => buildParams(filters),
+    [filters],
+  );
+  const exportParams = useMemo(
+    () =>
+      buildParams({
+        search: filters.search,
+        is_active: filters.is_active,
+        ordering: filters.ordering,
+      }),
+    [filters],
+  );
+
+  const standardsQuery =
+    useReconciliationItemStandards(queryParams);
+  const itemsQuery = useReconciliationItems({
+    page_size: 500,
+    is_active: true,
+  });
+  const exportQuery =
+    useReconciliationItemStandardExport(
+      exportParams,
+    );
+  const createStandard =
+    useCreateReconciliationItemStandard();
+  const updateStandard =
+    useUpdateReconciliationItemStandard();
+  const activateStandard =
+    useActivateReconciliationItemStandard();
+  const deactivateStandard =
+    useDeactivateReconciliationItemStandard();
+
+  const standards =
+    standardsQuery.data?.items ?? [];
+  const items = itemsQuery.data?.items ?? [];
+  const pagination =
+    standardsQuery.data?.meta?.pagination;
+
+  const setFilter = (field, value) => {
+    setFilters((current) => ({
+      ...current,
+      [field]: value,
+      page: field === "page" ? value : 1,
+    }));
+  };
+
+  const handleSubmit = async (payload) => {
+    if (editingStandard) {
+      await updateStandard.mutateAsync({
+        id: editingStandard.id,
+        payload,
+      });
+    } else {
+      await createStandard.mutateAsync(payload);
+    }
+
+    setEditingStandard(null);
+    setIsFormOpen(false);
+  };
+
+  const handleExport = async () => {
+    const result = await exportQuery.refetch();
+    downloadCsv(
+      "store-item-standards.csv",
+      result.data ?? [],
+      [
+        { key: "item_code", label: "Item Code" },
+        { key: "item_name", label: "Item Name" },
+        {
+          key: "grade_label",
+          label: "Grade",
+        },
+        { key: "rate", label: "Rate" },
+        {
+          key: "mix_ratio",
+          label: "Mix Ratio",
+        },
+        {
+          key: "effective_from",
+          label: "Effective From",
+        },
+        { key: "is_active", label: "Active" },
+      ],
+    );
+  };
+
+  return (
+    <div className="organization-page">
+      <div className="page-heading">
+        <div>
+          <span className="page-eyebrow">
+            Store Reconciliation
+          </span>
+          <h1>
+            Company Default Rate &amp; Mix
+          </h1>
+          <p>
+            Company-wide default tier of the
+            three-tier rate/mix inheritance model.
+            Sites without their own override use
+            these figures.
+          </p>
+        </div>
+
+        <div className="page-actions">
+          <Link
+            className="button button--tertiary"
+            to={reconciliationOverviewPath(
+              user?.role,
+            )}
+          >
+            Overview
+          </Link>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={handleExport}
+            disabled={exportQuery.isFetching}
+          >
+            <Download size={17} />
+            Export
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={() => {
+              setEditingStandard(null);
+              setIsFormOpen(true);
+            }}
+          >
+            <Plus size={17} />
+            Add Default
+          </button>
+        </div>
+      </div>
+
+      <SurfaceCard>
+        <div className="site-toolbar">
+          <label className="input-control">
+            <Search size={17} />
+            <input
+              value={filters.search}
+              onChange={(event) =>
+                setFilter(
+                  "search",
+                  event.target.value,
+                )
+              }
+              placeholder="Search by item"
+            />
+          </label>
+          <label className="filter-control">
+            <span>Status</span>
+            <select
+              value={filters.is_active}
+              onChange={(event) =>
+                setFilter(
+                  "is_active",
+                  event.target.value,
+                )
+              }
+            >
+              <option value="">All</option>
+              <option value="true">Active</option>
+              <option value="false">
+                Inactive
+              </option>
+            </select>
+          </label>
+        </div>
+
+        {standardsQuery.isLoading ? (
+          <AppLoader label="Loading defaults..." />
+        ) : standardsQuery.isError ? (
+          <ErrorState
+            title="Company defaults unavailable"
+            message={
+              standardsQuery.error?.message
+            }
+            onRetry={standardsQuery.refetch}
+          />
+        ) : !standards.length ? (
+          <EmptyState
+            title="No company defaults found"
+            message="Add a company-wide rate/mix default."
+          />
+        ) : (
+          <div className="data-table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Grade</th>
+                  <th>Rate</th>
+                  <th>Mix Ratio</th>
+                  <th>Effective From</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standards.map((standard) => (
+                  <tr key={standard.id}>
+                    <td>
+                      <strong>
+                        {standard.item_code}
+                      </strong>
+                      <span className="table-subtext">
+                        {standard.item_name}
+                      </span>
+                    </td>
+                    <td>
+                      {standard.grade_label ||
+                        "All grades"}
+                    </td>
+                    <td>{standard.rate}</td>
+                    <td>
+                      {standard.mix_ratio ?? "-"}
+                    </td>
+                    <td>
+                      {standard.effective_from}
+                    </td>
+                    <td>
+                      <StatusChip
+                        active={
+                          standard.is_active
+                        }
+                      />
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => {
+                            setEditingStandard(
+                              standard,
+                            );
+                            setIsFormOpen(true);
+                          }}
+                          aria-label="Edit company default"
+                          title="Edit company default"
+                        >
+                          <Pencil size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() =>
+                            standard.is_active
+                              ? deactivateStandard.mutate(
+                                  standard.id,
+                                )
+                              : activateStandard.mutate(
+                                  standard.id,
+                                )
+                          }
+                          aria-label={
+                            standard.is_active
+                              ? "Deactivate default"
+                              : "Activate default"
+                          }
+                          title={
+                            standard.is_active
+                              ? "Deactivate"
+                              : "Activate"
+                          }
+                        >
+                          <Power size={17} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {pagination ? (
+          <div className="pagination-bar">
+            <span>
+              Page {pagination.page} of{" "}
+              {pagination.total_pages}
+            </span>
+            <div>
+              <button
+                type="button"
+                className="button button--tertiary"
+                disabled={
+                  !pagination.has_previous
+                }
+                onClick={() =>
+                  setFilter(
+                    "page",
+                    pagination.page - 1,
+                  )
+                }
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="button button--tertiary"
+                disabled={!pagination.has_next}
+                onClick={() =>
+                  setFilter(
+                    "page",
+                    pagination.page + 1,
+                  )
+                }
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </SurfaceCard>
+
+      {isFormOpen ? (
+        <ItemStandardForm
+          error={
+            createStandard.error ??
+            updateStandard.error
+          }
+          isSubmitting={
+            createStandard.isPending ||
+            updateStandard.isPending
+          }
+          items={items}
+          onClose={() => {
+            setEditingStandard(null);
+            setIsFormOpen(false);
+          }}
+          onSubmit={handleSubmit}
+          standard={editingStandard}
+        />
+      ) : null}
+    </div>
+  );
+}

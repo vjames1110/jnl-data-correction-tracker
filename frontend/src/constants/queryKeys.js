@@ -237,6 +237,108 @@ export const queryKeys = Object.freeze({
     "export",
     params,
   ],
+  reconciliationItemCategories: (params) => [
+    "reconciliation",
+    "item-categories",
+    params,
+  ],
+  reconciliationItemCategoryExport: (
+    params,
+  ) => [
+    "reconciliation",
+    "item-categories",
+    "export",
+    params,
+  ],
+  reconciliationItemCategoriesDropdown: [
+    "reconciliation",
+    "item-categories",
+    "dropdown",
+  ],
+  reconciliationItems: (params) => [
+    "reconciliation",
+    "items",
+    params,
+  ],
+  reconciliationItemExport: (params) => [
+    "reconciliation",
+    "items",
+    "export",
+    params,
+  ],
+  reconciliationItemsDropdown: [
+    "reconciliation",
+    "items",
+    "dropdown",
+  ],
+  reconciliationItemStandards: (params) => [
+    "reconciliation",
+    "item-standards",
+    params,
+  ],
+  reconciliationItemStandardExport: (
+    params,
+  ) => [
+    "reconciliation",
+    "item-standards",
+    "export",
+    params,
+  ],
+  reconciliationSiteItemConfigs: (params) => [
+    "reconciliation",
+    "site-item-configs",
+    params,
+  ],
+  reconciliationSiteItemConfigExport: (
+    params,
+  ) => [
+    "reconciliation",
+    "site-item-configs",
+    "export",
+    params,
+  ],
+  reconciliationToleranceSettings: [
+    "reconciliation",
+    "tolerance-settings",
+  ],
+  reconciliationCurrentPeriod: (params) => [
+    "reconciliation",
+    "periods",
+    "current",
+    params,
+  ],
+  reconciliationPeriodFlags: (id) => [
+    "reconciliation",
+    "periods",
+    id,
+    "flags",
+  ],
+  reconciliationEntries: (params) => [
+    "reconciliation",
+    "entries",
+    params,
+  ],
+  reconciliationOutputEntries: (params) => [
+    "reconciliation",
+    "output-entries",
+    params,
+  ],
+  reconciliationPendingApprovals: (params) => [
+    "reconciliation",
+    "periods",
+    "pending-approvals",
+    params,
+  ],
+  reconciliationDashboard: (params) => [
+    "reconciliation",
+    "dashboard",
+    params,
+  ],
+  reconciliationStatementPack: (params) => [
+    "reconciliation",
+    "statement-pack",
+    params,
+  ],
   correctionRequests: (params) => [
     "corrections",
     "requests",

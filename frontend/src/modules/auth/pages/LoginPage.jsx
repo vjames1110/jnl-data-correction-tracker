@@ -16,7 +16,7 @@ import {
   SESSION_END_REASONS,
 } from "../../../constants/auth";
 import {
-  isAdminRole,
+  portalBasePath,
 } from "../../../constants/roles";
 import { InlineAlert } from "../../../components/feedback/InlineAlert";
 import { useAuth } from "../../../hooks/useAuth";
@@ -105,16 +105,13 @@ export function LoginPage() {
 
       const requestedPath =
         location.state?.from;
-      const isAdmin =
-        isAdminRole(loginData.user.role);
-      const fallbackPath = isAdmin
-        ? AUTH_ROUTES.DASHBOARD
-        : AUTH_ROUTES.USER_DASHBOARD;
+      const base = portalBasePath(
+        loginData.user.role,
+      );
+      const fallbackPath = `${base}/dashboard`;
       const canUseRequestedPath =
         requestedPath &&
-        (isAdmin
-          ? requestedPath.startsWith("/admin/")
-          : requestedPath.startsWith("/user/"));
+        requestedPath.startsWith(`${base}/`);
 
       navigate(
         canUseRequestedPath

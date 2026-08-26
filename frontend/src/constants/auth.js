@@ -11,6 +11,7 @@ export const AUTH_ROUTES = Object.freeze({
   DIRECTOR_DASHBOARD: "/director/dashboard",
   DIRECTOR_APPROVALS: "/director/approvals",
   RESPONSIBLE_DASHBOARD: "/responsible/dashboard",
+  STORE_DASHBOARD: "/store/dashboard",
   FORBIDDEN: "/forbidden",
 });
 

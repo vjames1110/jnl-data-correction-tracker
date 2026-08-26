@@ -104,6 +104,10 @@ const fallbackOptions = {
       value: "EMPLOYEE",
       label: "Employee",
     },
+    {
+      value: "STORE_HO",
+      label: "Store HO",
+    },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },

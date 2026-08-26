@@ -37,6 +37,12 @@ urlpatterns = [
         include("apps.corrections.api.urls"),
     ),
     path(
+        "reconciliation/",
+        include(
+            "apps.reconciliation.api.urls"
+        ),
+    ),
+    path(
         "",
         include("apps.notifications.api.urls"),
     ),

@@ -73,6 +73,15 @@ export function RootRedirectPage() {
     );
   }
 
+  if (user?.role === USER_ROLES.STORE_HO) {
+    return (
+      <Navigate
+        to={AUTH_ROUTES.STORE_DASHBOARD}
+        replace
+      />
+    );
+  }
+
   return (
     <Navigate
       to={AUTH_ROUTES.USER_DASHBOARD}

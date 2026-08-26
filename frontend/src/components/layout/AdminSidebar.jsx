@@ -6,6 +6,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Package,
   Settings,
   Users,
 } from "lucide-react";
@@ -27,6 +28,7 @@ const iconMap = {
   users: Users,
   "building-2": Building2,
   "file-text": FileText,
+  package: Package,
   "clipboard-list": ClipboardList,
   "chart-no-axes-combined": BarChart3,
   history: History,

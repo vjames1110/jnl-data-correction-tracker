@@ -74,6 +74,26 @@ EVENT_DEFAULTS = {
         "title": "Request auto-closed",
         "severity": NotificationSeverity.INFO,
     },
+    NotificationEventType.RECONCILIATION_SUBMITTED: {
+        "title": "Reconciliation submitted",
+        "severity": NotificationSeverity.INFO,
+    },
+    NotificationEventType.RECONCILIATION_APPROVAL_PENDING: {
+        "title": "Reconciliation approval pending",
+        "severity": NotificationSeverity.WARNING,
+    },
+    NotificationEventType.RECONCILIATION_APPROVED: {
+        "title": "Reconciliation approved",
+        "severity": NotificationSeverity.SUCCESS,
+    },
+    NotificationEventType.RECONCILIATION_REJECTED: {
+        "title": "Reconciliation rejected",
+        "severity": NotificationSeverity.CRITICAL,
+    },
+    NotificationEventType.RECONCILIATION_RETURNED: {
+        "title": "Reconciliation returned for correction",
+        "severity": NotificationSeverity.WARNING,
+    },
 }
 
 

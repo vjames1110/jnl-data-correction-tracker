@@ -1245,6 +1245,28 @@
   text-align: center;
 }
 
+.entry-row-input {
+  width: 100px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-neutral-500);
+  border-radius: var(--radius-sm);
+}
+
+.entry-row-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.entry-row-flag {
+  padding: 2px 6px;
+  color: var(--color-warning-700);
+  font-size: 11px;
+  background: var(--color-warning-100);
+  border-radius: var(--radius-sm);
+}
+
 .placeholder-page {
   min-height: calc(
     100vh - var(--header-height) - 48px

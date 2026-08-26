@@ -60,6 +60,26 @@ class NotificationEventType(models.TextChoices):
         "REQUEST_AUTO_CLOSED",
         "Request Auto-Closed",
     )
+    RECONCILIATION_SUBMITTED = (
+        "RECONCILIATION_SUBMITTED",
+        "Reconciliation Submitted",
+    )
+    RECONCILIATION_APPROVAL_PENDING = (
+        "RECONCILIATION_APPROVAL_PENDING",
+        "Reconciliation Approval Pending",
+    )
+    RECONCILIATION_APPROVED = (
+        "RECONCILIATION_APPROVED",
+        "Reconciliation Approved",
+    )
+    RECONCILIATION_REJECTED = (
+        "RECONCILIATION_REJECTED",
+        "Reconciliation Rejected",
+    )
+    RECONCILIATION_RETURNED = (
+        "RECONCILIATION_RETURNED",
+        "Reconciliation Returned",
+    )
 
 
 class NotificationSeverity(models.TextChoices):

@@ -63,3 +63,10 @@ def ResponsiblePersonUserFactory(**kwargs):
     kwargs.setdefault("must_change_password", False)
 
     return UserFactory(**kwargs)
+
+
+def StoreHoUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.STORE_HO)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)

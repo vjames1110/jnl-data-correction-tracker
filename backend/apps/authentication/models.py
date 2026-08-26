@@ -17,6 +17,7 @@ class UserRole(models.TextChoices):
         "Work Assignee",
     )
     EMPLOYEE = "EMPLOYEE", "Employee"
+    STORE_HO = "STORE_HO", "Store HO"
 
 
 class AccountStatus(models.TextChoices):
