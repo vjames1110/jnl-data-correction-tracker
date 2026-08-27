@@ -1,10 +1,16 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Download,
+  FileDown,
   Pencil,
   Plus,
   Power,
   Search,
+  Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -14,6 +20,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { reconciliationOverviewPath } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
+import { useCsvImportControl } from "../../../hooks/useCsvImportControl";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
   useActivateReconciliationSiteItemConfig,
@@ -24,14 +31,44 @@ import {
   useReconciliationSiteItemConfigs,
   useUpdateReconciliationSiteItemConfig,
 } from "../../../hooks/useReconciliation";
+import { reconciliationService } from "../../../services/reconciliationService";
+import { ImportResultsPanel } from "../components/ImportResultsPanel";
 import {
   ManagementPanel,
   StatusChip,
 } from "../components/OrganizationControls";
 import {
+  compactPayload,
+  findByCode,
+  toBoolean,
+} from "../utils/csvImport";
+import {
   buildParams,
   downloadCsv,
 } from "../utils/organizationUtils";
+
+const IMPORT_COLUMNS = [
+  "site_code",
+  "item_code",
+  "grade_label",
+  "rate",
+  "mix_ratio",
+  "effective_from",
+  "notes",
+  "is_active",
+];
+const IMPORT_SAMPLE_ROW = {
+  site_code: "JPR",
+  item_code: "CEM",
+  grade_label: "",
+  rate: "6600",
+  mix_ratio: "0.31",
+  effective_from: "2026-01-01",
+  notes: "",
+  is_active: "true",
+};
+const IMPORT_NOTE =
+  "site_code must match an existing Site's code and item_code an existing Item's code (see each master's Export). Leave grade_label blank for this site's blanket override, or set it (e.g. M20) for a grade-specific one. Leave mix_ratio blank for Direct Count items. effective_from is YYYY-MM-DD. An active override locks that site to its own figures.";
 
 const emptyForm = {
   site: "",
@@ -42,7 +79,28 @@ const emptyForm = {
   effective_from: "",
   notes: "",
   is_active: true,
+  scope: "STANDING",
+  period_month: "",
 };
+
+function findItemIdByCode(items, code) {
+  if (!code) {
+    return "";
+  }
+
+  const normalizedCode = String(code)
+    .trim()
+    .toLowerCase();
+
+  return (
+    items.find(
+      (item) =>
+        String(item.item_code || "")
+          .trim()
+          .toLowerCase() === normalizedCode,
+    )?.id || ""
+  );
+}
 
 function SiteItemConfigForm({
   config,
@@ -66,9 +124,19 @@ function SiteItemConfigForm({
             config.effective_from ?? "",
           notes: config.notes ?? "",
           is_active: config.is_active ?? true,
+          scope: config.period
+            ? "PERIOD"
+            : "STANDING",
+          period_month:
+            config.period_month?.slice(0, 7) ??
+            "",
         }
       : emptyForm,
   );
+  const [periodError, setPeriodError] =
+    useState(null);
+  const [isResolvingPeriod, setIsResolvingPeriod] =
+    useState(false);
 
   const setField = (field, value) => {
     setForm((current) => ({
@@ -83,6 +151,55 @@ function SiteItemConfigForm({
   const isNormBased =
     selectedItem?.reconciliation_type ===
     "NORM_BASED";
+  const isMonthOnly = form.scope === "PERIOD";
+
+  const handleFormSubmit = async (event) => {
+    event.preventDefault();
+    setPeriodError(null);
+
+    let periodId = config?.period ?? null;
+    if (!config && isMonthOnly) {
+      if (!form.site || !form.period_month) {
+        setPeriodError({
+          message:
+            "Select a site and a month for a month-only override.",
+        });
+        return;
+      }
+      setIsResolvingPeriod(true);
+      try {
+        const period =
+          await reconciliationService.getCurrentPeriod(
+            {
+              site: form.site,
+              month: `${form.period_month}-01`,
+            },
+          );
+        periodId = period.id;
+      } catch (error) {
+        setPeriodError(error);
+        return;
+      } finally {
+        setIsResolvingPeriod(false);
+      }
+    } else if (!config && !isMonthOnly) {
+      periodId = null;
+    }
+
+    onSubmit({
+      site: form.site,
+      item: form.item,
+      grade_label: form.grade_label,
+      rate: form.rate,
+      mix_ratio: isNormBased
+        ? form.mix_ratio
+        : null,
+      effective_from: form.effective_from,
+      notes: form.notes,
+      is_active: form.is_active,
+      period: periodId,
+    });
+  };
 
   return (
     <ManagementPanel
@@ -99,19 +216,67 @@ function SiteItemConfigForm({
           <strong>{error.message}</strong>
         </div>
       ) : null}
+      {periodError ? (
+        <div className="inline-alert inline-alert--error">
+          <strong>
+            {periodError.message}
+          </strong>
+        </div>
+      ) : null}
 
       <form
         className="site-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit({
-            ...form,
-            mix_ratio: isNormBased
-              ? form.mix_ratio
-              : null,
-          });
-        }}
+        onSubmit={handleFormSubmit}
       >
+        {!config ? (
+          <label className="form-field">
+            <span>Scope</span>
+            <select
+              value={form.scope}
+              onChange={(event) =>
+                setField(
+                  "scope",
+                  event.target.value,
+                )
+              }
+            >
+              <option value="STANDING">
+                Standing (applies until
+                deactivated)
+              </option>
+              <option value="PERIOD">
+                Month only (applies to one
+                reconciliation period)
+              </option>
+            </select>
+          </label>
+        ) : (
+          <div className="inline-alert inline-alert--info">
+            <strong>
+              {config.period
+                ? `Month-only override — ${config.period_month}`
+                : "Standing site override"}
+            </strong>
+          </div>
+        )}
+
+        {!config && isMonthOnly ? (
+          <label className="form-field">
+            <span>Month</span>
+            <input
+              type="month"
+              value={form.period_month}
+              onChange={(event) =>
+                setField(
+                  "period_month",
+                  event.target.value,
+                )
+              }
+              required
+            />
+          </label>
+        ) : null}
+
         <div className="form-grid">
           <label className="form-field">
             <span>Site</span>
@@ -279,11 +444,15 @@ function SiteItemConfigForm({
           <button
             type="submit"
             className="button button--primary"
-            disabled={isSubmitting}
+            disabled={
+              isSubmitting || isResolvingPeriod
+            }
           >
-            {isSubmitting
-              ? "Saving..."
-              : "Save Override"}
+            {isResolvingPeriod
+              ? "Resolving period..."
+              : isSubmitting
+                ? "Saving..."
+                : "Save Override"}
           </button>
         </div>
       </form>
@@ -345,6 +514,31 @@ export function StoreSiteItemConfigManagementPage() {
   const configs = configsQuery.data?.items ?? [];
   const items = itemsQuery.data?.items ?? [];
   const sites = sitesQuery.data ?? [];
+  const csvFileInputRef = useRef(null);
+  const csvImport = useCsvImportControl({
+    resource: "site_item_configs",
+    fileInputRef: csvFileInputRef,
+    normalizeRow: (row) =>
+      compactPayload({
+        site: findByCode(
+          sites,
+          row.site_code,
+        ),
+        item: findItemIdByCode(
+          items,
+          row.item_code,
+        ),
+        grade_label: row.grade_label,
+        rate: row.rate,
+        mix_ratio: row.mix_ratio || null,
+        effective_from: row.effective_from,
+        notes: row.notes,
+        is_active: toBoolean(
+          row.is_active,
+          true,
+        ),
+      }),
+  });
   const pagination =
     configsQuery.data?.meta?.pagination;
 
@@ -425,6 +619,43 @@ export function StoreSiteItemConfigManagementPage() {
           <button
             type="button"
             className="button button--secondary"
+            onClick={() =>
+              downloadCsv(
+                "template-store-site-item-configs.csv",
+                [IMPORT_SAMPLE_ROW],
+                IMPORT_COLUMNS.map((column) => ({
+                  key: column,
+                  label: column,
+                })),
+              )
+            }
+          >
+            <FileDown size={17} />
+            Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={csvImport.triggerFileDialog}
+            disabled={csvImport.isPending}
+          >
+            <Upload size={17} />
+            {csvImport.isPending
+              ? "Importing..."
+              : "Import CSV"}
+          </button>
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={
+              csvImport.handleFileChange
+            }
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            className="button button--secondary"
             onClick={handleExport}
             disabled={exportQuery.isFetching}
           >
@@ -444,6 +675,14 @@ export function StoreSiteItemConfigManagementPage() {
           </button>
         </div>
       </div>
+
+      <p className="table-subtext">
+        {IMPORT_NOTE}
+      </p>
+      <ImportResultsPanel
+        error={csvImport.error}
+        results={csvImport.results}
+      />
 
       <SurfaceCard>
         <div className="site-toolbar">
@@ -525,6 +764,7 @@ export function StoreSiteItemConfigManagementPage() {
                   <th>Site</th>
                   <th>Item</th>
                   <th>Grade</th>
+                  <th>Scope</th>
                   <th>Rate</th>
                   <th>Mix Ratio</th>
                   <th>Effective From</th>
@@ -552,6 +792,20 @@ export function StoreSiteItemConfigManagementPage() {
                     <td>
                       {config.grade_label ||
                         "All grades"}
+                    </td>
+                    <td>
+                      {config.period ? (
+                        <span
+                          className="status-chip status-chip--warning"
+                          title="Applies to this reconciliation period only"
+                        >
+                          {config.period_month}
+                        </span>
+                      ) : (
+                        <span className="table-subtext">
+                          Standing
+                        </span>
+                      )}
                     </td>
                     <td>{config.rate}</td>
                     <td>

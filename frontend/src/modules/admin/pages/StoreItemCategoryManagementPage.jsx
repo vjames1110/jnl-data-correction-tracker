@@ -1,10 +1,16 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Download,
+  FileDown,
   Pencil,
   Plus,
   Power,
   Search,
+  Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -14,6 +20,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { reconciliationOverviewPath } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
+import { useCsvImportControl } from "../../../hooks/useCsvImportControl";
 import {
   useActivateReconciliationItemCategory,
   useCreateReconciliationItemCategory,
@@ -22,14 +29,44 @@ import {
   useReconciliationItemCategoryExport,
   useUpdateReconciliationItemCategory,
 } from "../../../hooks/useReconciliation";
+import { ImportResultsPanel } from "../components/ImportResultsPanel";
 import {
   ManagementPanel,
   StatusChip,
 } from "../components/OrganizationControls";
 import {
+  compactPayload,
+  toBoolean,
+  toNumber,
+} from "../utils/csvImport";
+import {
   buildParams,
   downloadCsv,
 } from "../utils/organizationUtils";
+
+const IMPORT_COLUMNS = [
+  "category_name",
+  "description",
+  "display_order",
+  "is_active",
+];
+const IMPORT_SAMPLE_ROW = {
+  category_name: "Concrete Materials",
+  description: "Cement, aggregates, sand",
+  display_order: "1",
+  is_active: "true",
+};
+
+function normalizeCategoryImportRow(row) {
+  return compactPayload({
+    category_name: row.category_name,
+    description: row.description,
+    display_order: toNumber(
+      row.display_order,
+    ),
+    is_active: toBoolean(row.is_active, true),
+  });
+}
 
 const emptyForm = {
   category_code: "",
@@ -231,6 +268,12 @@ export function StoreItemCategoryManagementPage() {
     useActivateReconciliationItemCategory();
   const deactivateCategory =
     useDeactivateReconciliationItemCategory();
+  const csvFileInputRef = useRef(null);
+  const csvImport = useCsvImportControl({
+    resource: "item_categories",
+    normalizeRow: normalizeCategoryImportRow,
+    fileInputRef: csvFileInputRef,
+  });
 
   const categories =
     categoriesQuery.data?.items ?? [];
@@ -315,6 +358,43 @@ export function StoreItemCategoryManagementPage() {
           <button
             type="button"
             className="button button--secondary"
+            onClick={() =>
+              downloadCsv(
+                "template-store-item-categories.csv",
+                [IMPORT_SAMPLE_ROW],
+                IMPORT_COLUMNS.map((column) => ({
+                  key: column,
+                  label: column,
+                })),
+              )
+            }
+          >
+            <FileDown size={17} />
+            Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={csvImport.triggerFileDialog}
+            disabled={csvImport.isPending}
+          >
+            <Upload size={17} />
+            {csvImport.isPending
+              ? "Importing..."
+              : "Import CSV"}
+          </button>
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={
+              csvImport.handleFileChange
+            }
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            className="button button--secondary"
             onClick={handleExport}
             disabled={exportQuery.isFetching}
           >
@@ -334,6 +414,11 @@ export function StoreItemCategoryManagementPage() {
           </button>
         </div>
       </div>
+
+      <ImportResultsPanel
+        error={csvImport.error}
+        results={csvImport.results}
+      />
 
       <SurfaceCard>
         <div className="site-toolbar">

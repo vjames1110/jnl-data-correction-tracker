@@ -28,6 +28,10 @@ from apps.erp.models import (
     VoucherType,
     WorkType,
 )
+from apps.notifications.models import (
+    Notification,
+    NotificationEventType,
+)
 from apps.organization.models import (
     ApprovalAuthorityType,
     Company,
@@ -197,6 +201,14 @@ class ApprovalApiTests(TestCase):
     def test_director_approval_closes_request_without_second_level(
         self,
     ):
+        # This test exercises the default (no-matching-policy)
+        # first-decision-wins route specifically - deactivate the
+        # class-level two-level policy so it doesn't hijack routing
+        # for this request, now that Phase 6 makes configured policy
+        # levels actually take effect.
+        self.policy.is_active = False
+        self.policy.save(update_fields=["is_active"])
+
         submitted = self._submit_request(
             "JV-APPROVE-001"
         )
@@ -236,6 +248,13 @@ class ApprovalApiTests(TestCase):
     def test_admin_can_approve_same_director_step_first(
         self,
     ):
+        # Same reasoning as
+        # test_director_approval_closes_request_without_second_level -
+        # this test is about the default multi-approver route, not
+        # the class-level policy's sequential levels.
+        self.policy.is_active = False
+        self.policy.save(update_fields=["is_active"])
+
         submitted = self._submit_request(
             "JV-ADMIN-FIRST-001"
         )
@@ -439,9 +458,12 @@ class ApprovalApiTests(TestCase):
             submitted.current_owner,
             self.delegate,
         )
+        # The audit-trail snapshot follows the live approver after a
+        # delegation - it should show the delegate (DELAPP001), not
+        # the original approver whose turn it no longer is.
         self.assertEqual(
             step.approver_employee_id_snapshot,
-            "APRAPP001",
+            "DELAPP001",
         )
 
         self.client.force_authenticate(self.delegate)
@@ -590,6 +612,221 @@ class ApprovalApiTests(TestCase):
             second_response.data["data"]["recorded_breaches"],
             0,
         )
+
+    def test_sequential_route_only_first_level_current_initially(
+        self,
+    ):
+        # self.policy (set up above) configures two CUSTOM levels -
+        # approver_one then approver_two - so submitting against it
+        # exercises the real sequential chain, not the default
+        # first-decision-wins route.
+        # Notifications are dispatched via transaction.on_commit,
+        # which this plain TestCase never actually fires (the outer
+        # transaction is rolled back, not committed) - capture and
+        # run those callbacks explicitly so the assertions below can
+        # see the created rows.
+        with self.captureOnCommitCallbacks(execute=True):
+            submitted = self._submit_request(
+                "JV-SEQ-INIT-001"
+            )
+        steps = list(
+            submitted.approval_steps.order_by("sequence")
+        )
+
+        self.assertEqual(len(steps), 2)
+        self.assertTrue(steps[0].is_sequential_route)
+        self.assertTrue(steps[0].is_current)
+        self.assertEqual(steps[0].approver, self.approver_one)
+        self.assertFalse(steps[1].is_current)
+        self.assertEqual(steps[1].approver, self.approver_two)
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.PENDING_APPROVAL,
+        )
+        self.assertEqual(
+            submitted.current_owner,
+            self.approver_one,
+        )
+
+        # Only the reachable first level was notified - the second
+        # approver isn't actionable yet.
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.approver_one,
+                event_type=(
+                    NotificationEventType.APPROVAL_PENDING
+                ),
+            ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.approver_two,
+                event_type=(
+                    NotificationEventType.APPROVAL_PENDING
+                ),
+            ).exists()
+        )
+
+    def test_sequential_approval_advances_to_next_level(
+        self,
+    ):
+        submitted = self._submit_request(
+            "JV-SEQ-ADV-001"
+        )
+        first_step = submitted.approval_steps.get(
+            sequence=1
+        )
+
+        self.client.force_authenticate(
+            self.approver_one
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/v1/corrections/approvals/{first_step.id}/approve/",
+                {"comment": "First level approved."},
+                format="json",
+            )
+        submitted.refresh_from_db()
+        first_step.refresh_from_db()
+        second_step = submitted.approval_steps.get(
+            sequence=2
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            first_step.status,
+            ApprovalStepStatus.APPROVED,
+        )
+        self.assertFalse(first_step.is_current)
+        self.assertTrue(second_step.is_current)
+        self.assertEqual(
+            second_step.status,
+            ApprovalStepStatus.PENDING,
+        )
+        # The class-level policy's second level ("Final approval")
+        # has no sla_hours configured, so activation leaves due_at
+        # unset - only a level with its own SLA config gets one.
+        self.assertIsNone(second_step.due_at)
+        # The request stays pending - the chain isn't finished until
+        # the last level decides.
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.PENDING_APPROVAL,
+        )
+        self.assertEqual(
+            submitted.current_owner,
+            self.approver_two,
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.approver_two,
+                event_type=(
+                    NotificationEventType.APPROVAL_PENDING
+                ),
+            ).exists()
+        )
+
+        # The now-decided first level can't be acted on again.
+        repeat_response = self.client.post(
+            f"/api/v1/corrections/approvals/{first_step.id}/approve/",
+            {"comment": "Trying again."},
+            format="json",
+        )
+        self.assertEqual(
+            repeat_response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    def test_sequential_final_approval_completes_request(
+        self,
+    ):
+        submitted = self._submit_request(
+            "JV-SEQ-FINAL-001"
+        )
+        first_step = submitted.approval_steps.get(
+            sequence=1
+        )
+        self.client.force_authenticate(
+            self.approver_one
+        )
+        self.client.post(
+            f"/api/v1/corrections/approvals/{first_step.id}/approve/",
+            {"comment": "First level approved."},
+            format="json",
+        )
+        second_step = submitted.approval_steps.get(
+            sequence=2
+        )
+
+        self.client.force_authenticate(
+            self.approver_two
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/approvals/{second_step.id}/approve/",
+            {"comment": "Final level approved."},
+            format="json",
+        )
+        submitted.refresh_from_db()
+        second_step.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            second_step.status,
+            ApprovalStepStatus.APPROVED,
+        )
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.APPROVED,
+        )
+        self.assertEqual(
+            submitted.current_owner,
+            self.approver_two,
+        )
+
+    def test_sequential_reject_mid_chain_skips_remaining_steps(
+        self,
+    ):
+        submitted = self._submit_request(
+            "JV-SEQ-REJECT-001"
+        )
+        first_step = submitted.approval_steps.get(
+            sequence=1
+        )
+        self.client.force_authenticate(
+            self.approver_one
+        )
+        response = self.client.post(
+            f"/api/v1/corrections/approvals/{first_step.id}/reject/",
+            {"comment": "Voucher amount is wrong."},
+            format="json",
+        )
+        submitted.refresh_from_db()
+        second_step = submitted.approval_steps.get(
+            sequence=2
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            submitted.current_status,
+            CorrectionRequestStatus.REJECTED,
+        )
+        # Rejecting at any point in the chain kills the whole flow -
+        # the not-yet-reached second level is skipped, not left
+        # dangling as pending.
+        self.assertEqual(
+            second_step.status,
+            ApprovalStepStatus.SKIPPED,
+        )
+        self.assertFalse(second_step.is_current)
 
     def _submit_request(self, voucher_number):
         draft = create_draft(

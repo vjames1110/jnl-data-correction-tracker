@@ -6,12 +6,17 @@ import {
   LayoutDashboard,
   LineChart,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
 
 import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
 import { USER_ROLES } from "../../constants/roles";
 import { useAuth } from "../../hooks/useAuth";
+import { SidebarNavGroups } from "./SidebarNavGroups";
+
+const NAV_GROUPS = [
+  { key: "transaction", label: "Transaction" },
+  { key: "reports", label: "Reports" },
+];
 
 const navItems = [
   {
@@ -30,6 +35,7 @@ const navItems = [
     label: "Create Request",
     path: "/user/requests/new",
     icon: FilePlus2,
+    group: "transaction",
     roles: [
       USER_ROLES.USER,
       USER_ROLES.DIRECTOR,
@@ -41,6 +47,7 @@ const navItems = [
     label: "My Requests",
     path: "/user/requests",
     icon: ClipboardList,
+    group: "transaction",
     roles: [
       USER_ROLES.USER,
       USER_ROLES.DIRECTOR,
@@ -52,6 +59,7 @@ const navItems = [
     label: "Analytics",
     path: "/user/analytics",
     icon: LineChart,
+    group: "reports",
     roles: [
       USER_ROLES.USER,
       USER_ROLES.DIRECTOR,
@@ -100,31 +108,13 @@ export function UserSidebar({
           </span>
         ) : null}
 
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <NavLink
-              key={item.key}
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  "user-sidebar__link",
-                  isActive &&
-                    "user-sidebar__link--active",
-                )
-              }
-              title={
-                collapsed ? item.label : undefined
-              }
-            >
-              <Icon size={19} />
-              {!collapsed ? (
-                <span>{item.label}</span>
-              ) : null}
-            </NavLink>
-          );
-        })}
+        <SidebarNavGroups
+          prefix="user-sidebar"
+          storageKey="user-sidebar-groups"
+          collapsed={collapsed}
+          groups={NAV_GROUPS}
+          items={visibleItems}
+        />
       </nav>
 
       <button

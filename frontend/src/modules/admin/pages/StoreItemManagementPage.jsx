@@ -1,10 +1,16 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Download,
+  FileDown,
   Pencil,
   Plus,
   Power,
   Search,
+  Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -14,6 +20,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { reconciliationOverviewPath } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
+import { useCsvImportControl } from "../../../hooks/useCsvImportControl";
 import {
   useActivateReconciliationItem,
   useCreateReconciliationItem,
@@ -23,10 +30,16 @@ import {
   useReconciliationItems,
   useUpdateReconciliationItem,
 } from "../../../hooks/useReconciliation";
+import { ImportResultsPanel } from "../components/ImportResultsPanel";
 import {
   ManagementPanel,
   StatusChip,
 } from "../components/OrganizationControls";
+import {
+  compactPayload,
+  findByCode,
+  toBoolean,
+} from "../utils/csvImport";
 import {
   buildParams,
   downloadCsv,
@@ -42,6 +55,27 @@ const RECONCILIATION_TYPES = [
     label: "Direct Count (book vs physical)",
   },
 ];
+
+const IMPORT_COLUMNS = [
+  "item_name",
+  "category_code",
+  "reconciliation_type",
+  "uom",
+  "erp_item_code",
+  "description",
+  "is_active",
+];
+const IMPORT_SAMPLE_ROW = {
+  item_name: "Cement",
+  category_code: "CONMAT",
+  reconciliation_type: "NORM_BASED",
+  uom: "MT",
+  erp_item_code: "",
+  description: "",
+  is_active: "true",
+};
+const IMPORT_NOTE =
+  "category_code must match an existing Item Category's code (see its Export). reconciliation_type is NORM_BASED or DIRECT_COUNT. item_code is generated automatically.";
 
 const emptyForm = {
   item_code: "",
@@ -311,6 +345,34 @@ export function StoreItemManagementPage() {
     useActivateReconciliationItem();
   const deactivateItem =
     useDeactivateReconciliationItem();
+  const categoryOptions =
+    categoriesQuery.data ?? [];
+  const csvFileInputRef = useRef(null);
+  const csvImport = useCsvImportControl({
+    resource: "items",
+    fileInputRef: csvFileInputRef,
+    normalizeRow: (row) =>
+      compactPayload({
+        item_name: row.item_name,
+        category: findByCode(
+          categoryOptions,
+          row.category_code,
+        ),
+        reconciliation_type: (
+          row.reconciliation_type ||
+          "NORM_BASED"
+        )
+          .trim()
+          .toUpperCase(),
+        uom: row.uom,
+        erp_item_code: row.erp_item_code,
+        description: row.description,
+        is_active: toBoolean(
+          row.is_active,
+          true,
+        ),
+      }),
+  });
 
   const items = itemsQuery.data?.items ?? [];
   const pagination =
@@ -390,6 +452,43 @@ export function StoreItemManagementPage() {
           <button
             type="button"
             className="button button--secondary"
+            onClick={() =>
+              downloadCsv(
+                "template-store-items.csv",
+                [IMPORT_SAMPLE_ROW],
+                IMPORT_COLUMNS.map((column) => ({
+                  key: column,
+                  label: column,
+                })),
+              )
+            }
+          >
+            <FileDown size={17} />
+            Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={csvImport.triggerFileDialog}
+            disabled={csvImport.isPending}
+          >
+            <Upload size={17} />
+            {csvImport.isPending
+              ? "Importing..."
+              : "Import CSV"}
+          </button>
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={
+              csvImport.handleFileChange
+            }
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            className="button button--secondary"
             onClick={handleExport}
             disabled={exportQuery.isFetching}
           >
@@ -409,6 +508,14 @@ export function StoreItemManagementPage() {
           </button>
         </div>
       </div>
+
+      <p className="table-subtext">
+        {IMPORT_NOTE}
+      </p>
+      <ImportResultsPanel
+        error={csvImport.error}
+        results={csvImport.results}
+      />
 
       <SurfaceCard>
         <div className="site-toolbar">

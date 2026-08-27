@@ -150,6 +150,22 @@ export function useDeactivateReconciliationItemCategory() {
   });
 }
 
+export function useImportReconciliationMasters() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ resource, rows }) =>
+      reconciliationService.importMasters(
+        resource,
+        rows,
+      ),
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useReconciliationItems(params) {
   return useQuery({
     queryKey:
@@ -668,6 +684,49 @@ export function useReconciliationDashboard(
       queryKeys.reconciliationDashboard(params),
     queryFn: () =>
       reconciliationService.getDashboard(params),
+  });
+}
+
+export function useReconciliationAttachments(
+  periodId,
+) {
+  return useQuery({
+    queryKey: [
+      "reconciliation",
+      "attachments",
+      periodId,
+    ],
+    queryFn: () =>
+      reconciliationService.getAttachments(
+        periodId,
+      ),
+    enabled: Boolean(periodId),
+  });
+}
+
+export function useCreateReconciliationAttachment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.createAttachment,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useDeleteReconciliationAttachment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.deleteAttachment,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
   });
 }
 

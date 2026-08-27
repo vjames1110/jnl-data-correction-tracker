@@ -981,6 +981,21 @@ class CorrectionApprovalStep(
         default=False,
         db_index=True,
     )
+    is_sequential_route = models.BooleanField(
+        default=False,
+        help_text=(
+            "True when this step is part of a "
+            "policy-configured multi-level chain "
+            "(one step active at a time, "
+            "approve_step advances to the next "
+            "sequence). False for the default "
+            "Director-then-Admin route, where "
+            "every step is current at once and "
+            "the first decision wins. Set once "
+            "at snapshot time - do not infer "
+            "this from other state."
+        ),
+    )
     due_at = models.DateTimeField(
         null=True,
         blank=True,

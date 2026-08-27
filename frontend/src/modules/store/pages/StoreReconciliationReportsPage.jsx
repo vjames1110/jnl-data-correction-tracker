@@ -359,7 +359,7 @@ export function StoreReconciliationReportsPage() {
             {displayMonth}
           </p>
 
-          <section className="kpi-grid">
+          <section className="kpi-grid kpi-grid--compact">
             <KpiCard
               label="Sites Reporting"
               value={`${data.company_summary.sites_reporting} / ${data.company_summary.total_sites}`}

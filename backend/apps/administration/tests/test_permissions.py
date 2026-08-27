@@ -7,6 +7,7 @@ from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
     ResponsiblePersonUserFactory,
+    StoreHoUserFactory,
     SuperAdminUserFactory,
     UserFactory,
 )
@@ -90,7 +91,6 @@ ADMIN_PORTAL_ENDPOINTS = [
     "recent-activity",
     "profile",
     "capabilities",
-    "server-time",
 ]
 
 
@@ -153,4 +153,58 @@ def test_non_admin_roles_cannot_access_any_admin_portal_api(
     assert (
         response.status_code
         == status.HTTP_403_FORBIDDEN
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "factory_class",
+    [
+        AdminUserFactory,
+        SuperAdminUserFactory,
+        UserFactory,
+        DirectorUserFactory,
+        ResponsiblePersonUserFactory,
+        StoreHoUserFactory,
+    ],
+)
+def test_every_role_can_read_server_time(
+    factory_class,
+):
+    """
+    Every portal header shows a live clock
+    (ServerClock.jsx) driven by this endpoint - it
+    carries no sensitive data, so it's deliberately
+    not restricted to Admin like the rest of the
+    admin-portal API.
+    """
+    user = factory_class()
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.get(
+        reverse(
+            "administration-api:server-time"
+        )
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_200_OK
+    )
+
+
+@pytest.mark.django_db
+def test_anonymous_user_cannot_read_server_time():
+    client = APIClient()
+
+    response = client.get(
+        reverse(
+            "administration-api:server-time"
+        )
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_401_UNAUTHORIZED
     )

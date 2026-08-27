@@ -289,6 +289,10 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/director/reconciliation-entry",
+                element: <StoreEntryPage />,
+              },
+              {
                 path: "/director/export",
                 element:
                   <DirectorExportPage />,

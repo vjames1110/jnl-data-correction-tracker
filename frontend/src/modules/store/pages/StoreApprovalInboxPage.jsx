@@ -10,6 +10,8 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { USER_ROLES } from "../../../constants/roles";
+import { useAuth } from "../../../hooks/useAuth";
 import {
   useApproveReconciliationPeriod,
   useReconciliationPendingApprovals,
@@ -18,6 +20,7 @@ import {
 } from "../../../hooks/useReconciliation";
 
 function InboxRow({ period }) {
+  const { user } = useAuth();
   const [comment, setComment] = useState("");
   const approve = useApproveReconciliationPeriod();
   const reject = useRejectReconciliationPeriod();
@@ -32,7 +35,13 @@ function InboxRow({ period }) {
     approve.error ??
     reject.error ??
     returnForCorrection.error;
-  const entryUrl = `/store/entry?month=${period.period_month.slice(
+  // Director has no /store/* access (that portal is Store HO/Admin only),
+  // so it gets its own read-only-by-status entry route to the same page.
+  const entryBasePath =
+    user?.role === USER_ROLES.DIRECTOR
+      ? "/director/reconciliation-entry"
+      : "/store/entry";
+  const entryUrl = `${entryBasePath}?month=${period.period_month.slice(
     0,
     7,
   )}&site=${period.site}`;

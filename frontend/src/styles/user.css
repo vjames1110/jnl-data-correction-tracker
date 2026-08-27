@@ -114,6 +114,50 @@
   padding: 0;
 }
 
+.user-sidebar__group {
+  display: grid;
+  gap: 2px;
+}
+
+.user-sidebar__group-header {
+  min-height: var(--control-height-compact);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  color: var(--shell-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.user-sidebar__group-header:hover {
+  color: var(--color-white);
+  background: var(--shell-bg-hover);
+}
+
+.user-sidebar__group-chevron {
+  flex: 0 0 auto;
+  transition: transform 150ms ease;
+}
+
+.user-sidebar__group-chevron--open {
+  transform: rotate(180deg);
+}
+
+.user-sidebar__group-items {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+}
+
 .user-sidebar__collapse {
   min-height: var(--header-height);
   display: flex;

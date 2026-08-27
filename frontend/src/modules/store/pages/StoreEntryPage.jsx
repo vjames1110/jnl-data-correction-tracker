@@ -14,14 +14,20 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { OfflineQueueBanner } from "../../../components/common/OfflineQueueBanner";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { USER_ROLES } from "../../../constants/roles";
+import {
+  isStoreRole,
+  USER_ROLES,
+} from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import { useOfflineQueue } from "../../../hooks/useOfflineQueue";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
+  useCreateReconciliationAttachment,
   useCreateReconciliationEntry,
   useCreateReconciliationOutputEntry,
+  useDeleteReconciliationAttachment,
   useDeleteReconciliationOutputEntry,
+  useReconciliationAttachments,
   useReconciliationCurrentPeriod,
   useReconciliationEntries,
   useReconciliationItems,
@@ -366,6 +372,340 @@ function EntryRow({
   );
 }
 
+const BLANK_ENTRY_FORM = {
+  opening_stock: "",
+  receipts: "",
+  closing_stock: "",
+  book_stock: "",
+  physical_count: "",
+  section: "",
+  rack: "",
+};
+
+function SavedEntryRow({
+  item,
+  entry,
+  onSave,
+  saving,
+  queued,
+  editable,
+}) {
+  const [isEditing, setIsEditing] =
+    useState(false);
+
+  if (isEditing) {
+    return (
+      <EntryRow
+        item={item}
+        entry={entry}
+        saving={saving}
+        queued={queued}
+        onSave={async (payload) => {
+          await onSave(payload);
+          setIsEditing(false);
+        }}
+      />
+    );
+  }
+
+  const isNormBased =
+    item.reconciliation_type === "NORM_BASED";
+
+  return (
+    <tr>
+      <td>
+        <strong>{item.item_code}</strong>
+        <span className="table-subtext">
+          {item.item_name}
+        </span>
+      </td>
+      <td>{item.uom}</td>
+      <td>{entry.section || "-"}</td>
+      <td>{entry.rack || "-"}</td>
+      <td>
+        {isNormBased
+          ? (entry.opening_stock ?? "-")
+          : (entry.book_stock ?? "-")}
+      </td>
+      <td>
+        {isNormBased
+          ? (entry.receipts ?? "-")
+          : (entry.physical_count ?? "-")}
+      </td>
+      <td>
+        {isNormBased
+          ? (entry.closing_stock ?? "-")
+          : "n/a"}
+      </td>
+      <td>{entry.actual_quantity ?? "-"}</td>
+      <td>
+        {entry.theoretical_or_book_quantity ??
+          "-"}
+      </td>
+      <td
+        className={varianceCellClass(
+          entry.variance_quantity,
+        )}
+      >
+        {entry.variance_quantity ?? "-"}
+      </td>
+      <td>
+        {queued ? (
+          <span
+            className="status-chip status-chip--warning"
+            title="Saved on this device, waiting to sync"
+          >
+            Queued
+          </span>
+        ) : (
+          <VarianceStatusChip
+            status={
+              entry.status ?? "NOT_CALCULATED"
+            }
+          />
+        )}
+        {entry.flags?.length ? (
+          <div className="entry-row-flags">
+            {entry.flags.map((flag) => (
+              <span
+                key={flag.id}
+                className="entry-row-flag"
+                title={flag.message}
+              >
+                {flag.flag_type_display}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </td>
+      {editable ? (
+        <td>
+          <button
+            type="button"
+            className="button button--tertiary"
+            onClick={() => setIsEditing(true)}
+          >
+            Edit
+          </button>
+        </td>
+      ) : null}
+    </tr>
+  );
+}
+
+function AddEntryForm({
+  availableItems,
+  onSubmit,
+  submitting,
+}) {
+  const [itemId, setItemId] = useState("");
+  const [form, setForm] = useState(
+    BLANK_ENTRY_FORM,
+  );
+
+  const selectedItem = availableItems.find(
+    (item) => item.id === itemId,
+  );
+  const isNormBased =
+    selectedItem?.reconciliation_type ===
+    "NORM_BASED";
+
+  const setField = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedItem) {
+      return;
+    }
+    const payload = isNormBased
+      ? {
+          opening_stock:
+            form.opening_stock || null,
+          receipts: form.receipts || null,
+          closing_stock:
+            form.closing_stock || null,
+        }
+      : {
+          book_stock:
+            form.book_stock || null,
+          physical_count:
+            form.physical_count || null,
+        };
+    payload.section = form.section || "";
+    payload.rack = form.rack || "";
+    await onSubmit(selectedItem, payload);
+    setItemId("");
+    setForm(BLANK_ENTRY_FORM);
+  };
+
+  if (!availableItems.length) {
+    return (
+      <p className="table-subtext">
+        Every active item already has an entry
+        this period.
+      </p>
+    );
+  }
+
+  return (
+    <form
+      className="site-toolbar"
+      onSubmit={handleSubmit}
+    >
+      <label className="filter-control">
+        <span>Item</span>
+        <select
+          value={itemId}
+          onChange={(event) => {
+            setItemId(event.target.value);
+            setForm(BLANK_ENTRY_FORM);
+          }}
+          required
+        >
+          <option value="" disabled hidden>
+            Select item
+          </option>
+          {availableItems.map((item) => (
+            <option
+              key={item.id}
+              value={item.id}
+            >
+              {item.item_code} -{" "}
+              {item.item_name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {selectedItem ? (
+        <>
+          <label className="filter-control">
+            <span>Section (optional)</span>
+            <input
+              type="text"
+              value={form.section}
+              onChange={(event) =>
+                setField(
+                  "section",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
+          <label className="filter-control">
+            <span>Rack (optional)</span>
+            <input
+              type="text"
+              value={form.rack}
+              onChange={(event) =>
+                setField(
+                  "rack",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
+          {isNormBased ? (
+            <>
+              <label className="filter-control">
+                <span>Opening Stock</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.opening_stock}
+                  onChange={(event) =>
+                    setField(
+                      "opening_stock",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+              <label className="filter-control">
+                <span>Receipts</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.receipts}
+                  onChange={(event) =>
+                    setField(
+                      "receipts",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+              <label className="filter-control">
+                <span>Closing Stock</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.closing_stock}
+                  onChange={(event) =>
+                    setField(
+                      "closing_stock",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="filter-control">
+                <span>Book Stock</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.book_stock}
+                  onChange={(event) =>
+                    setField(
+                      "book_stock",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+              <label className="filter-control">
+                <span>Physical Count</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.physical_count}
+                  onChange={(event) =>
+                    setField(
+                      "physical_count",
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+            </>
+          )}
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={submitting}
+          >
+            <Plus size={15} />
+            Add Entry
+          </button>
+        </>
+      ) : null}
+    </form>
+  );
+}
+
 function ApprovalStatusBanner({ period }) {
   const steps = period.approval_steps ?? [];
   const lastDecidedStep = [...steps]
@@ -529,6 +869,213 @@ function OutputEntryForm({
   );
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size <= 0) {
+    return "";
+  }
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentsCard({
+  periodId,
+  isEditable,
+}) {
+  const fileInputRef = useRef(null);
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+  const attachmentsQuery =
+    useReconciliationAttachments(periodId);
+  const createAttachment =
+    useCreateReconciliationAttachment();
+  const deleteAttachment =
+    useDeleteReconciliationAttachment();
+  const attachments =
+    attachmentsQuery.data ?? [];
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (!file) {
+      return;
+    }
+
+    try {
+      setError("");
+      await createAttachment.mutateAsync({
+        period: periodId,
+        file,
+        notes,
+      });
+      setNotes("");
+    } catch (uploadError) {
+      setError(
+        uploadError.response?.data?.message ||
+          uploadError.message,
+      );
+    }
+  };
+
+  if (
+    !isEditable &&
+    !attachmentsQuery.isLoading &&
+    !attachments.length
+  ) {
+    return null;
+  }
+
+  return (
+    <SurfaceCard className="print-hidden">
+      <div className="surface-card__header">
+        <h2>Attachments</h2>
+      </div>
+      <div className="surface-card__body">
+        <p className="table-subtext">
+          Physical stock-count photos, signed
+          stock sheets, or other supporting
+          evidence for this period. PDF, Excel,
+          CSV, or image files, up to 10 MB
+          {isEditable
+            ? " - available while this period is in Draft."
+            : "."}
+        </p>
+
+        {isEditable ? (
+          <div className="site-toolbar">
+            <label className="filter-control">
+              <span>Notes (optional)</span>
+              <input
+                type="text"
+                value={notes}
+                onChange={(event) =>
+                  setNotes(event.target.value)
+                }
+                placeholder="e.g. July stock count"
+              />
+            </label>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              disabled={
+                createAttachment.isPending
+              }
+            >
+              <Upload size={15} />
+              {createAttachment.isPending
+                ? "Uploading..."
+                : "Upload File"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.xlsx,.xlsm,.xls,.csv,.jpg,.jpeg,.png,.webp,.gif"
+              onChange={handleUpload}
+              style={{ display: "none" }}
+            />
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="inline-alert inline-alert--error">
+            {error}
+          </div>
+        ) : null}
+
+        {attachmentsQuery.isLoading ? (
+          <p className="table-subtext">
+            Loading attachments...
+          </p>
+        ) : attachments.length ? (
+          <div className="data-table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Notes</th>
+                  <th>Uploaded By</th>
+                  <th>Size</th>
+                  {isEditable ? (
+                    <th>Actions</th>
+                  ) : null}
+                </tr>
+              </thead>
+              <tbody>
+                {attachments.map(
+                  (attachment) => (
+                    <tr key={attachment.id}>
+                      <td>
+                        <a
+                          href={
+                            attachment.download_url
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {
+                            attachment.original_name
+                          }
+                        </a>
+                      </td>
+                      <td>
+                        {attachment.notes ||
+                          "-"}
+                      </td>
+                      <td>
+                        {
+                          attachment.uploaded_by_employee_id
+                        }
+                      </td>
+                      <td>
+                        {formatFileSize(
+                          attachment.size_bytes,
+                        )}
+                      </td>
+                      {isEditable ? (
+                        <td>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            onClick={() =>
+                              deleteAttachment.mutate(
+                                attachment.id,
+                              )
+                            }
+                            aria-label="Delete attachment"
+                            title="Delete attachment"
+                          >
+                            <Trash2
+                              size={15}
+                            />
+                          </button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="table-subtext">
+            No attachments uploaded yet.
+          </p>
+        )}
+      </div>
+    </SurfaceCard>
+  );
+}
+
 export function StoreEntryPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -599,7 +1146,10 @@ export function StoreEntryPage() {
   const updatePeriod =
     useUpdateReconciliationPeriod();
 
-  const items = itemsQuery.data?.items ?? [];
+  const items = useMemo(
+    () => itemsQuery.data?.items ?? [],
+    [itemsQuery.data],
+  );
   const entries = useMemo(
     () => entriesQuery.data ?? [],
     [entriesQuery.data],
@@ -619,8 +1169,102 @@ export function StoreEntryPage() {
     return map;
   }, [entries]);
 
+  const itemById = useMemo(
+    () =>
+      new Map(
+        items.map((item) => [item.id, item]),
+      ),
+    [items],
+  );
+
+  const enteredItemIds = useMemo(() => {
+    const set = new Set(
+      entries.map((entry) => entry.item),
+    );
+    pendingByItemId.forEach((_, itemId) =>
+      set.add(itemId),
+    );
+    return set;
+  }, [entries, pendingByItemId]);
+
+  // Items that don't have an entry yet this period - the pool the
+  // "add an item" form picks from, so the same item can't be added
+  // twice and the list naturally shrinks as entries are added.
+  const itemsAvailableToAdd = useMemo(
+    () =>
+      items.filter(
+        (item) => !enteredItemIds.has(item.id),
+      ),
+    [items, enteredItemIds],
+  );
+
+  // One row per item that actually has an entry (server-saved or
+  // still offline-queued) - sourced from the entries themselves
+  // (which already carry their own item_code/name/uom) rather than
+  // the active items list, so a since-deactivated item's submitted
+  // entry still shows up correctly.
+  const entriesForDisplay = useMemo(() => {
+    const rows = entries.map((serverEntry) => {
+      const pending = pendingByItemId.get(
+        serverEntry.item,
+      );
+      const entry = pending
+        ? {
+            ...serverEntry,
+            ...pending.payload,
+          }
+        : serverEntry;
+      const item = itemById.get(
+        serverEntry.item,
+      ) ?? {
+        id: serverEntry.item,
+        item_code: serverEntry.item_code,
+        item_name: serverEntry.item_name,
+        uom: serverEntry.uom,
+        reconciliation_type:
+          serverEntry.reconciliation_type,
+      };
+      return {
+        item,
+        entry,
+        queued: Boolean(pending),
+      };
+    });
+
+    pendingByItemId.forEach(
+      (pending, itemId) => {
+        if (entryByItemId.has(itemId)) {
+          return;
+        }
+        const item = itemById.get(itemId);
+        if (!item) {
+          return;
+        }
+        rows.push({
+          item,
+          entry: pending.payload,
+          queued: true,
+        });
+      },
+    );
+
+    return rows;
+  }, [
+    entries,
+    pendingByItemId,
+    itemById,
+    entryByItemId,
+  ]);
+
+  // Director can open this page (read-only) from the approval
+  // inbox's "View Entries" link, but only Store HO/Admin/Super
+  // Admin ever prepare a period - editing stays gated on role, not
+  // just draft status, so Director never sees controls that the
+  // backend would reject anyway.
+  const canEditPeriod = isStoreRole(user?.role);
   const isEditable =
-    !period || period.status === "DRAFT";
+    canEditPeriod &&
+    (!period || period.status === "DRAFT");
 
   const queueEntrySave = (item, payload) => {
     const existing = entryByItemId.get(item.id);
@@ -1172,6 +1816,11 @@ export function StoreEntryPage() {
             />
           </div>
 
+          <AttachmentsCard
+            periodId={period.id}
+            isEditable={isEditable}
+          />
+
           {normBasedItems.length ? (
             <SurfaceCard className="print-hidden">
               <div className="surface-card__header">
@@ -1281,6 +1930,33 @@ export function StoreEntryPage() {
                 {csvMessage}
               </div>
             ) : null}
+            {isEditable ? (
+              <div className="surface-card__body">
+                {items.length ? (
+                  <AddEntryForm
+                    availableItems={
+                      itemsAvailableToAdd
+                    }
+                    submitting={
+                      createEntry.isPending ||
+                      updateEntry.isPending
+                    }
+                    onSubmit={(item, payload) =>
+                      handleSaveEntry(
+                        item,
+                        payload,
+                      )
+                    }
+                  />
+                ) : (
+                  <p className="table-subtext">
+                    No active items configured
+                    yet. Ask an administrator to
+                    set up the item master.
+                  </p>
+                )}
+              </div>
+            ) : null}
             <div className="data-table-wrapper">
               <table className="data-table">
                 <thead>
@@ -1297,38 +1973,22 @@ export function StoreEntryPage() {
                     <th>Variance</th>
                     <th>Status</th>
                     {isEditable ? (
-                      <th>Save</th>
+                      <th>Edit</th>
                     ) : null}
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => {
-                    const serverEntry =
-                      entryByItemId.get(
-                        item.id,
-                      );
-                    const pending =
-                      pendingByItemId.get(
-                        item.id,
-                      );
-                    const entry = pending
-                      ? {
-                          ...serverEntry,
-                          ...pending.payload,
-                        }
-                      : serverEntry;
-                    return isEditable ? (
-                      <EntryRow
+                  {entriesForDisplay.map(
+                    ({ item, entry, queued }) => (
+                      <SavedEntryRow
                         key={`${item.id}-${
                           entry?.updated_at ??
-                          pending?.actionId ??
-                          "none"
+                          "pending"
                         }`}
                         item={item}
                         entry={entry}
-                        queued={Boolean(
-                          pending,
-                        )}
+                        queued={queued}
+                        editable={isEditable}
                         saving={
                           createEntry.isPending ||
                           updateEntry.isPending
@@ -1340,74 +2000,19 @@ export function StoreEntryPage() {
                           )
                         }
                       />
-                    ) : (
-                      <tr key={item.id}>
-                        <td>
-                          <strong>
-                            {item.item_code}
-                          </strong>
-                          <span className="table-subtext">
-                            {item.item_name}
-                          </span>
-                        </td>
-                        <td>{item.uom}</td>
-                        <td>
-                          {entry?.section || "-"}
-                        </td>
-                        <td>
-                          {entry?.rack || "-"}
-                        </td>
-                        <td>
-                          {entry?.opening_stock ??
-                            entry?.book_stock ??
-                            "-"}
-                        </td>
-                        <td>
-                          {entry?.receipts ??
-                            entry?.physical_count ??
-                            "-"}
-                        </td>
-                        <td>
-                          {entry?.closing_stock ??
-                            "-"}
-                        </td>
-                        <td>
-                          {entry?.actual_quantity ??
-                            "-"}
-                        </td>
-                        <td>
-                          {entry?.theoretical_or_book_quantity ??
-                            "-"}
-                        </td>
-                        <td
-                          className={varianceCellClass(
-                            entry?.variance_quantity,
-                          )}
-                        >
-                          {entry?.variance_quantity ??
-                            "-"}
-                        </td>
-                        <td>
-                          <VarianceStatusChip
-                            status={
-                              entry?.status ??
-                              "NOT_CALCULATED"
-                            }
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!items.length ? (
+                    ),
+                  )}
+                  {!entriesForDisplay.length ? (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={
+                          isEditable ? 12 : 11
+                        }
                         className="table-empty-state"
                       >
-                        No active items
-                        configured yet. Ask an
-                        administrator to set up
-                        the item master.
+                        {isEditable
+                          ? "No entries added yet — select an item above to add one."
+                          : "No entries were recorded for this period."}
                       </td>
                     </tr>
                   ) : null}

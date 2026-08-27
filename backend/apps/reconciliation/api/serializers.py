@@ -12,6 +12,7 @@ from apps.reconciliation.models import (
     ReconciliationFlag,
     ReconciliationOutputEntry,
     ReconciliationPeriod,
+    ReconciliationPeriodAttachment,
     ReconciliationToleranceSettings,
     SiteItemConfig,
 )
@@ -196,6 +197,11 @@ class SiteItemConfigSerializer(
         source="site.site_name",
         read_only=True,
     )
+    period_month = serializers.DateField(
+        source="period.period_month",
+        read_only=True,
+        default=None,
+    )
     created_by_employee_id = serializers.CharField(
         source="created_by.employee_id",
         read_only=True,
@@ -212,6 +218,8 @@ class SiteItemConfigSerializer(
             "site",
             "site_code",
             "site_name",
+            "period",
+            "period_month",
             "grade_label",
             "rate",
             "mix_ratio",
@@ -228,6 +236,7 @@ class SiteItemConfigSerializer(
             "item_name",
             "site_code",
             "site_name",
+            "period_month",
             "created_by_employee_id",
             "created_at",
             "updated_at",
@@ -542,5 +551,78 @@ class ReconciliationOutputEntrySerializer(
             site=obj.period.site,
             on_date=obj.period.period_month,
             grade_label=obj.grade_label,
+            period=obj.period,
         )
         return resolved.mix_ratio
+
+
+class ReconciliationPeriodAttachmentSerializer(
+    serializers.ModelSerializer
+):
+    file = serializers.FileField(
+        write_only=True,
+        required=True,
+    )
+    uploaded_by_employee_id = serializers.CharField(
+        source="uploaded_by.employee_id",
+        read_only=True,
+    )
+    uploaded_by_name = serializers.CharField(
+        source="uploaded_by.full_name",
+        read_only=True,
+    )
+    site_code = serializers.CharField(
+        source="period.site.site_code",
+        read_only=True,
+    )
+    period_month = serializers.DateField(
+        source="period.period_month",
+        read_only=True,
+    )
+    download_url = (
+        serializers.SerializerMethodField()
+    )
+
+    class Meta:
+        model = ReconciliationPeriodAttachment
+        fields = [
+            "id",
+            "period",
+            "site_code",
+            "period_month",
+            "uploaded_by",
+            "uploaded_by_employee_id",
+            "uploaded_by_name",
+            "file",
+            "original_name",
+            "content_type",
+            "size_bytes",
+            "notes",
+            "download_url",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "site_code",
+            "period_month",
+            "uploaded_by",
+            "uploaded_by_employee_id",
+            "uploaded_by_name",
+            "original_name",
+            "content_type",
+            "size_bytes",
+            "download_url",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_download_url(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return ""
+
+        return request.build_absolute_uri(
+            "/api/v1/reconciliation/attachments/"
+            f"{obj.id}/download/"
+        )

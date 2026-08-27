@@ -4,15 +4,20 @@ from datetime import date
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Prefetch
+from django.http import FileResponse
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import parsers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import (
     MethodNotAllowed,
+    NotFound,
     PermissionDenied,
     ValidationError,
 )
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (
+    SAFE_METHODS,
+    IsAuthenticated,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -32,6 +37,7 @@ from apps.reconciliation.api.serializers import (
     ReconciliationEntrySerializer,
     ReconciliationFlagSerializer,
     ReconciliationOutputEntrySerializer,
+    ReconciliationPeriodAttachmentSerializer,
     ReconciliationPeriodSerializer,
     ReconciliationToleranceSettingsSerializer,
     SiteItemConfigSerializer,
@@ -44,6 +50,7 @@ from apps.reconciliation.models import (
     ReconciliationEntry,
     ReconciliationOutputEntry,
     ReconciliationPeriod,
+    ReconciliationPeriodAttachment,
     ReconciliationPeriodStatus,
     ReconciliationToleranceSettings,
     SiteItemConfig,
@@ -51,6 +58,10 @@ from apps.reconciliation.models import (
 from apps.reconciliation.selectors import dashboard as dashboard_selectors
 from apps.reconciliation.selectors import statement_pack as statement_pack_selectors
 from apps.reconciliation.services import approvals
+from apps.reconciliation.services.attachments import (
+    create_attachment as create_reconciliation_attachment,
+    delete_attachment as delete_reconciliation_attachment,
+)
 from apps.reconciliation.services.periods import (
     get_or_create_period,
     reopen_period,
@@ -514,6 +525,7 @@ class SiteItemConfigViewSet(ReconciliationMasterViewSet):
     select_related_fields = (
         "item",
         "site",
+        "period",
         "created_by",
     )
     search_fields = [
@@ -527,6 +539,7 @@ class SiteItemConfigViewSet(ReconciliationMasterViewSet):
     filterset_fields = [
         "item",
         "site",
+        "period",
         "grade_label",
         "is_active",
     ]
@@ -756,6 +769,15 @@ class ReconciliationPeriodViewSet(
                 HasReconciliationApprovalAccess()
             ]
         if self.action in self.reopen_actions:
+            return [
+                HasReconciliationReportingAccess()
+            ]
+        # Reading a period (list/retrieve/current) is reporting
+        # access - Director needs this to open a submitted period
+        # from the approval inbox's "View Entries" link. Writing
+        # (create is disabled below anyway; patch) stays Store HO/
+        # Admin/Super Admin only via HasStorePortalAccess.
+        if self.request.method in SAFE_METHODS:
             return [
                 HasReconciliationReportingAccess()
             ]
@@ -1104,10 +1126,18 @@ class ReconciliationEntryViewSet(
     serializer_class = (
         ReconciliationEntrySerializer
     )
-    permission_classes = [
-        HasStorePortalAccess,
-    ]
     lookup_field = "id"
+
+    def get_permissions(self):
+        # Director needs to read a submitted period's entries from
+        # the approval inbox's "View Entries" link; writing stays
+        # Store HO/Admin/Super Admin only.
+        if self.request.method in SAFE_METHODS:
+            return [
+                HasReconciliationReportingAccess()
+            ]
+        return [HasStorePortalAccess()]
+
     http_method_names = [
         "get",
         "post",
@@ -1232,10 +1262,18 @@ class ReconciliationOutputEntryViewSet(
     serializer_class = (
         ReconciliationOutputEntrySerializer
     )
-    permission_classes = [
-        HasStorePortalAccess,
-    ]
     lookup_field = "id"
+
+    def get_permissions(self):
+        # Director needs to read a submitted period's production
+        # output from the approval inbox's "View Entries" link;
+        # writing stays Store HO/Admin/Super Admin only.
+        if self.request.method in SAFE_METHODS:
+            return [
+                HasReconciliationReportingAccess()
+            ]
+        return [HasStorePortalAccess()]
+
     http_method_names = [
         "get",
         "post",
@@ -1355,4 +1393,128 @@ class ReconciliationOutputEntryViewSet(
                 "deleted successfully."
             ),
             data=None,
+        )
+
+
+class ReconciliationPeriodAttachmentViewSet(
+    viewsets.ModelViewSet
+):
+    serializer_class = (
+        ReconciliationPeriodAttachmentSerializer
+    )
+    parser_classes = [
+        parsers.MultiPartParser,
+        parsers.FormParser,
+        parsers.JSONParser,
+    ]
+    lookup_field = "id"
+    http_method_names = [
+        "get",
+        "post",
+        "delete",
+        "head",
+        "options",
+    ]
+    filterset_fields = ["period"]
+    ordering_fields = ["created_at", "original_name"]
+    ordering = ["-created_at"]
+
+    def get_permissions(self):
+        # Reading (e.g. Director reviewing evidence attached to a
+        # submitted period) is reporting access; uploading/deleting
+        # stays Store HO/Admin/Super Admin only, matching entries.
+        if self.request.method in SAFE_METHODS:
+            return [
+                HasReconciliationReportingAccess()
+            ]
+        return [HasStorePortalAccess()]
+
+    def get_queryset(self):
+        queryset = (
+            ReconciliationPeriodAttachment.objects.filter(
+                is_deleted=False,
+            ).select_related(
+                "period",
+                "period__site",
+                "uploaded_by",
+            )
+        )
+
+        period_id = self.request.query_params.get(
+            "period"
+        )
+        if period_id:
+            queryset = queryset.filter(
+                period_id=period_id
+            )
+
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        period = serializer.validated_data[
+            "period"
+        ]
+
+        attachment = create_reconciliation_attachment(
+            period=period,
+            user=request.user,
+            file=serializer.validated_data["file"],
+            notes=serializer.validated_data.get(
+                "notes", ""
+            ),
+        )
+
+        return success_response(
+            message="Attachment uploaded successfully.",
+            data=self.get_serializer(
+                attachment
+            ).data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        attachment = delete_reconciliation_attachment(
+            attachment=self.get_object(),
+            user=request.user,
+        )
+
+        return success_response(
+            message="Attachment deleted successfully.",
+            data=self.get_serializer(
+                attachment
+            ).data,
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="download",
+    )
+    def download(self, request, *args, **kwargs):
+        attachment = self.get_object()
+
+        if not attachment.file:
+            raise NotFound(
+                "Attachment file was not found."
+            )
+
+        try:
+            file_handle = attachment.file.open("rb")
+        except FileNotFoundError as exc:
+            raise NotFound(
+                "Attachment file was not found."
+            ) from exc
+
+        return FileResponse(
+            file_handle,
+            as_attachment=True,
+            filename=attachment.original_name,
+            content_type=(
+                attachment.content_type
+                or "application/octet-stream"
+            ),
         )

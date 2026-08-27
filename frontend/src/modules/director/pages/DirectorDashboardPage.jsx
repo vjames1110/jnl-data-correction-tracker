@@ -5,6 +5,7 @@ import {
   Clock3,
   ClipboardCheck,
   Filter,
+  Package,
   RotateCcw,
   Search,
   XCircle,
@@ -18,6 +19,9 @@ import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import {
   useApprovalSteps,
 } from "../../../hooks/useCorrectionRequests";
+import {
+  useReconciliationPendingApprovals,
+} from "../../../hooks/useReconciliation";
 import {
   approvalStatusTone,
   formatApprovalStatus,
@@ -90,6 +94,10 @@ export function DirectorDashboardPage() {
     page_size: 500,
     ordering: "-updated_at",
   });
+  const reconciliationApprovalsQuery =
+    useReconciliationPendingApprovals();
+  const reconciliationPendingCount =
+    reconciliationApprovalsQuery.data?.length ?? 0;
   const steps = useMemo(
     () => approvalsQuery.data?.items ?? [],
     [approvalsQuery.data],
@@ -149,6 +157,15 @@ export function DirectorDashboardPage() {
 
         <div className="page-actions">
           <Link
+            className="button button--secondary"
+            to="/director/reconciliation-approvals"
+          >
+            Reconciliation Approvals
+            {reconciliationPendingCount
+              ? ` (${reconciliationPendingCount})`
+              : ""}
+          </Link>
+          <Link
             className="button button--primary"
             to="/director/approvals"
           >
@@ -162,6 +179,18 @@ export function DirectorDashboardPage() {
           icon={ClipboardCheck}
           label="Pending Approvals"
           value={summary.pending}
+        />
+        <KpiCard
+          icon={Package}
+          label="Reconciliation Pending"
+          value={
+            reconciliationApprovalsQuery.isLoading
+              ? undefined
+              : reconciliationPendingCount
+          }
+          warning={
+            reconciliationPendingCount > 0
+          }
         />
         <KpiCard
           icon={CheckCircle2}

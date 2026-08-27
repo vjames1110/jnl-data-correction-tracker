@@ -94,7 +94,7 @@ export function StoreSettingsPage() {
         </Link>
       </div>
 
-      <section className="kpi-grid">
+      <section className="kpi-grid kpi-grid--compact">
         <KpiCard
           label="Item Categories"
           value={

@@ -99,6 +99,50 @@
   white-space: nowrap;
 }
 
+.admin-sidebar__group {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-sidebar__group-header {
+  min-height: var(--control-height-compact);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  color: var(--shell-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-sidebar__group-header:hover {
+  color: var(--color-white);
+  background: var(--shell-bg-hover);
+}
+
+.admin-sidebar__group-chevron {
+  flex: 0 0 auto;
+  transition: transform 150ms ease;
+}
+
+.admin-sidebar__group-chevron--open {
+  transform: rotate(180deg);
+}
+
+.admin-sidebar__group-items {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+}
+
 .admin-sidebar__link:hover {
   color: var(--color-white);
   background: var(--shell-bg-hover);
@@ -442,6 +486,44 @@
 .kpi-card--error .kpi-card__icon {
   color: var(--color-error-600);
   background: var(--color-error-100);
+}
+
+/* Store Reconciliation's KPI rows run more cards at once (up to 7
+   on Reports) than the rest of the admin dashboards - a smaller
+   footprint keeps them from crowding into a single tall column. */
+.kpi-grid--compact {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.kpi-grid--compact .kpi-card {
+  padding: var(--space-3);
+  border-left-width: 3px;
+}
+
+.kpi-grid--compact .kpi-card__header > span {
+  font-size: 11px;
+}
+
+.kpi-grid--compact .kpi-card__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.kpi-grid--compact .kpi-card__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.kpi-grid--compact .kpi-card__value {
+  margin-top: 2px;
+  font-size: 19px;
+  line-height: 24px;
+}
+
+.kpi-grid--compact .kpi-card__helper {
+  font-size: 11px;
 }
 
 .dashboard-chart-grid {

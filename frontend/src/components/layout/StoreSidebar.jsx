@@ -6,10 +6,16 @@ import {
   LayoutDashboard,
   Settings,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
 
 import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
+import { SidebarNavGroups } from "./SidebarNavGroups";
+
+const NAV_GROUPS = [
+  { key: "transaction", label: "Transaction" },
+  { key: "reports", label: "Reports" },
+  { key: "master", label: "Master" },
+];
 
 const navItems = [
   {
@@ -23,18 +29,21 @@ const navItems = [
     label: "Monthly Entry",
     path: "/store/entry",
     icon: ClipboardEdit,
+    group: "transaction",
   },
   {
     key: "reports",
     label: "Reports",
     path: "/store/reports",
     icon: BarChart3,
+    group: "reports",
   },
   {
     key: "settings",
     label: "Settings",
     path: "/store/settings",
     icon: Settings,
+    group: "master",
   },
 ];
 
@@ -73,31 +82,13 @@ export function StoreSidebar({
           </span>
         ) : null}
 
-        {navItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <NavLink
-              key={item.key}
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  "user-sidebar__link",
-                  isActive &&
-                    "user-sidebar__link--active",
-                )
-              }
-              title={
-                collapsed ? item.label : undefined
-              }
-            >
-              <Icon size={19} />
-              {!collapsed ? (
-                <span>{item.label}</span>
-              ) : null}
-            </NavLink>
-          );
-        })}
+        <SidebarNavGroups
+          prefix="user-sidebar"
+          storageKey="store-sidebar-groups"
+          collapsed={collapsed}
+          groups={NAV_GROUPS}
+          items={navItems}
+        />
       </nav>
 
       <button

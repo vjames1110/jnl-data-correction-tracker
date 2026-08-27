@@ -119,11 +119,26 @@ def _director_authorized_for_request(
     request: CorrectionRequest,
     user,
 ) -> bool:
+    # Only compare fields the request actually has a value for -
+    # Q(site_id=None) would otherwise match every mapping whose own
+    # site_id is null too (e.g. a department-only mapping), granting
+    # a director access to a request that has no site at all.
+    query = Q()
+    has_clause = False
+    if request.site_id:
+        query |= Q(site_id=request.site_id)
+        has_clause = True
+    if request.department_id:
+        query |= Q(
+            department_id=request.department_id
+        )
+        has_clause = True
+
+    if not has_clause:
+        return False
+
     mappings = _active_director_mappings(user)
-    return mappings.filter(
-        Q(site_id=request.site_id)
-        | Q(department_id=request.department_id)
-    ).exists()
+    return mappings.filter(query).exists()
 
 
 def _active_director_mappings(user):

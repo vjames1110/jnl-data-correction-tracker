@@ -18,6 +18,7 @@ from apps.authentication.models import (
 from apps.corrections.models import (
     ApprovalApproverType,
     ApprovalStepStatus,
+    ApprovalWorkflowLevel,
     ApprovalWorkflowPolicy,
     CorrectionApprovalStep,
     CorrectionRequest,
@@ -57,13 +58,112 @@ def build_approval_route(
 ) -> tuple[
     ApprovalWorkflowPolicy | None,
     list[ApprovalRouteStep],
+    bool,
 ]:
+    """
+    Returns (policy, route, is_sequential). ``is_sequential`` is True
+    only when the route actually came from the policy's configured
+    ApprovalWorkflowLevel rows - snapshot_approval_route uses it to
+    decide whether every step activates at once (the original
+    "first decision wins" design, still used for the default
+    Director-then-Admin route) or one at a time (approve_step
+    advances to the next level as each one is decided).
+    """
     policy = find_workflow_policy(request)
+
+    if policy is not None:
+        configured_levels = list(
+            policy.approval_levels.filter(
+                is_deleted=False,
+            ).order_by("sequence")
+        )
+        if configured_levels:
+            sequential_route = (
+                _build_sequential_route(
+                    levels=configured_levels,
+                    request=request,
+                )
+            )
+            if sequential_route:
+                return (
+                    policy,
+                    sequential_route,
+                    True,
+                )
+            # Every configured level failed to resolve a real
+            # approver (e.g. no department HOD set anywhere) -
+            # fall through to the default route below rather than
+            # leaving the request with no approver at all.
+
+    return (
+        policy,
+        _build_default_route(
+            policy=policy,
+            request=request,
+        ),
+        False,
+    )
+
+
+def _build_sequential_route(
+    *,
+    levels: list[ApprovalWorkflowLevel],
+    request: CorrectionRequest,
+) -> list[ApprovalRouteStep]:
+    """
+    A real multi-step chain: each configured level - Department HOD,
+    Site HOD, Director, Admin Final, or a Custom approver - becomes
+    its own step in sequence order, using that level's own SLA
+    timing. Levels with no resolvable approver are skipped so one
+    missing HOD doesn't stall the whole chain; only the reachable
+    steps are ever built, and the route only actually activates one
+    step at a time (see approve_step) rather than all at once.
+    """
+    route = []
+    sequence = 1
+
+    for level in levels:
+        approver = resolve_level_approver(
+            level=level,
+            request=request,
+        )
+        if approver is None:
+            continue
+
+        route.append(
+            ApprovalRouteStep(
+                sequence=sequence,
+                approver_type=level.approver_type,
+                approver=approver,
+                level_name=(
+                    level.level_name
+                    or level.get_approver_type_display()
+                ),
+                sla_hours=level.sla_hours,
+                escalation_hours=level.escalation_hours,
+            )
+        )
+        sequence += 1
+
+    return route
+
+
+def _build_default_route(
+    *,
+    policy: ApprovalWorkflowPolicy | None,
+    request: CorrectionRequest,
+) -> list[ApprovalRouteStep]:
+    """
+    The original route, unchanged: Director then Admin, both
+    immediately actionable (first decision wins). Used whenever no
+    policy matches, a matched policy has no levels configured, or
+    every configured level failed to resolve a real approver.
+    """
     director = find_default_approval_owner(request)
     admin = find_primary_admin()
 
     if director is None and admin is None:
-        return policy, []
+        return []
 
     timing_level = _first_policy_level(policy)
     route = []
@@ -112,7 +212,7 @@ def build_approval_route(
             )
         )
 
-    return policy, route
+    return route
 
 
 def find_workflow_policy(
@@ -217,20 +317,46 @@ def find_primary_admin():
 
 
 def resolve_level_approver(*, level, request):
+    """
+    Map one configured ApprovalWorkflowLevel to a real, currently
+    active approver for this request - or None if it can't be
+    resolved (build_approval_route skips levels that resolve to
+    None rather than failing submission outright).
+    """
     if (
         level.approver_type
         == ApprovalApproverType.DEPARTMENT_HOD
     ):
-        return (
+        department_hod = (
             request.department.department_hod
             if request.department_id
             else None
         )
+        return (
+            department_hod
+            if _is_active_account(department_hod)
+            else None
+        )
 
     if level.approver_type == ApprovalApproverType.SITE_HOD:
+        if not request.site_id:
+            return None
+
+        # Site.site_hod is an EmployeeProfile and may have no linked
+        # login account at all (it's explicitly "not restricted to
+        # employees with a login account") - fall back to the
+        # site's director, who does have one, rather than silently
+        # dropping this level.
+        site_hod_profile = request.site.site_hod
+        if site_hod_profile is not None:
+            site_hod_user = site_hod_profile.user
+            if _is_active_account(site_hod_user):
+                return site_hod_user
+
+        site_director = request.site.site_director
         return (
-            request.site.site_hod
-            if request.site_id
+            site_director
+            if _is_director_user(site_director)
             else None
         )
 
@@ -244,7 +370,13 @@ def resolve_level_approver(*, level, request):
         return find_primary_admin()
 
     if level.approver_type == ApprovalApproverType.CUSTOM:
-        return level.custom_approver
+        return (
+            level.custom_approver
+            if _is_active_account(
+                level.custom_approver
+            )
+            else None
+        )
 
     return None
 
@@ -255,6 +387,7 @@ def snapshot_approval_route(
     policy: ApprovalWorkflowPolicy | None,
     route: list[ApprovalRouteStep],
     submitted_at,
+    is_sequential: bool = False,
 ) -> list[CorrectionApprovalStep]:
     if request.approval_steps.exists():
         return list(
@@ -263,20 +396,40 @@ def snapshot_approval_route(
 
     steps = []
     for index, route_step in enumerate(route):
-        due_at = (
-            submitted_at
-            + timedelta(hours=route_step.sla_hours)
-            if route_step.sla_hours
-            else None
+        # A sequential (policy-level) route only activates its
+        # first step - approve_step advances is_current to the next
+        # one as each level is decided. The default route keeps
+        # every step immediately current (first decision wins),
+        # exactly as before.
+        is_current = (
+            index == 0 if is_sequential else True
         )
-        escalates_at = (
-            submitted_at
-            + timedelta(
-                hours=route_step.escalation_hours
+
+        # A not-yet-active sequential step's SLA clock hasn't
+        # started - computing due_at/escalates_at from submitted_at
+        # now would make later levels partially (or fully) overdue
+        # before they're even reachable. approve_step computes these
+        # properly, from the moment it actually activates each step.
+        if is_sequential and not is_current:
+            due_at = None
+            escalates_at = None
+        else:
+            due_at = (
+                submitted_at
+                + timedelta(
+                    hours=route_step.sla_hours
+                )
+                if route_step.sla_hours
+                else None
             )
-            if route_step.escalation_hours
-            else None
-        )
+            escalates_at = (
+                submitted_at
+                + timedelta(
+                    hours=route_step.escalation_hours
+                )
+                if route_step.escalation_hours
+                else None
+            )
 
         steps.append(
             CorrectionApprovalStep(
@@ -286,7 +439,8 @@ def snapshot_approval_route(
                 level_name=route_step.level_name,
                 approver_type=route_step.approver_type,
                 approver=route_step.approver,
-                is_current=True,
+                is_current=is_current,
+                is_sequential_route=is_sequential,
                 due_at=due_at,
                 escalates_at=escalates_at,
                 policy_name_snapshot=(
@@ -359,6 +513,28 @@ def approve_step(
             ]
         )
 
+        next_step = None
+        if _is_sequential_route(locked_step):
+            next_step = (
+                correction_request.approval_steps.filter(
+                    status=ApprovalStepStatus.PENDING,
+                    sequence__gt=locked_step.sequence,
+                )
+                .order_by("sequence")
+                .first()
+            )
+
+        if next_step is not None:
+            _activate_next_sequential_step(
+                correction_request=correction_request,
+                decided_step=locked_step,
+                next_step=next_step,
+                user=user,
+                comment=comment,
+                allow_admin=allow_admin,
+            )
+            return locked_step
+
         correction_request.approval_steps.filter(
             status=ApprovalStepStatus.PENDING
         ).exclude(pk=locked_step.pk).update(
@@ -389,7 +565,9 @@ def approve_step(
                 "step_id": str(locked_step.id),
                 "sequence": locked_step.sequence,
                 "admin_intervention": allow_admin,
-                "first_decision_wins": True,
+                "first_decision_wins": not (
+                    _is_sequential_route(locked_step)
+                ),
             },
         )
         notify_workflow_event(
@@ -408,6 +586,102 @@ def approve_step(
         )
 
         return locked_step
+
+
+def _is_sequential_route(
+    step: CorrectionApprovalStep,
+) -> bool:
+    return step.is_sequential_route
+
+
+def _activate_next_sequential_step(
+    *,
+    correction_request: CorrectionRequest,
+    decided_step: CorrectionApprovalStep,
+    next_step: CorrectionApprovalStep,
+    user,
+    comment: str,
+    allow_admin: bool,
+) -> None:
+    now = timezone.now()
+    next_step.is_current = True
+    next_step.due_at = (
+        now
+        + timedelta(
+            hours=_step_sla_hours(next_step)
+        )
+        if _step_sla_hours(next_step)
+        else None
+    )
+    next_step.escalates_at = (
+        now
+        + timedelta(
+            hours=_step_escalation_hours(
+                next_step
+            )
+        )
+        if _step_escalation_hours(next_step)
+        else None
+    )
+    next_step.save(
+        update_fields=[
+            "is_current",
+            "due_at",
+            "escalates_at",
+            "updated_at",
+        ]
+    )
+
+    correction_request.current_owner = (
+        next_step.approver
+    )
+    correction_request.save(
+        update_fields=[
+            "current_owner",
+            "updated_at",
+        ]
+    )
+
+    record_timeline(
+        request=correction_request,
+        actor=user,
+        event_type=CorrectionTimelineEventType.APPROVAL_ACTION,
+        from_status=correction_request.current_status,
+        to_status=correction_request.current_status,
+        comment=comment,
+        metadata={
+            "action": "APPROVE",
+            "step_id": str(decided_step.id),
+            "sequence": decided_step.sequence,
+            "admin_intervention": allow_admin,
+            "first_decision_wins": False,
+            "advanced_to_step_id": str(next_step.id),
+            "advanced_to_sequence": next_step.sequence,
+        },
+    )
+    notify_workflow_event(
+        event_type=NotificationEventType.APPROVAL_PENDING,
+        correction_request=correction_request,
+        recipients=[next_step.approver],
+        actor=user,
+        payload={
+            "step_id": str(next_step.id),
+        },
+    )
+
+
+def _step_sla_hours(
+    step: CorrectionApprovalStep,
+) -> int | None:
+    snapshot = step.snapshot or {}
+    return snapshot.get("sla_hours")
+
+
+def _step_escalation_hours(
+    step: CorrectionApprovalStep,
+) -> int | None:
+    snapshot = step.snapshot or {}
+    return snapshot.get("escalation_hours")
 
 
 def _auto_assign_responsible_person(
@@ -561,10 +835,23 @@ def delegate_step(
         locked_step.approver_type = (
             ApprovalApproverType.CUSTOM
         )
+        # Keep the audit-trail snapshot in sync with the live
+        # approver - the model's own save() only backfills these
+        # "if not already set", so without this a delegated step
+        # would permanently keep showing the pre-delegation
+        # approver's name/employee_id.
+        locked_step.approver_employee_id_snapshot = (
+            delegate_to.employee_id
+        )
+        locked_step.approver_name_snapshot = (
+            delegate_to.full_name
+        )
         locked_step.save(
             update_fields=[
                 "approver",
                 "approver_type",
+                "approver_employee_id_snapshot",
+                "approver_name_snapshot",
                 "updated_at",
             ]
         )
@@ -761,40 +1048,71 @@ def record_sla_breaches(*, now=None) -> int:
 
     recorded = 0
     for step in breached_steps:
-        exists = step.request.timeline_entries.filter(
-            event_type=CorrectionTimelineEventType.APPROVAL_ACTION,
-            metadata__action="SLA_BREACH",
-            metadata__step_id=str(step.id),
-        ).exists()
-        if exists:
-            continue
+        # The exists()-then-create check below isn't atomic on its
+        # own - two concurrent sweeps (or a retried admin click) can
+        # both pass it for the same step before either commits its
+        # timeline row. Locking the step row serializes that: the
+        # second caller re-checks exists() only after the first has
+        # committed, and correctly sees it.
+        with transaction.atomic():
+            locked_step = _locked_step(step)
 
-        record_timeline(
-            request=step.request,
-            actor=None,
-            event_type=CorrectionTimelineEventType.APPROVAL_ACTION,
-            from_status=step.request.current_status,
-            to_status=step.request.current_status,
-            comment="Approval SLA breached.",
-            metadata={
-                "action": "SLA_BREACH",
-                "step_id": str(step.id),
-                "sequence": step.sequence,
-                "approver_id": str(step.approver_id),
-                "due_at": step.due_at.isoformat(),
-            },
-        )
-        notify_workflow_event(
-            event_type=NotificationEventType.SLA_BREACH,
-            correction_request=step.request,
-            recipients=[step.approver],
-            actor=None,
-            payload={
-                "step_id": str(step.id),
-                "due_at": step.due_at.isoformat(),
-            },
-        )
-        recorded += 1
+            if (
+                locked_step.status
+                != ApprovalStepStatus.PENDING
+                or not locked_step.is_current
+                or locked_step.due_at is None
+                or locked_step.due_at >= current_time
+            ):
+                continue
+
+            exists = (
+                locked_step.request.timeline_entries.filter(
+                    event_type=(
+                        CorrectionTimelineEventType
+                        .APPROVAL_ACTION
+                    ),
+                    metadata__action="SLA_BREACH",
+                    metadata__step_id=str(
+                        locked_step.id
+                    ),
+                ).exists()
+            )
+            if exists:
+                continue
+
+            record_timeline(
+                request=locked_step.request,
+                actor=None,
+                event_type=CorrectionTimelineEventType.APPROVAL_ACTION,
+                from_status=locked_step.request.current_status,
+                to_status=locked_step.request.current_status,
+                comment="Approval SLA breached.",
+                metadata={
+                    "action": "SLA_BREACH",
+                    "step_id": str(locked_step.id),
+                    "sequence": locked_step.sequence,
+                    "approver_id": str(
+                        locked_step.approver_id
+                    ),
+                    "due_at": (
+                        locked_step.due_at.isoformat()
+                    ),
+                },
+            )
+            notify_workflow_event(
+                event_type=NotificationEventType.SLA_BREACH,
+                correction_request=locked_step.request,
+                recipients=[locked_step.approver],
+                actor=None,
+                payload={
+                    "step_id": str(locked_step.id),
+                    "due_at": (
+                        locked_step.due_at.isoformat()
+                    ),
+                },
+            )
+            recorded += 1
 
     return recorded
 
@@ -837,6 +1155,19 @@ def _first_policy_level(policy):
 def _locked_step(
     step: CorrectionApprovalStep,
 ) -> CorrectionApprovalStep:
+    # Lock the parent request before the step, in that order - every
+    # other status-mutating service in this app (reopen_request,
+    # cancel_request, work.py, resolution.py) already locks
+    # CorrectionRequest alone, so locking it first here too keeps a
+    # single, deadlock-free lock ordering app-wide. Without this, a
+    # concurrent cancel/reopen racing an approval action could commit
+    # in between this transaction's unlocked read of request status
+    # and its later blind request.save(), silently reviving or
+    # reverting a request out from under the other transaction.
+    CorrectionRequest.objects.select_for_update(
+        of=("self",)
+    ).get(pk=step.request_id)
+
     return (
         CorrectionApprovalStep.objects.select_for_update(
             of=("self",)
@@ -1065,6 +1396,24 @@ def _director_authorized_for_request(
     request: CorrectionRequest,
     user,
 ) -> bool:
+    # Only compare fields the request actually has a value for -
+    # Q(site_id=None) would otherwise match every mapping whose own
+    # site_id is null too (e.g. a department-only mapping), granting
+    # a director access to a request that has no site at all.
+    query = Q()
+    has_clause = False
+    if request.site_id:
+        query |= Q(site_id=request.site_id)
+        has_clause = True
+    if request.department_id:
+        query |= Q(
+            department_id=request.department_id
+        )
+        has_clause = True
+
+    if not has_clause:
+        return False
+
     today = timezone.localdate()
     return DirectorMapping.objects.filter(
         director=user,
@@ -1074,10 +1423,7 @@ def _director_authorized_for_request(
         | Q(effective_from__lte=today),
         Q(effective_to__isnull=True)
         | Q(effective_to__gte=today),
-    ).filter(
-        Q(site_id=request.site_id)
-        | Q(department_id=request.department_id)
-    ).exists()
+    ).filter(query).exists()
 
 
 def _is_active_user(user) -> bool:

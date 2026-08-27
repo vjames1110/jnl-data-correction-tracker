@@ -8,10 +8,15 @@ import {
   Package,
   PackageCheck,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
 
 import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
+import { SidebarNavGroups } from "./SidebarNavGroups";
+
+const NAV_GROUPS = [
+  { key: "transaction", label: "Transaction" },
+  { key: "reports", label: "Reports" },
+];
 
 const navItems = [
   {
@@ -25,30 +30,35 @@ const navItems = [
     label: "Approval Inbox",
     path: "/director/approvals",
     icon: ClipboardCheck,
-  },
-  {
-    key: "analytics",
-    label: "Analytics",
-    path: "/director/analytics",
-    icon: BarChart3,
-  },
-  {
-    key: "export",
-    label: "Export",
-    path: "/director/export",
-    icon: Download,
-  },
-  {
-    key: "reconciliation",
-    label: "Store Reconciliation",
-    path: "/director/reconciliation",
-    icon: Package,
+    group: "transaction",
   },
   {
     key: "reconciliation-approvals",
     label: "Reconciliation Approvals",
     path: "/director/reconciliation-approvals",
     icon: PackageCheck,
+    group: "transaction",
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    path: "/director/analytics",
+    icon: BarChart3,
+    group: "reports",
+  },
+  {
+    key: "reconciliation",
+    label: "Store Reconciliation",
+    path: "/director/reconciliation",
+    icon: Package,
+    group: "reports",
+  },
+  {
+    key: "export",
+    label: "Export",
+    path: "/director/export",
+    icon: Download,
+    group: "reports",
   },
 ];
 
@@ -87,31 +97,13 @@ export function DirectorSidebar({
           </span>
         ) : null}
 
-        {navItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <NavLink
-              key={item.key}
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  "user-sidebar__link",
-                  isActive &&
-                    "user-sidebar__link--active",
-                )
-              }
-              title={
-                collapsed ? item.label : undefined
-              }
-            >
-              <Icon size={19} />
-              {!collapsed ? (
-                <span>{item.label}</span>
-              ) : null}
-            </NavLink>
-          );
-        })}
+        <SidebarNavGroups
+          prefix="user-sidebar"
+          storageKey="director-sidebar-groups"
+          collapsed={collapsed}
+          groups={NAV_GROUPS}
+          items={navItems}
+        />
       </nav>
 
       <button

@@ -63,6 +63,9 @@ def build_admin_navigation(
         get_user_capabilities(user=user)
     )
 
+    # "group" places an item in a collapsible sidebar section
+    # (Master / Transaction / Reports); omitted entirely for
+    # Dashboard and System Settings, which stay top-level links.
     navigation_items = [
         {
             "key": "dashboard",
@@ -80,6 +83,7 @@ def build_admin_navigation(
             "label": "User Management",
             "path": "/admin/users",
             "icon": "users",
+            "group": "master",
             "required_capability": (
                 AdminCapability.VIEW_USERS.value
             ),
@@ -89,6 +93,7 @@ def build_admin_navigation(
             "label": "Organization Setup",
             "path": "/admin/organization",
             "icon": "building-2",
+            "group": "master",
             "required_capability": (
                 AdminCapability.VIEW_SITES.value
             ),
@@ -98,6 +103,7 @@ def build_admin_navigation(
             "label": "Voucher Configuration",
             "path": "/admin/vouchers",
             "icon": "file-text",
+            "group": "master",
             "required_capability": (
                 AdminCapability.VIEW_VOUCHERS.value
             ),
@@ -107,6 +113,7 @@ def build_admin_navigation(
             "label": "Store Reconciliation",
             "path": "/admin/reconciliation",
             "icon": "package",
+            "group": "master",
             "required_capability": (
                 AdminCapability
                 .VIEW_RECONCILIATION
@@ -118,6 +125,7 @@ def build_admin_navigation(
             "label": "Correction Requests",
             "path": "/admin/requests",
             "icon": "clipboard-list",
+            "group": "transaction",
             "required_capability": (
                 AdminCapability
                 .VIEW_CORRECTION_REQUESTS
@@ -129,6 +137,7 @@ def build_admin_navigation(
             "label": "Reports and Analytics",
             "path": "/admin/reports",
             "icon": "chart-no-axes-combined",
+            "group": "reports",
             "required_capability": (
                 AdminCapability.VIEW_REPORTS.value
             ),
@@ -138,6 +147,7 @@ def build_admin_navigation(
             "label": "Audit Logs",
             "path": "/admin/audit",
             "icon": "history",
+            "group": "reports",
             "required_capability": (
                 AdminCapability.VIEW_AUDIT_LOGS.value
             ),

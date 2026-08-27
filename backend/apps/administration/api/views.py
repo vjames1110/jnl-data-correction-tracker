@@ -1,5 +1,8 @@
 from django.conf import settings
 from django.utils import timezone
+from rest_framework.permissions import (
+    IsAuthenticated,
+)
 from rest_framework.views import APIView
 
 from apps.administration.api.permissions import (
@@ -316,8 +319,11 @@ class AdminCapabilitiesAPIView(APIView):
 
 
 class ServerTimeAPIView(APIView):
+    # Every portal's header clock (ServerClock.jsx) calls this, not
+    # just Admin's - it carries no sensitive data, so any active
+    # authenticated user (any role) can read it.
     permission_classes = [
-        HasAdminPortalAccess,
+        IsAuthenticated,
     ]
 
     @extend_schema(
@@ -329,9 +335,6 @@ class ServerTimeAPIView(APIView):
             ),
             401: OpenApiResponse(
                 description="Authentication required."
-            ),
-            403: OpenApiResponse(
-                description="Administrator access required."
             ),
         },
     )

@@ -1,10 +1,16 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Download,
+  FileDown,
   Pencil,
   Plus,
   Power,
   Search,
+  Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -14,6 +20,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { reconciliationOverviewPath } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
+import { useCsvImportControl } from "../../../hooks/useCsvImportControl";
 import {
   useActivateReconciliationItemStandard,
   useCreateReconciliationItemStandard,
@@ -23,14 +30,59 @@ import {
   useReconciliationItems,
   useUpdateReconciliationItemStandard,
 } from "../../../hooks/useReconciliation";
+import { ImportResultsPanel } from "../components/ImportResultsPanel";
 import {
   ManagementPanel,
   StatusChip,
 } from "../components/OrganizationControls";
 import {
+  compactPayload,
+  toBoolean,
+} from "../utils/csvImport";
+import {
   buildParams,
   downloadCsv,
 } from "../utils/organizationUtils";
+
+const IMPORT_COLUMNS = [
+  "item_code",
+  "grade_label",
+  "rate",
+  "mix_ratio",
+  "effective_from",
+  "notes",
+  "is_active",
+];
+const IMPORT_SAMPLE_ROW = {
+  item_code: "CEM",
+  grade_label: "",
+  rate: "6500",
+  mix_ratio: "0.30",
+  effective_from: "2026-01-01",
+  notes: "",
+  is_active: "true",
+};
+const IMPORT_NOTE =
+  "item_code must match an existing Item's code (see its Export). Leave grade_label blank for the company-wide fallback, or set it (e.g. M20) for a grade-specific rate/mix. Leave mix_ratio blank for Direct Count items - it's required for Norm Based items. effective_from is YYYY-MM-DD.";
+
+function findItemIdByCode(items, code) {
+  if (!code) {
+    return "";
+  }
+
+  const normalizedCode = String(code)
+    .trim()
+    .toLowerCase();
+
+  return (
+    items.find(
+      (item) =>
+        String(item.item_code || "")
+          .trim()
+          .toLowerCase() === normalizedCode,
+    )?.id || ""
+  );
+}
 
 const emptyForm = {
   item: "",
@@ -306,6 +358,27 @@ export function StoreItemStandardManagementPage() {
   const standards =
     standardsQuery.data?.items ?? [];
   const items = itemsQuery.data?.items ?? [];
+  const csvFileInputRef = useRef(null);
+  const csvImport = useCsvImportControl({
+    resource: "item_standards",
+    fileInputRef: csvFileInputRef,
+    normalizeRow: (row) =>
+      compactPayload({
+        item: findItemIdByCode(
+          items,
+          row.item_code,
+        ),
+        grade_label: row.grade_label,
+        rate: row.rate,
+        mix_ratio: row.mix_ratio || null,
+        effective_from: row.effective_from,
+        notes: row.notes,
+        is_active: toBoolean(
+          row.is_active,
+          true,
+        ),
+      }),
+  });
   const pagination =
     standardsQuery.data?.meta?.pagination;
 
@@ -387,6 +460,43 @@ export function StoreItemStandardManagementPage() {
           <button
             type="button"
             className="button button--secondary"
+            onClick={() =>
+              downloadCsv(
+                "template-store-item-standards.csv",
+                [IMPORT_SAMPLE_ROW],
+                IMPORT_COLUMNS.map((column) => ({
+                  key: column,
+                  label: column,
+                })),
+              )
+            }
+          >
+            <FileDown size={17} />
+            Template
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={csvImport.triggerFileDialog}
+            disabled={csvImport.isPending}
+          >
+            <Upload size={17} />
+            {csvImport.isPending
+              ? "Importing..."
+              : "Import CSV"}
+          </button>
+          <input
+            ref={csvFileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={
+              csvImport.handleFileChange
+            }
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            className="button button--secondary"
             onClick={handleExport}
             disabled={exportQuery.isFetching}
           >
@@ -406,6 +516,14 @@ export function StoreItemStandardManagementPage() {
           </button>
         </div>
       </div>
+
+      <p className="table-subtext">
+        {IMPORT_NOTE}
+      </p>
+      <ImportResultsPanel
+        error={csvImport.error}
+        results={csvImport.results}
+      />
 
       <SurfaceCard>
         <div className="site-toolbar">

@@ -10,6 +10,7 @@ from rest_framework.exceptions import (
 from apps.corrections.models import (
     CorrectionRequest,
     CorrectionRequestAttachment,
+    CorrectionRequestStatus,
     CorrectionTimelineEventType,
 )
 from apps.corrections.services.access import (
@@ -19,6 +20,33 @@ from apps.corrections.services.access import (
 from apps.corrections.services.timeline import (
     record_timeline,
 )
+
+
+# A request in one of these statuses is done - unlike every other
+# state-mutating service in this app, attachment add/delete had no
+# status gate at all, so evidence could still be added or removed
+# after the record was supposed to be finalized.
+ATTACHMENT_LOCKED_STATUSES = {
+    CorrectionRequestStatus.CLOSED,
+    CorrectionRequestStatus.REJECTED,
+    CorrectionRequestStatus.CANCELLED,
+}
+
+
+def _ensure_attachments_unlocked(
+    request: CorrectionRequest,
+) -> None:
+    if request.current_status in ATTACHMENT_LOCKED_STATUSES:
+        raise ValidationError(
+            {
+                "current_status": (
+                    "Attachments cannot be added or "
+                    "removed on a "
+                    f"{request.get_current_status_display()} "
+                    "request."
+                )
+            }
+        )
 
 
 def create_attachment(
@@ -32,6 +60,7 @@ def create_attachment(
         request=request,
         user=user,
     )
+    _ensure_attachments_unlocked(request)
 
     with transaction.atomic():
         attachment = CorrectionRequestAttachment(
@@ -77,6 +106,7 @@ def delete_attachment(
         request=attachment.request,
         user=user,
     )
+    _ensure_attachments_unlocked(attachment.request)
 
     with transaction.atomic():
         locked_attachment = (
@@ -89,6 +119,9 @@ def delete_attachment(
         validate_request_access(
             request=locked_attachment.request,
             user=user,
+        )
+        _ensure_attachments_unlocked(
+            locked_attachment.request
         )
         locked_attachment.is_deleted = True
         locked_attachment.deleted_at = timezone.now()

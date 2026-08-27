@@ -24,6 +24,7 @@ from apps.corrections.models import (
 )
 from apps.corrections.services.attachments import (
     create_attachment,
+    delete_attachment,
 )
 from apps.corrections.services.drafts import create_draft
 from apps.corrections.services.submission import (
@@ -353,35 +354,43 @@ class CorrectionSubmissionAttachmentTests(TestCase):
             )
         )
 
+        # A two-level policy now actually drives a sequential route:
+        # step 1 is the configured CUSTOM approver, and step 2 (the
+        # DIRECTOR level) only becomes current once step 1 is
+        # decided - it isn't reachable yet, so its SLA clock hasn't
+        # started.
         self.assertEqual(len(steps), 2)
         self.assertEqual(
             submitted.current_owner,
-            self.director,
+            self.custom_approver,
         )
         self.assertEqual(
             steps[0].status,
             ApprovalStepStatus.PENDING,
         )
         self.assertTrue(steps[0].is_current)
+        self.assertFalse(steps[1].is_current)
         self.assertEqual(
             steps[0].policy_name_snapshot,
             "High Amount Finance Approval",
         )
         self.assertEqual(
             steps[0].approver_employee_id_snapshot,
-            "DIRSUB001",
+            "CUSSUB001",
         )
         self.assertEqual(
             steps[1].approver_employee_id_snapshot,
-            "ADMSUB001",
+            "DIRSUB001",
         )
         self.assertIsNotNone(steps[0].due_at)
         self.assertIsNotNone(steps[0].escalates_at)
+        self.assertIsNone(steps[1].due_at)
+        self.assertIsNone(steps[1].escalates_at)
 
         policy.policy_name = "Renamed Policy"
         policy.save()
-        self.director.first_name = "Changed"
-        self.director.save()
+        self.custom_approver.first_name = "Changed"
+        self.custom_approver.save()
         steps[0].refresh_from_db()
 
         self.assertEqual(
@@ -390,7 +399,7 @@ class CorrectionSubmissionAttachmentTests(TestCase):
         )
         self.assertEqual(
             steps[0].approver_name_snapshot,
-            "Director User",
+            "Custom Approver",
         )
 
     def test_attachment_upload_validation_and_download_api(
@@ -442,6 +451,81 @@ class CorrectionSubmissionAttachmentTests(TestCase):
         self.assertEqual(
             download_response.status_code,
             status.HTTP_200_OK,
+        )
+
+    def test_attachment_cannot_be_added_to_a_closed_request(
+        self,
+    ):
+        draft = self._create_complete_draft(
+            "JV-ATT-002"
+        )
+        draft.current_status = (
+            CorrectionRequestStatus.CLOSED
+        )
+        draft.save(
+            update_fields=["current_status"]
+        )
+
+        with self.assertRaises(ValidationError):
+            create_attachment(
+                request=draft,
+                user=self.requester,
+                file=SimpleUploadedFile(
+                    "proof.pdf",
+                    b"%PDF-1.4 test",
+                    content_type="application/pdf",
+                ),
+                attachment_type="SUPPORTING_DOCUMENT",
+            )
+
+    def test_attachment_cannot_be_deleted_from_a_closed_request(
+        self,
+    ):
+        draft = self._create_complete_draft(
+            "JV-ATT-003"
+        )
+        attachment = create_attachment(
+            request=draft,
+            user=self.requester,
+            file=SimpleUploadedFile(
+                "proof.pdf",
+                b"%PDF-1.4 test",
+                content_type="application/pdf",
+            ),
+            attachment_type="SUPPORTING_DOCUMENT",
+        )
+        draft.current_status = (
+            CorrectionRequestStatus.CLOSED
+        )
+        draft.save(
+            update_fields=["current_status"]
+        )
+
+        with self.assertRaises(ValidationError):
+            delete_attachment(
+                attachment=attachment,
+                user=self.requester,
+            )
+
+    def test_submit_rejects_inactive_work_type(
+        self,
+    ):
+        self.work_type.is_active = False
+        self.work_type.save(
+            update_fields=["is_active"]
+        )
+        draft = self._create_complete_draft(
+            "JV-ATT-004"
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            submit_request(
+                draft=draft,
+                user=self.requester,
+            )
+
+        self.assertIn(
+            "work_type", ctx.exception.detail
         )
 
     def _create_complete_draft(

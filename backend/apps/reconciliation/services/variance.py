@@ -53,6 +53,7 @@ def compute_entry_variance(entry) -> None:
             item=item,
             site=entry.period.site,
             on_date=entry.period.period_month,
+            period=entry.period,
         )
         rate, theoretical = (
             resolved.rate,
@@ -135,6 +136,7 @@ def _resolve_norm_based_theoretical(entry, item):
             item=item,
             site=entry.period.site,
             on_date=entry.period.period_month,
+            period=entry.period,
         )
         return resolved.rate, ZERO
 
@@ -149,6 +151,7 @@ def _resolve_norm_based_theoretical(entry, item):
             site=entry.period.site,
             on_date=entry.period.period_month,
             grade_label=row["grade_label"] or "",
+            period=entry.period,
         )
         if (
             resolved.rate is None

@@ -11,9 +11,6 @@ import {
   Users,
 } from "lucide-react";
 import clsx from "clsx";
-import {
-  NavLink,
-} from "react-router-dom";
 
 import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
 import { env } from "../../config/env";
@@ -22,6 +19,7 @@ import { ErrorState } from "../common/ErrorState";
 import {
   useAdminCapabilities,
 } from "../../hooks/useAdminCapabilities";
+import { SidebarNavGroups } from "./SidebarNavGroups";
 
 const iconMap = {
   "layout-dashboard": LayoutDashboard,
@@ -34,6 +32,12 @@ const iconMap = {
   history: History,
   settings: Settings,
 };
+
+const NAV_GROUPS = [
+  { key: "master", label: "Master" },
+  { key: "transaction", label: "Transaction" },
+  { key: "reports", label: "Reports" },
+];
 
 export function AdminSidebar({
   collapsed,
@@ -102,37 +106,23 @@ export function AdminSidebar({
           </div>
         ) : null}
 
-        {capabilitiesQuery.data?.navigation?.map(
-          (item) => {
-            const Icon =
-              iconMap[item.icon] ??
-              LayoutDashboard;
-
-            return (
-              <NavLink
-                key={item.key}
-                to={item.path}
-                className={({ isActive }) =>
-                  clsx(
-                    "admin-sidebar__link",
-                    isActive &&
-                      "admin-sidebar__link--active",
-                  )
-                }
-                title={
-                  collapsed
-                    ? item.label
-                    : undefined
-                }
-              >
-                <Icon size={20} />
-                {!collapsed ? (
-                  <span>{item.label}</span>
-                ) : null}
-              </NavLink>
-            );
-          },
-        )}
+        {capabilitiesQuery.data?.navigation
+          ?.length ? (
+          <SidebarNavGroups
+            prefix="admin-sidebar"
+            storageKey="admin-sidebar-groups"
+            collapsed={collapsed}
+            groups={NAV_GROUPS}
+            items={capabilitiesQuery.data.navigation.map(
+              (item) => ({
+                ...item,
+                icon:
+                  iconMap[item.icon] ??
+                  LayoutDashboard,
+              }),
+            )}
+          />
+        ) : null}
       </nav>
 
       <button

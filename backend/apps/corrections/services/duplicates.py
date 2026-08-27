@@ -49,8 +49,17 @@ def find_duplicate_requests(
 
     for candidate in queryset:
         score = 0.0
-        reasons = ["Same requester", "Same voucher type"]
+        reasons = ["Same requester"]
         score += 0.20
+
+        # The queryset above is only actually filtered by voucher
+        # type when the request has one set - crediting every
+        # candidate with "Same voucher type" regardless (e.g. while
+        # previewing duplicates on a draft with no voucher type yet)
+        # inflates scores and mislabels unrelated requests.
+        if request.voucher_type_id:
+            score += 0.20
+            reasons.append("Same voucher type")
 
         if (
             request.voucher_number

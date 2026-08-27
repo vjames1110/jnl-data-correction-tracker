@@ -798,3 +798,131 @@ def test_reopen_requires_rejected_status(
         reopen_response.status_code
         == status.HTTP_400_BAD_REQUEST
     )
+
+
+@pytest.mark.django_db
+def test_director_can_read_a_submitted_periods_entries(
+    api_client,
+    store_ho,
+    site,
+    norm_based_item,
+):
+    """
+    The approval inbox's "View Entries" link sends Director to the
+    same Monthly Entry page Store HO uses - Director needs read
+    access to the period/entries/output-entries endpoints (but not
+    write access) for that to work.
+    """
+    director = DirectorUserFactory(
+        employee_id="DIRECTOR011A",
+    )
+    api_client.force_authenticate(user=store_ho)
+    pre_submit_period_id = api_client.get(
+        reverse(
+            "reconciliation-api:periods-current"
+        ),
+        {"site": str(site.id)},
+    ).data["data"]["id"]
+    api_client.post(
+        reverse(
+            "reconciliation-api:output-entries-list"
+        ),
+        {
+            "period": pre_submit_period_id,
+            "item": str(norm_based_item.id),
+            "output_quantity": "100.000",
+        },
+        format="json",
+    )
+    period_id = _submit_period_with_entry(
+        api_client, store_ho, site, norm_based_item
+    )
+
+    api_client.force_authenticate(user=director)
+
+    period_response = api_client.get(
+        reverse(
+            "reconciliation-api:periods-current"
+        ),
+        {"site": str(site.id)},
+    )
+    assert (
+        period_response.status_code
+        == status.HTTP_200_OK
+    )
+
+    entries_response = api_client.get(
+        reverse(
+            "reconciliation-api:entries-list"
+        ),
+        {"period": period_id},
+    )
+    assert (
+        entries_response.status_code
+        == status.HTTP_200_OK
+    )
+    assert (
+        len(entries_response.data["data"]) == 1
+    )
+
+    outputs_response = api_client.get(
+        reverse(
+            "reconciliation-api:output-entries-list"
+        ),
+        {"period": period_id},
+    )
+    assert (
+        outputs_response.status_code
+        == status.HTTP_200_OK
+    )
+
+
+@pytest.mark.django_db
+def test_director_cannot_write_entries_or_output_entries(
+    api_client,
+    store_ho,
+    site,
+    norm_based_item,
+):
+    director = DirectorUserFactory(
+        employee_id="DIRECTOR011B",
+    )
+    period_id = _submit_period_with_entry(
+        api_client, store_ho, site, norm_based_item
+    )
+
+    api_client.force_authenticate(user=director)
+
+    entry_create_response = api_client.post(
+        reverse(
+            "reconciliation-api:entries-list"
+        ),
+        {
+            "period": period_id,
+            "item": str(norm_based_item.id),
+            "opening_stock": "1.000",
+            "receipts": "1.000",
+            "closing_stock": "1.000",
+        },
+        format="json",
+    )
+    assert (
+        entry_create_response.status_code
+        == status.HTTP_403_FORBIDDEN
+    )
+
+    output_create_response = api_client.post(
+        reverse(
+            "reconciliation-api:output-entries-list"
+        ),
+        {
+            "period": period_id,
+            "item": str(norm_based_item.id),
+            "output_quantity": "5.000",
+        },
+        format="json",
+    )
+    assert (
+        output_create_response.status_code
+        == status.HTTP_403_FORBIDDEN
+    )

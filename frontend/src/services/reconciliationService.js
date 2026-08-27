@@ -188,6 +188,49 @@ export const reconciliationService = {
     return response.data.data;
   },
 
+  /**
+   * Bulk import for the reconciliation masters - mirrors
+   * erpService.importMasters: no dedicated backend import
+   * endpoint, just the existing single-row create call looped
+   * over every parsed CSV row, one result per row either way.
+   */
+  async importMasters(resource, rows) {
+    const createByResource = {
+      item_categories: this.createItemCategory,
+      items: this.createItem,
+      item_standards: this.createItemStandard,
+      site_item_configs: this.createSiteItemConfig,
+    };
+    const createRow = createByResource[resource];
+
+    if (!createRow) {
+      throw new Error(
+        "Unsupported reconciliation import resource.",
+      );
+    }
+
+    const results = [];
+    for (const row of rows) {
+      try {
+        results.push({
+          row,
+          status: "created",
+          data: await createRow(row),
+        });
+      } catch (error) {
+        results.push({
+          row,
+          status: "failed",
+          error:
+            error.response?.data?.message ||
+            error.message,
+        });
+      }
+    }
+
+    return results;
+  },
+
   getSiteItemConfigs(params = {}) {
     return getMasterList(
       "/reconciliation/site-item-configs/",
@@ -398,5 +441,53 @@ export const reconciliationService = {
     );
 
     return response.data.data;
+  },
+
+  async getAttachments(periodId) {
+    const response = await apiClient.get(
+      "/reconciliation/attachments/",
+      {
+        params: {
+          period: periodId,
+          page_size: 100,
+        },
+      },
+    );
+
+    return resolveItems(response);
+  },
+
+  async createAttachment({
+    period,
+    file,
+    notes = "",
+  }) {
+    const formData = new FormData();
+    formData.append("period", period);
+    formData.append("file", file);
+    if (notes) {
+      formData.append("notes", notes);
+    }
+
+    const response = await apiClient.post(
+      "/reconciliation/attachments/",
+      formData,
+      {
+        headers: {
+          "Content-Type":
+            "multipart/form-data",
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+  async deleteAttachment(id) {
+    await apiClient.delete(
+      `/reconciliation/attachments/${id}/`,
+    );
+
+    return id;
   },
 };

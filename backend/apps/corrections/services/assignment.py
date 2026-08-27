@@ -33,8 +33,16 @@ from apps.notifications.services.delivery import (
 
 
 ACTIVE_ASSIGNMENT_STATUSES = (
+    # Anything still sitting open on a Responsible Person's plate -
+    # kept in sync with REASSIGNABLE_STATUSES' notion of "active work"
+    # below. Previously omitted ACCEPTED/ON_HOLD, so a person holding
+    # many accepted-but-not-started or on-hold requests looked like
+    # they had zero workload and kept getting over-assigned ahead of
+    # genuinely idle colleagues.
     CorrectionRequestStatus.ASSIGNED,
+    CorrectionRequestStatus.ACCEPTED,
     CorrectionRequestStatus.IN_PROGRESS,
+    CorrectionRequestStatus.ON_HOLD,
 )
 
 MANUALLY_ASSIGNABLE_STATUSES = {
@@ -96,9 +104,19 @@ def resolve_responsible_person(
 
 
 def _matching_mappings(request: CorrectionRequest):
+    # A mapping can stay active after the person it points at is
+    # deactivated/offboarded - without this check, auto-assignment
+    # (on submit and after final approval) would silently hand the
+    # request to an account that can never accept/work it, unlike
+    # the manual assign/reassign path which already rejects that via
+    # _ensure_valid_responsible_person.
     return ResponsiblePersonMapping.objects.filter(
         is_active=True,
         erp_module_id=request.erp_module_id,
+        responsible_person__is_active=True,
+        responsible_person__account_status=(
+            AccountStatus.ACTIVE
+        ),
     ).filter(
         Q(voucher_type__isnull=True)
         | Q(voucher_type_id=request.voucher_type_id),

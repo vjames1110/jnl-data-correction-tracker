@@ -8,6 +8,7 @@ from apps.reconciliation.api.views import (
     ReconciliationDashboardView,
     ReconciliationEntryViewSet,
     ReconciliationOutputEntryViewSet,
+    ReconciliationPeriodAttachmentViewSet,
     ReconciliationPeriodViewSet,
     ReconciliationStatementPackView,
     ReconciliationToleranceSettingsView,
@@ -52,6 +53,11 @@ router.register(
     "output-entries",
     ReconciliationOutputEntryViewSet,
     basename="output-entries",
+)
+router.register(
+    "attachments",
+    ReconciliationPeriodAttachmentViewSet,
+    basename="attachments",
 )
 
 urlpatterns = [

@@ -112,10 +112,12 @@ def submit_request(
 
         approval_policy = None
         approval_route = []
+        approval_route_is_sequential = False
         if locked_draft.work_type.requires_approval:
             (
                 approval_policy,
                 approval_route,
+                approval_route_is_sequential,
             ) = build_approval_route(locked_draft)
 
         if (
@@ -221,11 +223,16 @@ def submit_request(
         )
 
         if approval_route:
-            snapshot_approval_route(
-                request=locked_draft,
-                policy=approval_policy,
-                route=approval_route,
-                submitted_at=now,
+            snapshotted_steps = (
+                snapshot_approval_route(
+                    request=locked_draft,
+                    policy=approval_policy,
+                    route=approval_route,
+                    submitted_at=now,
+                    is_sequential=(
+                        approval_route_is_sequential
+                    ),
+                )
             )
             notify_workflow_event(
                 event_type=(
@@ -235,14 +242,19 @@ def submit_request(
                 recipients=[locked_draft.requester],
                 actor=user,
             )
+            # Only the step(s) actually current right now are
+            # reachable - a sequential route's later levels aren't
+            # pending anyone's action yet, so notifying their
+            # approvers already would be premature.
             notify_workflow_event(
                 event_type=(
                     NotificationEventType.APPROVAL_PENDING
                 ),
                 correction_request=locked_draft,
                 recipients=[
-                    route_step.approver
-                    for route_step in approval_route
+                    step.approver
+                    for step in snapshotted_steps
+                    if step.is_current
                 ],
                 actor=user,
             )
@@ -379,6 +391,49 @@ def _validate_voucher(
     ):
         errors["voucher_type"] = (
             "Selected voucher type is inactive."
+        )
+
+    # Same "inactive master data can't be used on a new submission"
+    # rule as erp_module/voucher_type above, applied to every other
+    # BusinessModel-backed reference field - a lingering draft can
+    # otherwise submit successfully against a since-deactivated site,
+    # department, work type, reason category, or priority.
+    if (
+        request.site_id
+        and not request.site.is_active
+    ):
+        errors["site"] = "Selected site is inactive."
+
+    if (
+        request.department_id
+        and not request.department.is_active
+    ):
+        errors["department"] = (
+            "Selected department is inactive."
+        )
+
+    if (
+        request.work_type_id
+        and not request.work_type.is_active
+    ):
+        errors["work_type"] = (
+            "Selected work type is inactive."
+        )
+
+    if (
+        request.reason_category_id
+        and not request.reason_category.is_active
+    ):
+        errors["reason_category"] = (
+            "Selected reason category is inactive."
+        )
+
+    if (
+        request.priority_id
+        and not request.priority.is_active
+    ):
+        errors["priority"] = (
+            "Selected priority is inactive."
         )
 
     if (

@@ -1,3 +1,4 @@
+import os
 from decimal import Decimal
 
 from django.conf import settings
@@ -13,7 +14,12 @@ from apps.core.models import (
     UUIDPrimaryKeyModel,
     UserTrackingModel,
 )
-from apps.corrections.models import ApprovalStepStatus
+from apps.corrections.models import (
+    ALLOWED_ATTACHMENT_CONTENT_TYPES,
+    ALLOWED_ATTACHMENT_EXTENSIONS,
+    MAX_ATTACHMENT_SIZE_BYTES,
+    ApprovalStepStatus,
+)
 from apps.core.utils.codes import (
     build_abbreviation,
     next_unique_code,
@@ -371,6 +377,14 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
     deactivated. Only one active row per (item, site, grade) is
     allowed - a site can lock its blank-grade default independently
     of any grade-specific overrides, and vice versa.
+
+    ``period`` splits this into two tiers sharing one table: a
+    standing site override (``period`` blank, the behaviour above)
+    and a month-only override (``period`` set) that applies for that
+    one ``ReconciliationPeriod`` only, on top of - i.e. resolved
+    before - the standing override. Both can be active at once for
+    the same (item, site, grade); only one active row is allowed per
+    exact (item, site, grade, period) combination.
     """
 
     item = models.ForeignKey(
@@ -382,6 +396,19 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
         Site,
         on_delete=models.PROTECT,
         related_name="reconciliation_item_configs",
+    )
+    period = models.ForeignKey(
+        "ReconciliationPeriod",
+        on_delete=models.PROTECT,
+        related_name="site_item_overrides",
+        null=True,
+        blank=True,
+        help_text=(
+            "Leave blank for a standing site override. "
+            "Set to a specific period to override the "
+            "rate/mix for that one month only, on top of "
+            "the standing site override."
+        ),
     )
     grade_label = models.CharField(
         max_length=50,
@@ -425,12 +452,34 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
                     "grade_label",
                     "effective_from",
                 ],
+                condition=Q(period__isnull=True),
                 name="reco_site_item_grade_date_uniq",
             ),
             models.UniqueConstraint(
                 fields=["item", "site", "grade_label"],
-                condition=Q(is_active=True),
+                condition=Q(
+                    is_active=True,
+                    period__isnull=True,
+                ),
                 name="reco_site_item_grade_active_uniq",
+            ),
+            # Period-scoped rows are a separate tier - a standing
+            # override (period NULL) and a month-only override
+            # (period set) for the same (item, site, grade) can both
+            # be active at once, but only one active row is allowed
+            # per exact period.
+            models.UniqueConstraint(
+                fields=[
+                    "item",
+                    "site",
+                    "grade_label",
+                    "period",
+                ],
+                condition=Q(
+                    is_active=True,
+                    period__isnull=False,
+                ),
+                name="reco_site_item_grade_period_active_uniq",
             ),
         ]
         indexes = [
@@ -450,9 +499,14 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
             if self.grade_label
             else ""
         )
+        period_suffix = (
+            f" [{self.period.period_month:%b %Y}]"
+            if self.period_id
+            else ""
+        )
         return (
             f"{self.site.site_code} - "
-            f"{self.item.item_code}{grade_suffix}"
+            f"{self.item.item_code}{grade_suffix}{period_suffix}"
         )
 
     def clean(self):
@@ -472,6 +526,14 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
             rate=self.rate,
             mix_ratio=self.mix_ratio,
         )
+        if (
+            self.period_id
+            and self.site_id
+            and self.period.site_id != self.site_id
+        ):
+            errors["period"] = (
+                "Period must belong to the selected site."
+            )
         if errors:
             raise ValidationError(errors)
 
@@ -1287,4 +1349,146 @@ class ReconciliationApprovalStep(
                     self.approver.full_name
                 )
 
+        return super().save(*args, **kwargs)
+
+
+def reconciliation_attachment_upload_to(
+    instance,
+    filename,
+) -> str:
+    period = (
+        instance.period
+        if instance.period_id
+        else None
+    )
+    period_label = (
+        f"{period.site.site_code}-{period.period_month}"
+        if period
+        else "unassigned"
+    )
+    return (
+        "reconciliation/attachments/"
+        f"{period_label}/{filename}"
+    )
+
+
+class ReconciliationPeriodAttachment(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    SoftDeleteModel,
+):
+    """
+    Uploaded evidence (e.g. a physical stock-count photo, a signed
+    stock sheet scan) for one site's monthly reconciliation period -
+    mirrors CorrectionRequestAttachment's shape and validation rules,
+    scoped to ReconciliationPeriod instead of CorrectionRequest.
+    """
+
+    period = models.ForeignKey(
+        ReconciliationPeriod,
+        on_delete=models.PROTECT,
+        related_name="attachments",
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reconciliation_attachments",
+    )
+    file = models.FileField(
+        upload_to=reconciliation_attachment_upload_to,
+    )
+    original_name = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+    content_type = models.CharField(
+        max_length=120,
+        blank=True,
+    )
+    size_bytes = models.PositiveIntegerField(
+        default=0,
+    )
+    notes = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = (
+            "reconciliation_period_attachment"
+        )
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["period", "is_deleted"],
+                name="reco_attach_period_del_idx",
+            ),
+        ]
+        verbose_name = (
+            "Reconciliation Period Attachment"
+        )
+        verbose_name_plural = (
+            "Reconciliation Period Attachments"
+        )
+
+    def __str__(self) -> str:
+        return self.original_name or str(self.file)
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+        file_name = (
+            self.original_name
+            or getattr(self.file, "name", "")
+        )
+        extension = os.path.splitext(
+            file_name
+        )[1].lower()
+
+        if (
+            extension
+            not in ALLOWED_ATTACHMENT_EXTENSIONS
+        ):
+            errors["file"] = (
+                "Only PDF, Excel, CSV, and image "
+                "files are allowed."
+            )
+
+        if (
+            self.content_type
+            and self.content_type
+            not in ALLOWED_ATTACHMENT_CONTENT_TYPES
+        ):
+            errors["content_type"] = (
+                "Uploaded file type is not allowed."
+            )
+
+        if (
+            self.size_bytes
+            > MAX_ATTACHMENT_SIZE_BYTES
+        ):
+            errors["file"] = (
+                "Attachment size cannot exceed 10 MB."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            if not self.original_name:
+                self.original_name = (
+                    os.path.basename(
+                        self.file.name
+                    )
+                )
+            if not self.size_bytes:
+                self.size_bytes = getattr(
+                    self.file,
+                    "size",
+                    0,
+                )
+
+        self.full_clean()
         return super().save(*args, **kwargs)

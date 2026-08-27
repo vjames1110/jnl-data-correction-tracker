@@ -219,6 +219,80 @@ class AssignmentResolutionTests(TestCase):
 
         self.assertEqual(workload, {})
 
+    def test_accepted_and_on_hold_work_counts_towards_workload(
+        self,
+    ):
+        CorrectionRequest.objects.create(
+            requester=self.requester,
+            current_owner=self.person_a,
+            current_status=(
+                CorrectionRequestStatus.ACCEPTED
+            ),
+        )
+        CorrectionRequest.objects.create(
+            requester=self.requester,
+            current_owner=self.person_a,
+            current_status=(
+                CorrectionRequestStatus.ON_HOLD
+            ),
+        )
+
+        workload = _active_workload(
+            {self.person_a.id, self.person_b.id}
+        )
+
+        self.assertEqual(
+            workload.get(self.person_a.id), 2
+        )
+
+    def test_auto_assignment_skips_inactive_responsible_person(
+        self,
+    ):
+        ResponsiblePersonMapping.objects.create(
+            erp_module=self.module,
+            site=self.site,
+            department=self.department,
+            voucher_type=self.voucher,
+            work_type=self.work_type,
+            priority=self.priority,
+            responsible_person=self.person_a,
+        )
+        self.person_a.is_active = False
+        self.person_a.save(
+            update_fields=["is_active"]
+        )
+
+        self.assertIsNone(
+            resolve_responsible_person(
+                self.request
+            )
+        )
+
+    def test_auto_assignment_skips_suspended_responsible_person(
+        self,
+    ):
+        ResponsiblePersonMapping.objects.create(
+            erp_module=self.module,
+            site=self.site,
+            department=self.department,
+            voucher_type=self.voucher,
+            work_type=self.work_type,
+            priority=self.priority,
+            responsible_person=self.person_a,
+        )
+        self.person_a.account_status = (
+            AccountStatus.SUSPENDED
+        )
+        self.person_a.save(
+            update_fields=["account_status"]
+        )
+
+        self.assertIsNone(
+            resolve_responsible_person(
+                self.request
+            )
+        )
+
     def _create_user(self, employee_id, role):
         return User.objects.create_user(
             employee_id=employee_id,
