@@ -14,6 +14,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -74,6 +75,73 @@ function TrendChart({ data }) {
             fill="#BB0000"
             radius={[4, 4, 0, 0]}
           />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SiteVarianceChart({ rows }) {
+  if (!rows.length) {
+    return (
+      <EmptyState
+        title="No site variance yet"
+        message="No site has recorded any reconciliation entries for this month yet."
+      />
+    );
+  }
+
+  const chartData = rows.map((row) => ({
+    site: row.site_code,
+    siteName: row.site_name,
+    netVariance:
+      Number(row.net_variance_value) || 0,
+  }));
+
+  return (
+    <div className="chart-container chart-container--wide">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+      >
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="site" />
+          <YAxis
+            tickFormatter={(value) =>
+              `₹${Number(
+                value,
+              ).toLocaleString("en-IN")}`
+            }
+          />
+          <Tooltip
+            formatter={(value) => [
+              `₹${Number(
+                value,
+              ).toLocaleString("en-IN")}`,
+              "Net variance",
+            ]}
+            labelFormatter={(label, payload) =>
+              payload?.[0]?.payload?.siteName ??
+              label
+            }
+          />
+          <Bar
+            dataKey="netVariance"
+            name="Net Variance"
+            radius={[4, 4, 0, 0]}
+          >
+            {chartData.map((entry) => (
+              <Cell
+                key={entry.site}
+                fill={
+                  entry.netVariance >= 0
+                    ? "#107E3E"
+                    : "#BB0000"
+                }
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -200,10 +268,7 @@ function ItemLeaderboard({ rows }) {
           {rows.map((row) => (
             <tr key={row.item_id}>
               <td>
-                <strong>{row.item_code}</strong>
-                <span className="table-subtext">
-                  {row.item_name}
-                </span>
+                <strong>{row.item_name}</strong>
               </td>
               <td>{row.uom}</td>
               <td>{row.total_entries}</td>
@@ -255,6 +320,10 @@ const SITE_CSV_COLUMNS = [
   {
     key: "total_variance_value",
     label: "Total Variance Value (INR)",
+  },
+  {
+    key: "net_variance_value",
+    label: "Net Profit/Loss (INR)",
   },
 ];
 
@@ -451,6 +520,12 @@ export function StoreReconciliationReportsPage() {
             className="print-hidden"
           >
             <TrendChart data={data.trend} />
+          </SurfaceCard>
+
+          <SurfaceCard title="Site-wise Variance (₹)">
+            <SiteVarianceChart
+              rows={data.site_summary}
+            />
           </SurfaceCard>
 
           <SurfaceCard

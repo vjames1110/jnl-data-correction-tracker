@@ -335,8 +335,10 @@ def test_variance_value_uses_weighted_average_rate_across_grades(
 
     # theoretical = 100*0.30 + 100*0.40 = 70
     # weighted rate = (100*6000 + 100*8000) / 200 = 7000
-    # actual = 10+30-0 = 40, variance = 40-70 = -30
-    # variance_value = -30 * 7000 = -210000.00
+    # actual = 10+30-0 = 40 - the site used less than the recipe
+    # called for, so variance (theoretical - actual) is a positive
+    # "profit": 70-40 = 30
+    # variance_value = 30 * 7000 = 210000.00
     entry = period.entries.create(
         item=cement,
         opening_stock=Decimal("10.000"),
@@ -345,8 +347,8 @@ def test_variance_value_uses_weighted_average_rate_across_grades(
     )
 
     assert entry.variance_quantity == Decimal(
-        "-30.000"
+        "30.000"
     )
     assert entry.variance_value == Decimal(
-        "-210000.00"
+        "210000.00"
     )

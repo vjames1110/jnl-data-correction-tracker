@@ -83,7 +83,23 @@ def compute_entry_variance(entry) -> None:
     theoretical = _quantize(
         theoretical, QUANTITY_QUANTUM
     )
-    variance = actual - theoretical
+    # "Variance" is a profit/loss figure, not a raw difference, and
+    # which raw quantity counts as "used more" depends on the item
+    # type:
+    # - Norm-based: theoretical is what the recipe says should have
+    #   been consumed for the production achieved. Using LESS than
+    #   that (actual < theoretical) is a saving - a positive
+    #   "profit" - so variance = theoretical - actual.
+    # - Direct-count: theoretical is really "book stock", the
+    #   recorded quantity - not a target to beat. Physically
+    #   counting LESS than the book says (actual < theoretical) is a
+    #   shortage/shrinkage - a loss, not a saving - so this one
+    #   keeps the plain actual - theoretical direction instead of
+    #   flipping it.
+    deviation = actual - theoretical
+    variance = (
+        -deviation if is_norm_based else deviation
+    )
     variance_value = _quantize(
         variance * rate, VALUE_QUANTUM
     )
@@ -96,7 +112,7 @@ def compute_entry_variance(entry) -> None:
     entry.variance_value = variance_value
     entry.resolved_rate = rate
     entry.status = _resolve_status(
-        variance=variance,
+        variance=deviation,
         base=theoretical,
         period=entry.period,
     )

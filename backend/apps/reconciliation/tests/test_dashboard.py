@@ -146,6 +146,41 @@ def test_site_variance_summary_ranks_worst_site_first(
 
 
 @pytest.mark.django_db
+def test_site_variance_summary_reports_signed_net_value(
+    dataset, site_a, site_b,
+):
+    # Site A used more than the recipe called for (40 actual vs 32
+    # theoretical) - a loss, so net_variance_value should be
+    # negative even though total_variance_value (the magnitude used
+    # for ranking) is the same positive number either way.
+    rows = site_variance_summary(
+        period_month=date(2026, 6, 1),
+    )
+    row_a = next(
+        row
+        for row in rows
+        if row["site_id"] == site_a.id
+    )
+    row_b = next(
+        row
+        for row in rows
+        if row["site_id"] == site_b.id
+    )
+
+    assert row_a["net_variance_value"] == Decimal(
+        "-52000.00"
+    )
+    assert row_a["total_variance_value"] == Decimal(
+        "52000.00"
+    )
+    # Site B's entry was exactly within tolerance (actual ==
+    # theoretical), so its net and total variance are both zero.
+    assert row_b["net_variance_value"] == Decimal(
+        "0.00"
+    )
+
+
+@pytest.mark.django_db
 def test_item_variance_summary_counts_sites_affected(
     dataset, cement,
 ):

@@ -203,7 +203,7 @@ export function ReconciliationStatementSheet({
 
   function materialLabel(material) {
     const uom = entryByItemId.get(material.id)?.uom;
-    return `${material.item_code} - ${material.item_name}${
+    return `${material.item_name}${
       uom ? ` (${uom})` : ""
     }`;
   }
@@ -557,7 +557,6 @@ export function ReconciliationStatementSheet({
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="recon-sheet__col-label">
-                  {entry.item_code} -{" "}
                   {entry.item_name}
                 </td>
                 <td>

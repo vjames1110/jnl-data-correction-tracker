@@ -82,6 +82,13 @@ def site_variance_summary(*, period_month) -> list[dict]:
     worst-first (most Over Tolerance, then most Watch, then largest
     total variance magnitude) so the executive view surfaces the
     sites with the biggest discrepancies at the top.
+
+    ``total_variance_value`` is a magnitude (absolute value summed) -
+    it drives the worst-first ranking and doesn't care whether a
+    site's deviations were savings or overuse. ``net_variance_value``
+    is the signed sum instead - the site's actual profit(+)/loss(-)
+    for the month, used for the site-wise variance chart rather than
+    for ranking.
     """
     rows = (
         _entries_for_month(period_month)
@@ -97,6 +104,13 @@ def site_variance_summary(*, period_month) -> list[dict]:
             **_status_counts(),
             total_variance_value=Coalesce(
                 Sum(Abs(F("variance_value"))),
+                Value(
+                    ZERO,
+                    output_field=_VALUE_FIELD,
+                ),
+            ),
+            net_variance_value=Coalesce(
+                Sum(F("variance_value")),
                 Value(
                     ZERO,
                     output_field=_VALUE_FIELD,

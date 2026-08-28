@@ -572,9 +572,15 @@ td.recon-sheet__col-label {
   color: var(--color-error-700);
 }
 
-/* Any nonzero variance/difference figure, in any data table - flagged
-   red regardless of over/under direction, since both need a look. */
-.data-table__variance--flagged {
+/* Variance/difference figures read as profit or loss: green for a
+   positive (saving / surplus) figure, red for a negative (overuse /
+   shortage) one - in any data table. */
+.data-table__variance--profit {
+  color: var(--color-success-700);
+  font-weight: 600;
+}
+
+.data-table__variance--loss {
   color: var(--color-error-700);
   font-weight: 600;
 }

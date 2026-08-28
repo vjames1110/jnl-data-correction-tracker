@@ -113,6 +113,140 @@ def test_norm_based_entry_computes_variance_against_output(
 
 
 @pytest.mark.django_db
+def test_norm_based_saving_is_a_positive_profit_variance(
+    norm_based_item,
+    period,
+):
+    # Recipe calls for 32 MT (100 * 0.32); the site only used 22 MT
+    # - a saving against the recipe, which should read as a
+    # positive "profit" figure, not a negative one.
+    ItemStandard.objects.create(
+        item=norm_based_item,
+        rate=Decimal("6500.00"),
+        mix_ratio=Decimal("0.32"),
+        effective_from=date(2026, 1, 1),
+    )
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        output_quantity=Decimal("100.000"),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        opening_stock=Decimal("10.000"),
+        receipts=Decimal("20.000"),
+        closing_stock=Decimal("8.000"),
+    )
+
+    assert entry.actual_quantity == Decimal(
+        "22.000"
+    )
+    assert entry.variance_quantity == Decimal(
+        "10.000"
+    )
+    assert entry.variance_value == Decimal(
+        "65000.00"
+    )
+
+
+@pytest.mark.django_db
+def test_norm_based_overuse_is_a_negative_loss_variance(
+    norm_based_item,
+    period,
+):
+    # Recipe calls for 32 MT; the site used 42 MT - overuse against
+    # the recipe, which should read as a negative "loss" figure.
+    ItemStandard.objects.create(
+        item=norm_based_item,
+        rate=Decimal("6500.00"),
+        mix_ratio=Decimal("0.32"),
+        effective_from=date(2026, 1, 1),
+    )
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        output_quantity=Decimal("100.000"),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        opening_stock=Decimal("10.000"),
+        receipts=Decimal("40.000"),
+        closing_stock=Decimal("8.000"),
+    )
+
+    assert entry.actual_quantity == Decimal(
+        "42.000"
+    )
+    assert entry.variance_quantity == Decimal(
+        "-10.000"
+    )
+    assert entry.variance_value == Decimal(
+        "-65000.00"
+    )
+
+
+@pytest.mark.django_db
+def test_direct_count_shortage_is_a_negative_loss_variance(
+    direct_count_item,
+    period,
+):
+    # Physically counting LESS than book stock is a shortage - a
+    # loss - unlike the norm-based case, this direction is NOT
+    # flipped: book stock is a recorded quantity, not a target to
+    # beat.
+    ItemStandard.objects.create(
+        item=direct_count_item,
+        rate=Decimal("55000.00"),
+        effective_from=date(2026, 1, 1),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=direct_count_item,
+        book_stock=Decimal("50.000"),
+        physical_count=Decimal("48.000"),
+    )
+
+    assert entry.variance_quantity == Decimal(
+        "-2.000"
+    )
+    assert entry.variance_value == Decimal(
+        "-110000.00"
+    )
+
+
+@pytest.mark.django_db
+def test_direct_count_surplus_is_a_positive_variance(
+    direct_count_item,
+    period,
+):
+    # Physically counting MORE than book stock records - a surplus.
+    ItemStandard.objects.create(
+        item=direct_count_item,
+        rate=Decimal("55000.00"),
+        effective_from=date(2026, 1, 1),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=direct_count_item,
+        book_stock=Decimal("50.000"),
+        physical_count=Decimal("53.000"),
+    )
+
+    assert entry.variance_quantity == Decimal(
+        "3.000"
+    )
+    assert entry.variance_value == Decimal(
+        "165000.00"
+    )
+
+
+@pytest.mark.django_db
 def test_direct_count_entry_computes_variance(
     direct_count_item,
     period,
