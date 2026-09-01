@@ -39,6 +39,15 @@ class ReconciliationType(models.TextChoices):
 class ItemCategory(BusinessModel):
     """
     Store item category master (e.g. Cement, Steel, Fuel).
+
+    ``is_production_output`` marks a category as a production type
+    (e.g. "Concrete") rather than a plain grouping: every item
+    assigned to it is one of its recipe materials, and the category
+    itself becomes selectable as a product on the Production Output
+    entry form. A production-type category's items don't need to be
+    Norm Based themselves (though the recipe/mix-ratio machinery only
+    means anything for the norm-based ones); a category left
+    unflagged is just an ordinary grouping with no recipe meaning.
     """
 
     category_code = models.CharField(
@@ -50,6 +59,16 @@ class ItemCategory(BusinessModel):
     category_name = models.CharField(
         max_length=150,
         unique=True,
+    )
+    is_production_output = models.BooleanField(
+        default=False,
+        help_text=(
+            "This is a production type (e.g. "
+            "Concrete) - every item assigned to "
+            "it is one of its recipe materials, "
+            "and it becomes selectable as a "
+            "product on Production Output."
+        ),
     )
     description = models.TextField(
         blank=True,
@@ -109,6 +128,131 @@ class ItemCategory(BusinessModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class ItemCategoryGrade(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+):
+    """
+    One valid production grade for a Production Type category (e.g.
+    M10/M20/M25/M30 for "Concrete Materials") - a controlled
+    vocabulary so a grade is picked from a fixed list everywhere it
+    matters (Production Output, Company Defaults, Site Overrides)
+    instead of free-typed, which invited inconsistencies like "M20"
+    vs "m20" vs "M-20". Only meaningful for a category with
+    ``is_production_output=True``; a plain category has none.
+    """
+
+    category = models.ForeignKey(
+        ItemCategory,
+        on_delete=models.CASCADE,
+        related_name="grades",
+    )
+    grade_label = models.CharField(max_length=50)
+    display_order = models.PositiveIntegerField(
+        default=0,
+    )
+
+    class Meta:
+        db_table = (
+            "reconciliation_item_category_grade"
+        )
+        ordering = [
+            "display_order",
+            "grade_label",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "grade_label"],
+                name="reco_cat_grade_uniq",
+            ),
+        ]
+        verbose_name = "Item Category Grade"
+        verbose_name_plural = (
+            "Item Category Grades"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.category.category_code} - "
+            f"{self.grade_label}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if self.grade_label:
+            self.grade_label = normalize_whitespace(
+                self.grade_label
+            ).upper()
+
+        errors = {}
+        if not self.grade_label:
+            errors["grade_label"] = (
+                "Grade is required."
+            )
+        if (
+            self.category_id
+            and not self.category.is_production_output
+        ):
+            errors["category"] = (
+                "Grades can only be added to a "
+                "category marked as a production "
+                "type."
+            )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+def _validate_grade_against_category(
+    *,
+    category: "ItemCategory | None",
+    grade_label: str,
+    allow_blank: bool,
+) -> dict:
+    """
+    If ``category`` is a production type with a configured grade
+    list, ``grade_label`` must be one of those grades (blank
+    included only when ``allow_blank`` and the field is empty) - a
+    category with no grades configured yet, or a non-production
+    category, imposes no restriction, so this stays backward
+    compatible with data entered before grades existed.
+    """
+    if category is None or not category.is_production_output:
+        return {}
+
+    valid_grades = set(
+        category.grades.values_list(
+            "grade_label", flat=True
+        )
+    )
+    if not valid_grades:
+        return {}
+
+    if allow_blank and not grade_label:
+        return {}
+
+    if grade_label not in valid_grades:
+        return {
+            "grade_label": (
+                f"'{grade_label or '(blank)'}' is "
+                "not a configured grade for "
+                f"{category.category_name}. Add it "
+                "in Item Category Management first, "
+                "or leave this blank."
+                if allow_blank
+                else f"'{grade_label or '(blank)'}' "
+                "is not a configured grade for "
+                f"{category.category_name}. Add it "
+                "in Item Category Management first."
+            )
+        }
+    return {}
 
 
 class Item(BusinessModel):
@@ -359,6 +503,17 @@ class ItemStandard(BusinessModel, UserTrackingModel):
             rate=self.rate,
             mix_ratio=self.mix_ratio,
         )
+        errors.update(
+            _validate_grade_against_category(
+                category=(
+                    self.item.category
+                    if self.item_id
+                    else None
+                ),
+                grade_label=self.grade_label,
+                allow_blank=True,
+            )
+        )
         if errors:
             raise ValidationError(errors)
 
@@ -525,6 +680,17 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
             item=self.item if self.item_id else None,
             rate=self.rate,
             mix_ratio=self.mix_ratio,
+        )
+        errors.update(
+            _validate_grade_against_category(
+                category=(
+                    self.item.category
+                    if self.item_id
+                    else None
+                ),
+                grade_label=self.grade_label,
+                allow_blank=True,
+            )
         )
         if (
             self.period_id
@@ -831,6 +997,21 @@ class ReconciliationEntry(
         on_delete=models.PROTECT,
         related_name="reconciliation_entries",
     )
+    grade_label = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=(
+            "Which production grade this "
+            "material's actual consumption is "
+            "for (e.g. M20) - blank for a "
+            "material not tied to a specific "
+            "grade's output batch, or for a "
+            "material with no recipe at all. A "
+            "norm-based item can have one entry "
+            "per grade produced this period."
+        ),
+    )
     opening_stock = models.DecimalField(
         max_digits=14,
         decimal_places=3,
@@ -934,8 +1115,12 @@ class ReconciliationEntry(
         ordering = ["item__item_name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["period", "item"],
-                name="reco_entry_period_item_uniq",
+                fields=[
+                    "period",
+                    "item",
+                    "grade_label",
+                ],
+                name="reco_entry_period_item_grade_uniq",
             ),
         ]
         indexes = [
@@ -950,9 +1135,14 @@ class ReconciliationEntry(
         )
 
     def __str__(self) -> str:
+        grade_suffix = (
+            f" ({self.grade_label})"
+            if self.grade_label
+            else ""
+        )
         return (
             f"{self.period} - "
-            f"{self.item.item_code}"
+            f"{self.item.item_code}{grade_suffix}"
         )
 
     def clean(self):
@@ -970,6 +1160,10 @@ class ReconciliationEntry(
             self.rack = normalize_whitespace(
                 self.rack
             )
+        if self.grade_label:
+            self.grade_label = normalize_whitespace(
+                self.grade_label
+            ).upper()
 
         errors = {}
 
@@ -1050,14 +1244,21 @@ class ReconciliationOutputEntry(
     UserTrackingModel,
 ):
     """
-    Production/output batch that theoretical consumption is derived
-    from for norm-based items (e.g. cum of concrete produced).
+    A batch of the thing actually produced this period (e.g. cum of
+    Concrete, at a given grade) - not a raw material. ``category``
+    must be one flagged ``is_production_output`` on the item
+    category master; every ``Item`` assigned to that same category
+    is one of its recipe materials.
 
-    ``grade_label`` (normalized to uppercase, e.g. "M20") is matched
-    against ``ItemStandard``/``SiteItemConfig`` rows with the same
-    grade to resolve a grade-specific mix ratio; output batches with
-    no matching grade-specific row fall back to the item's blank-grade
-    default. See ``services.resolution.resolve_standard``.
+    A norm-based material's theoretical consumption is derived from
+    all of a period's output batches logged against ITS OWN
+    category, grouped by ``grade_label`` (normalized to uppercase,
+    e.g. "M20") and matched against that material's own
+    ``ItemStandard``/``SiteItemConfig`` row for the same grade to
+    resolve its mix ratio; a grade with no matching row falls back
+    to the material's blank-grade default. See
+    ``services.resolution.resolve_standard`` and
+    ``services.variance._resolve_norm_based_theoretical``.
     """
 
     period = models.ForeignKey(
@@ -1065,8 +1266,8 @@ class ReconciliationOutputEntry(
         on_delete=models.PROTECT,
         related_name="output_entries",
     )
-    item = models.ForeignKey(
-        Item,
+    category = models.ForeignKey(
+        ItemCategory,
         on_delete=models.PROTECT,
         related_name="reconciliation_output_entries",
     )
@@ -1083,11 +1284,11 @@ class ReconciliationOutputEntry(
         db_table = (
             "reconciliation_output_entry"
         )
-        ordering = ["item__item_name"]
+        ordering = ["category__category_name"]
         indexes = [
             models.Index(
-                fields=["period", "item"],
-                name="reco_output_period_item_idx",
+                fields=["period", "category"],
+                name="reco_output_period_cat_idx",
             ),
         ]
         verbose_name = "Reconciliation Output Entry"
@@ -1098,7 +1299,7 @@ class ReconciliationOutputEntry(
     def __str__(self) -> str:
         return (
             f"{self.period} - "
-            f"{self.item.item_code} - "
+            f"{self.category.category_code} - "
             f"{self.output_quantity}"
         )
 
@@ -1122,13 +1323,23 @@ class ReconciliationOutputEntry(
             )
 
         if (
-            self.item_id
-            and self.item.reconciliation_type
-            != ReconciliationType.NORM_BASED
+            self.category_id
+            and not self.category.is_production_output
         ):
-            errors["item"] = (
-                "Only norm-based items track "
-                "production output."
+            errors["category"] = (
+                "Only categories marked as a "
+                "production type (e.g. Concrete) "
+                "can be logged here - raw "
+                "materials are reconciled through "
+                "Reconciliation Entries instead."
+            )
+        elif self.category_id:
+            errors.update(
+                _validate_grade_against_category(
+                    category=self.category,
+                    grade_label=self.grade_label,
+                    allow_blank=False,
+                )
             )
 
         if errors:
@@ -1137,25 +1348,40 @@ class ReconciliationOutputEntry(
     def save(self, *args, **kwargs):
         self.full_clean()
         result = super().save(*args, **kwargs)
-
-        for entry in self.period.entries.filter(
-            item=self.item
-        ):
-            entry.save()
-
+        self._refresh_norm_based_entries()
         return result
 
     def delete(self, *args, **kwargs):
         period = self.period
-        item = self.item
+        category_id = self.category_id
+        grade_label = self.grade_label
         result = super().delete(*args, **kwargs)
 
         for entry in period.entries.filter(
-            item=item
+            item__category_id=category_id,
+            grade_label=grade_label,
+            item__reconciliation_type=(
+                ReconciliationType.NORM_BASED
+            ),
         ):
             entry.save()
 
         return result
+
+    def _refresh_norm_based_entries(self):
+        # A production-output batch is the shared basis every
+        # norm-based material IN ITS OWN CATEGORY, FOR THIS EXACT
+        # GRADE, derives its theoretical consumption from (see
+        # services.variance._resolve_norm_based_theoretical) - only
+        # entries matching both are affected.
+        for entry in self.period.entries.filter(
+            item__category_id=self.category_id,
+            grade_label=self.grade_label,
+            item__reconciliation_type=(
+                ReconciliationType.NORM_BASED
+            ),
+        ):
+            entry.save()
 
 
 class ReconciliationFlagType(models.TextChoices):

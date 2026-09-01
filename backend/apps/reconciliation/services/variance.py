@@ -120,73 +120,65 @@ def compute_entry_variance(entry) -> None:
 
 def _resolve_norm_based_theoretical(entry, item):
     """
-    Theoretical consumption for a norm-based item, computed per
-    production grade and summed - production output recorded under
-    grade M20 uses M20's mix ratio (if configured), M25 uses M25's,
-    and so on, each falling back to the item's blank-grade default
-    when no grade-specific standard exists.
+    Theoretical consumption for a norm-based material, for the ONE
+    production grade this entry itself is for (``entry.grade_label``,
+    blank included - a material can have a separate entry per grade
+    produced this period, mirroring the output side).
 
-    ``rate`` (used only for costing ``variance_value``) is a
-    quantity-weighted average across the grades actually produced
-    this period: actual consumption itself isn't split by grade in
-    this model, so a single blended rate is the best available
-    approximation. Returns ``(None, None)`` if any grade that was
-    actually produced has no resolvable rate/mix ratio at all - that
-    should be flagged as a configuration gap, not silently ignored.
+    Production output isn't tracked per material - a store produces
+    one thing (e.g. Concrete, by grade), and every raw material
+    assigned to THAT SAME category derives its theoretical
+    consumption from the category's output batches for its own exact
+    grade, using its own mix ratio - not from a batch logged against
+    the material itself, and not blended across other grades this
+    entry doesn't represent. This is scoped to the material's own
+    category so that a site producing more than one thing in the
+    same period doesn't have one product's output bleed into an
+    unrelated product's materials.
+
+    Returns ``(None, None)`` if this grade has no resolvable
+    rate/mix ratio at all, or no output was recorded for it - that
+    should be flagged as a configuration/data gap, not silently
+    approximated.
     """
-    output_rows = list(
+    output_total = (
         ReconciliationOutputEntry.objects.filter(
             period_id=entry.period_id,
-            item_id=item.id,
-        )
-        .values("grade_label")
-        .annotate(
-            total_quantity=django_models.Sum(
+            category_id=item.category_id,
+            grade_label=entry.grade_label,
+        ).aggregate(
+            total=django_models.Sum(
                 "output_quantity"
             )
-        )
+        )["total"]
+        or ZERO
     )
 
-    if not output_rows:
+    if output_total == ZERO:
         resolved = resolve_standard(
             item=item,
             site=entry.period.site,
             on_date=entry.period.period_month,
+            grade_label=entry.grade_label,
             period=entry.period,
         )
         return resolved.rate, ZERO
 
-    theoretical = ZERO
-    weighted_rate_total = ZERO
-    output_total = ZERO
-
-    for row in output_rows:
-        quantity = row["total_quantity"] or ZERO
-        resolved = resolve_standard(
-            item=item,
-            site=entry.period.site,
-            on_date=entry.period.period_month,
-            grade_label=row["grade_label"] or "",
-            period=entry.period,
-        )
-        if (
-            resolved.rate is None
-            or resolved.mix_ratio is None
-        ):
-            return None, None
-
-        theoretical += quantity * resolved.mix_ratio
-        weighted_rate_total += (
-            quantity * resolved.rate
-        )
-        output_total += quantity
-
-    rate = (
-        weighted_rate_total / output_total
-        if output_total
-        else None
+    resolved = resolve_standard(
+        item=item,
+        site=entry.period.site,
+        on_date=entry.period.period_month,
+        grade_label=entry.grade_label,
+        period=entry.period,
     )
-    return rate, theoretical
+    if (
+        resolved.rate is None
+        or resolved.mix_ratio is None
+    ):
+        return None, None
+
+    theoretical = output_total * resolved.mix_ratio
+    return resolved.rate, theoretical
 
 
 def _resolve_status(

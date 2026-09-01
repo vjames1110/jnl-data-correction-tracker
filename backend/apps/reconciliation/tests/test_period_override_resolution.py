@@ -51,6 +51,7 @@ def other_site(company):
 def category():
     return ItemCategory.objects.create(
         category_name="Cement",
+        is_production_output=True,
     )
 
 
@@ -64,6 +65,7 @@ def cement(category):
         ),
         uom="MT",
     )
+
 
 
 @pytest.fixture
@@ -267,7 +269,7 @@ def test_period_must_belong_to_the_selected_site(
 
 @pytest.mark.django_db
 def test_variance_computation_uses_period_override(
-    cement, april_period, standing_override,
+    cement, category, april_period, standing_override,
 ):
     SiteItemConfig.objects.create(
         item=cement,
@@ -278,7 +280,7 @@ def test_variance_computation_uses_period_override(
         effective_from=date(2026, 4, 1),
     )
     april_period.output_entries.create(
-        item=cement,
+        category=category,
         output_quantity=Decimal("100.000"),
     )
 

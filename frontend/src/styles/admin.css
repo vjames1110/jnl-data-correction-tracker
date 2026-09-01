@@ -729,6 +729,53 @@
   margin-bottom: 14px;
 }
 
+/* A data-entry form whose field count varies (an item picker plus a
+   handful of quantity inputs) - lays every field out on one line
+   with flexible widths instead of the fixed 4-column grid above,
+   falling back to its own horizontal scroll only if the viewport is
+   too narrow to fit everything, rather than wrapping to a second
+   row. */
+.entry-form-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.entry-form-row .filter-control {
+  flex: 1 1 130px;
+  min-width: 110px;
+}
+
+.entry-form-row .entry-form-row__badge,
+.entry-form-row .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.entry-form-row__badge {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  color: var(--color-neutral-600);
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.entry-form-row__badge strong {
+  font-size: 13px;
+  color: var(--color-neutral-900);
+}
+
 .employee-toolbar {
   display: grid;
   grid-template-columns:
@@ -1276,6 +1323,115 @@
   background: var(--color-neutral-50);
 }
 
+/* Reconciliation entries carry a lot of columns' worth of
+   information (location, three stock quantities, three computed
+   results) - this modifier lets each of those wrap onto its own
+   compact stacked line inside a single cell instead of adding a
+   column per value, so the whole table fits one viewport width with
+   no side-scrolling. */
+.reco-entries-table th,
+.reco-entries-table td {
+  padding: 8px var(--space-3);
+  white-space: normal;
+}
+
+.reco-entries-table td {
+  height: auto;
+}
+
+.entry-compact-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.entry-compact-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entry-compact-field span {
+  flex: 0 0 52px;
+  color: var(--color-neutral-600);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.entry-compact-field .entry-row-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* A category's configured production grades (e.g. M10, M20, M25,
+   M30) - a small removable-chip list plus an add row, in Item
+   Category Management. */
+.grade-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.grade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px 0 10px;
+  border-radius: 13px;
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.grade-chip__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.grade-chip__remove:hover {
+  background: var(--color-primary-600);
+  color: var(--color-white);
+}
+
+.grade-chip-input {
+  display: flex;
+  gap: 8px;
+}
+
+/* Approve/Return/Reject inline on the read-only "View Entries" page
+   a Director opens from their Approval Inbox - same controls as the
+   inbox row, embedded so there's no round trip back to approve. */
+.director-approval-panel {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.grade-chip-input input {
+  flex: 0 1 160px;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-neutral-500);
+  border-radius: var(--radius-sm);
+}
+
 .table-user {
   display: grid;
 }
@@ -1402,6 +1558,14 @@
   .site-toolbar {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
+  }
+
+  .entry-form-row {
+    flex-wrap: wrap;
+  }
+
+  .entry-form-row .filter-control {
+    flex-basis: 45%;
   }
 
   .employee-toolbar {

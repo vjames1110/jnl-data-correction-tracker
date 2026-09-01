@@ -3,9 +3,13 @@ import copy
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.core.utils.text import (
+    normalize_whitespace,
+)
 from apps.reconciliation.models import (
     Item,
     ItemCategory,
+    ItemCategoryGrade,
     ItemStandard,
     ReconciliationApprovalStep,
     ReconciliationEntry,
@@ -14,6 +18,7 @@ from apps.reconciliation.models import (
     ReconciliationPeriod,
     ReconciliationPeriodAttachment,
     ReconciliationToleranceSettings,
+    ReconciliationType,
     SiteItemConfig,
 )
 
@@ -54,6 +59,24 @@ class ItemCategorySerializer(
         required=False,
         allow_blank=True,
     )
+    grades = serializers.ListField(
+        child=serializers.CharField(
+            max_length=50,
+            allow_blank=False,
+        ),
+        required=False,
+        write_only=True,
+        help_text=(
+            "Valid production grades for this "
+            "category (e.g. [\"M10\", \"M20\"]) - "
+            "only meaningful when "
+            "is_production_output is true. Powers "
+            "the Grade dropdown on Production "
+            "Output, Company Defaults, and Site "
+            "Overrides instead of free-typed grade "
+            "text."
+        ),
+    )
 
     class Meta:
         model = ItemCategory
@@ -61,6 +84,8 @@ class ItemCategorySerializer(
             "id",
             "category_code",
             "category_name",
+            "is_production_output",
+            "grades",
             "description",
             "display_order",
             "is_active",
@@ -72,6 +97,85 @@ class ItemCategorySerializer(
             "created_at",
             "updated_at",
         ]
+
+    def validate(self, attrs):
+        # "grades" shares its name with the model's reverse-FK
+        # accessor - the base class's generic validate() sets every
+        # attr onto a scratch model instance for full_clean(), and
+        # Django refuses direct assignment to a reverse related-set
+        # attribute. Pulled out before that runs, restored after.
+        grades = attrs.pop("grades", None)
+        attrs = super().validate(attrs)
+
+        if grades is not None:
+            is_production = attrs.get(
+                "is_production_output",
+                getattr(
+                    self.instance,
+                    "is_production_output",
+                    False,
+                ),
+            )
+            if grades and not is_production:
+                raise serializers.ValidationError(
+                    {
+                        "grades": (
+                            "Grades can only be set "
+                            "on a category marked "
+                            "as a production type."
+                        )
+                    }
+                )
+            attrs["grades"] = grades
+
+        return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["grades"] = list(
+            instance.grades.order_by(
+                "display_order", "grade_label"
+            ).values_list(
+                "grade_label", flat=True
+            )
+        )
+        return data
+
+    def create(self, validated_data):
+        grades = validated_data.pop("grades", [])
+        instance = super().create(validated_data)
+        self._sync_grades(instance, grades)
+        return instance
+
+    def update(self, instance, validated_data):
+        grades = validated_data.pop("grades", None)
+        instance = super().update(
+            instance, validated_data
+        )
+        if grades is not None:
+            self._sync_grades(instance, grades)
+        return instance
+
+    @staticmethod
+    def _sync_grades(instance, grades):
+        normalized = []
+        seen = set()
+        for raw in grades:
+            label = normalize_whitespace(
+                raw
+            ).upper()
+            if not label or label in seen:
+                continue
+            seen.add(label)
+            normalized.append(label)
+
+        instance.grades.all().delete()
+        for order, label in enumerate(normalized):
+            ItemCategoryGrade.objects.create(
+                category=instance,
+                grade_label=label,
+                display_order=order,
+            )
 
 
 class ItemSerializer(ReconciliationCleanModelSerializer):
@@ -454,6 +558,9 @@ class ReconciliationEntrySerializer(
         many=True,
         read_only=True,
     )
+    mix_ratio_by_grade = (
+        serializers.SerializerMethodField()
+    )
 
     class Meta:
         model = ReconciliationEntry
@@ -461,6 +568,7 @@ class ReconciliationEntrySerializer(
             "id",
             "period",
             "item",
+            "grade_label",
             "item_code",
             "item_name",
             "uom",
@@ -477,6 +585,7 @@ class ReconciliationEntrySerializer(
             "variance_quantity",
             "variance_value",
             "resolved_rate",
+            "mix_ratio_by_grade",
             "status",
             "status_display",
             "flags",
@@ -495,6 +604,7 @@ class ReconciliationEntrySerializer(
             "variance_quantity",
             "variance_value",
             "resolved_rate",
+            "mix_ratio_by_grade",
             "status",
             "status_display",
             "flags",
@@ -502,20 +612,63 @@ class ReconciliationEntrySerializer(
             "updated_at",
         ]
 
+    def get_mix_ratio_by_grade(self, obj):
+        """
+        This material's resolved mix ratio for every grade produced
+        this period - the ``ReconciliationStatementSheet`` frontend
+        component uses this to rebuild the Design Mix / Theoretical
+        Consumption tables per grade, since production output is no
+        longer logged per material (see ``ReconciliationOutputEntry``).
+        ``None`` for a grade that isn't matched to a rate/mix ratio
+        anywhere - the statement shows that as "Not configured".
+        """
+        if (
+            obj.item.reconciliation_type
+            != ReconciliationType.NORM_BASED
+        ):
+            return {}
+
+        from apps.reconciliation.services.resolution import (
+            resolve_standard,
+        )
+
+        grades = (
+            ReconciliationOutputEntry.objects.filter(
+                period_id=obj.period_id,
+                category_id=obj.item.category_id,
+            )
+            .values_list(
+                "grade_label",
+                flat=True,
+            )
+            .distinct()
+        )
+
+        ratios = {}
+        for grade in grades:
+            resolved = resolve_standard(
+                item=obj.item,
+                site=obj.period.site,
+                on_date=obj.period.period_month,
+                grade_label=grade or "",
+                period=obj.period,
+            )
+            ratios[grade or ""] = (
+                resolved.mix_ratio
+            )
+        return ratios
+
 
 class ReconciliationOutputEntrySerializer(
     ReconciliationCleanModelSerializer
 ):
-    item_code = serializers.CharField(
-        source="item.item_code",
+    category_code = serializers.CharField(
+        source="category.category_code",
         read_only=True,
     )
-    item_name = serializers.CharField(
-        source="item.item_name",
+    category_name = serializers.CharField(
+        source="category.category_name",
         read_only=True,
-    )
-    resolved_mix_ratio = (
-        serializers.SerializerMethodField()
     )
 
     class Meta:
@@ -523,37 +676,21 @@ class ReconciliationOutputEntrySerializer(
         fields = [
             "id",
             "period",
-            "item",
-            "item_code",
-            "item_name",
+            "category",
+            "category_code",
+            "category_name",
             "grade_label",
             "output_quantity",
-            "resolved_mix_ratio",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
-            "item_code",
-            "item_name",
-            "resolved_mix_ratio",
+            "category_code",
+            "category_name",
             "created_at",
             "updated_at",
         ]
-
-    def get_resolved_mix_ratio(self, obj):
-        from apps.reconciliation.services.resolution import (
-            resolve_standard,
-        )
-
-        resolved = resolve_standard(
-            item=obj.item,
-            site=obj.period.site,
-            on_date=obj.period.period_month,
-            grade_label=obj.grade_label,
-            period=obj.period,
-        )
-        return resolved.mix_ratio
 
 
 class ReconciliationPeriodAttachmentSerializer(

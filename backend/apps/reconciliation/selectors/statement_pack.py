@@ -58,8 +58,8 @@ def build_statement_pack(
         ReconciliationOutputEntry.objects.filter(
             period_id__in=period_ids,
         )
-        .select_related("item")
-        .order_by("item__item_name")
+        .select_related("category")
+        .order_by("category__category_name")
     ):
         outputs_by_period[
             output.period_id

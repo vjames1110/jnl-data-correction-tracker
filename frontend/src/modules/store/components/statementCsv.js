@@ -30,6 +30,15 @@ function num(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// A material can have a separate entry per production grade - append
+// the grade so two rows for the same material aren't shown under
+// identical labels.
+function entryLabel(entry) {
+  return entry.grade_label
+    ? `${entry.item_name} - ${entry.grade_label}`
+    : entry.item_name;
+}
+
 /**
  * One site's statement, in the same four sections the printed sheet
  * shows - a plain array-of-rows CSV, so it opens cleanly in Excel/Sheets.
@@ -67,7 +76,7 @@ export function buildStatementCsvRows({
 
   entries.forEach((entry) => {
     rows.push([
-      `${entry.item_code} - ${entry.item_name}`,
+      entryLabel(entry),
       entry.uom,
       entry.section || "",
       entry.rack || "",
@@ -81,27 +90,14 @@ export function buildStatementCsvRows({
   if (outputEntries.length) {
     rows.push(
       [],
-      ["2. PRODUCTION OUTPUT & APPROVED MIX RATIO"],
-      [
-        "Item",
-        "Grade",
-        "Output Quantity",
-        "Mix Ratio",
-        "Theoretical Quantity",
-      ],
+      ["2. PRODUCTION OUTPUT"],
+      ["Product", "Grade", "Output Quantity"],
     );
     outputEntries.forEach((output) => {
-      const ratio = output.resolved_mix_ratio;
-      const theoretical =
-        ratio != null
-          ? num(output.output_quantity) * num(ratio)
-          : "";
       rows.push([
-        `${output.item_code} - ${output.item_name}`,
+        output.category_name,
         output.grade_label || "",
         output.output_quantity,
-        ratio ?? "Not configured",
-        theoretical,
       ]);
     });
   }
@@ -123,7 +119,7 @@ export function buildStatementCsvRows({
   entries.forEach((entry) => {
     totalVarianceValue += num(entry.variance_value);
     rows.push([
-      `${entry.item_code} - ${entry.item_name}`,
+      entryLabel(entry),
       entry.actual_quantity ?? "",
       entry.theoretical_or_book_quantity ?? "",
       entry.variance_quantity ?? "",

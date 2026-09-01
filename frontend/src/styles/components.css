@@ -585,6 +585,22 @@ td.recon-sheet__col-label {
   font-weight: 600;
 }
 
+/* A production-output row that expands to reveal its recipe
+   materials, in Monthly Entry's Production Output card. */
+.reco-output-row {
+  cursor: pointer;
+}
+
+.reco-output-row:hover {
+  background: var(--color-neutral-50);
+}
+
+.reco-output-detail {
+  padding: 12px 4px 4px;
+  background: var(--color-neutral-50);
+  border-radius: 8px;
+}
+
 .recon-sheet__row--grand td {
   font-weight: 700;
   background: var(--color-neutral-100);

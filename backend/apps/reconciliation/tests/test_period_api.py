@@ -83,6 +83,16 @@ def norm_based_item():
     return item
 
 
+@pytest.fixture
+def production_category(norm_based_item):
+    category = norm_based_item.category
+    category.is_production_output = True
+    category.save(
+        update_fields=["is_production_output"],
+    )
+    return category
+
+
 @pytest.mark.django_db
 def test_store_ho_can_fetch_any_sites_current_period(
     api_client,
@@ -227,6 +237,7 @@ def test_full_entry_lifecycle_and_submit(
     store_ho,
     site,
     norm_based_item,
+    production_category,
 ):
     director = DirectorUserFactory(
         employee_id="DIRECTOR001A",
@@ -247,7 +258,7 @@ def test_full_entry_lifecycle_and_submit(
         ),
         {
             "period": period_id,
-            "item": str(norm_based_item.id),
+            "category": str(production_category.id),
             "output_quantity": "100.000",
         },
         format="json",
@@ -806,6 +817,7 @@ def test_director_can_read_a_submitted_periods_entries(
     store_ho,
     site,
     norm_based_item,
+    production_category,
 ):
     """
     The approval inbox's "View Entries" link sends Director to the
@@ -829,7 +841,7 @@ def test_director_can_read_a_submitted_periods_entries(
         ),
         {
             "period": pre_submit_period_id,
-            "item": str(norm_based_item.id),
+            "category": str(production_category.id),
             "output_quantity": "100.000",
         },
         format="json",

@@ -438,6 +438,7 @@ class ReconciliationMasterViewSet(
 class ItemCategoryViewSet(ReconciliationMasterViewSet):
     queryset = ItemCategory.objects.all()
     serializer_class = ItemCategorySerializer
+    prefetch_related_fields = ("grades",)
     search_fields = [
         "category_code",
         "category_name",
@@ -1255,7 +1256,7 @@ class ReconciliationOutputEntryViewSet(
         .select_related(
             "period",
             "period__site",
-            "item",
+            "category",
         )
         .all()
     )
@@ -1284,9 +1285,9 @@ class ReconciliationOutputEntryViewSet(
     ]
     filterset_fields = [
         "period",
-        "item",
+        "category",
     ]
-    ordering = ["item__item_name"]
+    ordering = ["category__category_name"]
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(

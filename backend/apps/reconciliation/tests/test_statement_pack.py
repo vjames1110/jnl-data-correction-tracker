@@ -55,6 +55,7 @@ def site_b(company):
 def cement():
     category = ItemCategory.objects.create(
         category_name="Cement",
+        is_production_output=True,
     )
     item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
@@ -80,7 +81,7 @@ def dataset(site_a, site_b, cement):
         period_month=date(2026, 6, 1),
     )
     period_a.output_entries.create(
-        item=cement,
+        category=cement.category,
         output_quantity=Decimal("100.000"),
     )
     period_a.entries.create(

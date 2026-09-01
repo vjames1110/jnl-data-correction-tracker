@@ -103,79 +103,32 @@ function gradeLabel(grade) {
 }
 
 /**
- * Reshapes output entries (one row per material+grade+batch) into the
- * grade-as-columns matrix the statement's Section 2/3 tables need.
- * Quantities are summed per (material, grade) - a material can have more
- * than one production batch logged against the same grade in a period,
- * mirroring how services/variance.py aggregates theoretical consumption.
+ * Sums production output (e.g. cum of Concrete produced) per grade
+ * for the period. There's one shared production run, not one per
+ * material - every norm-based material's design mix / theoretical
+ * consumption is resolved against this same per-grade total, via
+ * each entry's own ``mix_ratio_by_grade`` (see
+ * ReconciliationEntrySerializer.get_mix_ratio_by_grade).
  */
-function buildOutputPivot(outputEntries) {
-  const materialsById = new Map();
+function buildProductionPivot(outputEntries) {
   const gradeSet = new Set();
-  const qtyByMaterialGrade = new Map();
-  const ratioByMaterialGrade = new Map();
+  const qtyByGrade = new Map();
 
   outputEntries.forEach((output) => {
-    const itemId = output.item;
     const grade = output.grade_label || "";
     gradeSet.add(grade);
-
-    if (!materialsById.has(itemId)) {
-      materialsById.set(itemId, {
-        id: itemId,
-        item_code: output.item_code,
-        item_name: output.item_name,
-      });
-    }
-
-    if (!qtyByMaterialGrade.has(itemId)) {
-      qtyByMaterialGrade.set(itemId, new Map());
-    }
-    const gradeQtyMap = qtyByMaterialGrade.get(itemId);
     const qty = toNumber(output.output_quantity) ?? 0;
-    gradeQtyMap.set(
+    qtyByGrade.set(
       grade,
-      (gradeQtyMap.get(grade) ?? 0) + qty,
+      (qtyByGrade.get(grade) ?? 0) + qty,
     );
-
-    if (!ratioByMaterialGrade.has(itemId)) {
-      ratioByMaterialGrade.set(itemId, new Map());
-    }
-    const ratioMap = ratioByMaterialGrade.get(itemId);
-    if (!ratioMap.has(grade)) {
-      ratioMap.set(
-        grade,
-        toNumber(output.resolved_mix_ratio),
-      );
-    }
   });
 
   const grades = Array.from(gradeSet).sort((a, b) =>
     a.localeCompare(b),
   );
-  const materials = Array.from(materialsById.values());
 
-  const qtyByGrade = new Map();
-  grades.forEach((grade) => {
-    let max = null;
-    materials.forEach((material) => {
-      const q = qtyByMaterialGrade
-        .get(material.id)
-        ?.get(grade);
-      if (q !== undefined && (max === null || q > max)) {
-        max = q;
-      }
-    });
-    qtyByGrade.set(grade, max);
-  });
-
-  return {
-    materials,
-    grades,
-    qtyByMaterialGrade,
-    ratioByMaterialGrade,
-    qtyByGrade,
-  };
+  return { grades, qtyByGrade };
 }
 
 export function ReconciliationStatementSheet({
@@ -188,24 +141,52 @@ export function ReconciliationStatementSheet({
       sum + (toNumber(entry.variance_value) ?? 0),
     0,
   );
-  const entryByItemId = new Map(
-    entries.map((entry) => [entry.item, entry]),
-  );
   const hasLocationData = entries.some(
     (entry) => entry.section || entry.rack,
   );
-  const pivot = buildOutputPivot(outputEntries);
+  const pivot = buildProductionPivot(outputEntries);
   const producedTotal = pivot.grades.reduce(
     (sum, grade) =>
       sum + (pivot.qtyByGrade.get(grade) ?? 0),
     0,
   );
+  // Concrete (or whatever is flagged as the production output) is
+  // never itself reconciled, so it never appears here - only the
+  // raw materials the recipe is made from do. Sections 2/3 are
+  // material-level reference tables (design mix / theoretical
+  // consumption for every grade this material could apply to) -
+  // deduped to one row per material, since a material can now carry
+  // more than one entry (one per grade actually produced) and
+  // mix_ratio_by_grade already covers every grade regardless of
+  // which entry it's read from.
+  const normBasedEntries = Array.from(
+    new Map(
+      entries
+        .filter(
+          (entry) =>
+            entry.reconciliation_type ===
+            "NORM_BASED",
+        )
+        .map((entry) => [entry.item, entry]),
+    ).values(),
+  );
 
-  function materialLabel(material) {
-    const uom = entryByItemId.get(material.id)?.uom;
-    return `${material.item_name}${
-      uom ? ` (${uom})` : ""
+  function materialLabel(entry) {
+    return `${entry.item_name}${
+      entry.uom ? ` (${entry.uom})` : ""
     }`;
+  }
+
+  // Section 1's columns and Section 3's rows are per-ENTRY, and a
+  // material can now have a separate entry per grade - append the
+  // grade so two entries for the same material aren't shown under
+  // identical labels. Deliberately doesn't reuse materialLabel's
+  // UOM suffix, to keep matching each section's existing label
+  // format otherwise.
+  function entryLabel(entry) {
+    return entry.grade_label
+      ? `${entry.item_name} - ${entry.grade_label}`
+      : entry.item_name;
   }
 
   return (
@@ -268,10 +249,11 @@ export function ReconciliationStatementSheet({
               </th>
               {entries.map((entry) => (
                 <th key={entry.id}>
-                  {materialLabel({
+                  {entryLabel({
                     id: entry.item,
                     item_code: entry.item_code,
                     item_name: entry.item_name,
+                    grade_label: entry.grade_label,
                   })}
                 </th>
               ))}
@@ -363,7 +345,7 @@ export function ReconciliationStatementSheet({
         </table>
       </div>
 
-      {pivot.materials.length ? (
+      {pivot.grades.length ? (
         <>
           <h3>
             2. Production Output &amp; Approved
@@ -374,7 +356,7 @@ export function ReconciliationStatementSheet({
             quantity of each material required per
             unit of output at each grade - the rate
             Section 3&rsquo;s theoretical
-            consumption is calculated from.
+            consumption below is calculated from.
           </p>
           <div className="recon-sheet__table-wrap">
             <table className="recon-sheet__table">
@@ -410,27 +392,23 @@ export function ReconciliationStatementSheet({
                     {fmtQty(producedTotal)}
                   </td>
                 </tr>
-                {pivot.materials.map((material) => (
-                  <tr key={material.id}>
+                {normBasedEntries.map((entry) => (
+                  <tr key={entry.id}>
                     <td className="recon-sheet__col-label">
                       Design Mix -{" "}
-                      {materialLabel(material)}
+                      {materialLabel(entry)}
                     </td>
                     {pivot.grades.map((grade) => {
-                      const hasBatch = pivot.qtyByMaterialGrade
-                        .get(material.id)
-                        ?.has(grade);
-                      const ratio = pivot.ratioByMaterialGrade
-                        .get(material.id)
-                        ?.get(grade);
+                      const ratio =
+                        entry.mix_ratio_by_grade?.[
+                          grade
+                        ];
                       return (
                         <td key={grade}>
-                          {!hasBatch
-                            ? "-"
-                            : ratio === null ||
-                                ratio === undefined
-                              ? "Not configured"
-                              : fmtRatio(ratio)}
+                          {ratio === null ||
+                          ratio === undefined
+                            ? "Not configured"
+                            : fmtRatio(ratio)}
                         </td>
                       );
                     })}
@@ -440,103 +418,21 @@ export function ReconciliationStatementSheet({
               </tbody>
             </table>
           </div>
-
-          <h3>
-            3. Theoretical Consumption
-            (Production &times; Design Mix)
-          </h3>
-          <p className="recon-sheet__note">
-            Each cell = Quantity Produced for that
-            grade &times; that material&rsquo;s
-            Design Mix ratio for that grade. The
-            Total column is the theoretical figure
-            used in Section 4&rsquo;s comparison
-            below.
-          </p>
-          <div className="recon-sheet__table-wrap">
-            <table className="recon-sheet__table">
-              <thead>
-                <tr>
-                  <th className="recon-sheet__col-label">
-                    Material
-                  </th>
-                  {pivot.grades.map((grade) => (
-                    <th key={grade}>
-                      {gradeLabel(grade)}
-                    </th>
-                  ))}
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pivot.materials.map((material) => {
-                  const matchedEntry =
-                    entryByItemId.get(material.id);
-                  let fallbackTotal = 0;
-                  let hasAnyCell = false;
-                  return (
-                    <tr key={material.id}>
-                      <td className="recon-sheet__col-label">
-                        {materialLabel(material)}
-                      </td>
-                      {pivot.grades.map((grade) => {
-                        const qty = pivot.qtyByMaterialGrade
-                          .get(material.id)
-                          ?.get(grade);
-                        const ratio = pivot.ratioByMaterialGrade
-                          .get(material.id)
-                          ?.get(grade);
-                        if (
-                          qty === undefined ||
-                          ratio === null ||
-                          ratio === undefined
-                        ) {
-                          return (
-                            <td key={grade}>
-                              {qty === undefined
-                                ? "-"
-                                : "Not configured"}
-                            </td>
-                          );
-                        }
-                        const theoretical = qty * ratio;
-                        hasAnyCell = true;
-                        fallbackTotal += theoretical;
-                        return (
-                          <td key={grade}>
-                            {fmtQty(theoretical)}
-                          </td>
-                        );
-                      })}
-                      <td className="recon-sheet__cell--emph">
-                        {matchedEntry
-                          ? fmtQty(
-                              matchedEntry.theoretical_or_book_quantity,
-                            )
-                          : hasAnyCell
-                            ? fmtQty(fallbackTotal)
-                            : "-"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </>
       ) : null}
 
       <h3>
-        4. Final Analysis (Actual vs
+        3. Final Analysis (Actual vs
         Theoretical)
       </h3>
       <p className="recon-sheet__note">
         &ldquo;Theoretical&rdquo; means: for
         materials with production output recorded
-        above, the Section 3 total (design mix
-        &times; quantity produced); for direct-count
-        items with no production output, the Book
-        Stock figure entered in Section 1.
+        above, quantity produced &times; the
+        material&rsquo;s Design Mix ratio (Section
+        2) for that grade; for direct-count items
+        with no production output, the Book Stock
+        figure entered in Section 1.
       </p>
       <div className="recon-sheet__table-wrap">
         <table className="recon-sheet__table">
@@ -557,7 +453,7 @@ export function ReconciliationStatementSheet({
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="recon-sheet__col-label">
-                  {entry.item_name}
+                  {entryLabel(entry)}
                 </td>
                 <td>
                   {fmtQty(entry.actual_quantity)}

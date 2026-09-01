@@ -82,6 +82,16 @@ def norm_based_item():
 
 
 @pytest.fixture
+def production_category(norm_based_item):
+    category = norm_based_item.category
+    category.is_production_output = True
+    category.save(
+        update_fields=["is_production_output"],
+    )
+    return category
+
+
+@pytest.fixture
 def period(site):
     return get_or_create_period(
         site=site,
@@ -261,14 +271,14 @@ def test_create_output_entry_with_client_id_is_idempotent(
     api_client,
     store_ho,
     period,
-    norm_based_item,
+    production_category,
 ):
     api_client.force_authenticate(user=store_ho)
     client_id = str(uuid.uuid4())
     payload = {
         "id": client_id,
         "period": str(period.id),
-        "item": str(norm_based_item.id),
+        "category": str(production_category.id),
         "output_quantity": "100.000",
     }
 

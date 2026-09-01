@@ -43,6 +43,7 @@ def site(company):
 def category():
     return ItemCategory.objects.create(
         category_name="Cement",
+        is_production_output=True,
     )
 
 
@@ -184,9 +185,13 @@ def test_site_grade_specific_beats_site_blank(
 
 
 @pytest.mark.django_db
-def test_variance_uses_grade_specific_ratios_per_output_batch(
-    cement, period,
+def test_variance_uses_exact_grade_ratio_per_entry(
+    cement, category, period,
 ):
+    # Each grade produced this period gets its own output batch AND
+    # its own material entry - no blending across grades. M20's
+    # entry only ever sees the M20 output batch/ratio, M25's entry
+    # only ever sees M25's.
     ItemStandard.objects.create(
         item=cement,
         grade_label="M20",
@@ -203,44 +208,72 @@ def test_variance_uses_grade_specific_ratios_per_output_batch(
     )
 
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M20",
         output_quantity=Decimal("100.000"),
     )
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M25",
         output_quantity=Decimal("50.000"),
     )
 
-    # theoretical = 100*0.30 + 50*0.40 = 30 + 20 = 50
-    entry = period.entries.create(
+    # theoretical(M20) = 100*0.30 = 30, actual = 5+25-0 = 30
+    m20_entry = period.entries.create(
         item=cement,
-        opening_stock=Decimal("10.000"),
-        receipts=Decimal("40.000"),
+        grade_label="M20",
+        opening_stock=Decimal("5.000"),
+        receipts=Decimal("25.000"),
+        closing_stock=Decimal("0.000"),
+    )
+    # theoretical(M25) = 50*0.40 = 20, actual = 5+15-0 = 20
+    m25_entry = period.entries.create(
+        item=cement,
+        grade_label="M25",
+        opening_stock=Decimal("5.000"),
+        receipts=Decimal("15.000"),
         closing_stock=Decimal("0.000"),
     )
 
-    assert entry.actual_quantity == Decimal(
-        "50.000"
+    assert m20_entry.actual_quantity == Decimal(
+        "30.000"
     )
     assert (
-        entry.theoretical_or_book_quantity
-        == Decimal("50.000")
+        m20_entry.theoretical_or_book_quantity
+        == Decimal("30.000")
     )
-    assert entry.variance_quantity == Decimal(
+    assert m20_entry.variance_quantity == Decimal(
         "0.000"
     )
     assert (
-        entry.status
+        m20_entry.status
+        == ReconciliationEntryStatus.WITHIN_TOLERANCE
+    )
+
+    assert m25_entry.actual_quantity == Decimal(
+        "20.000"
+    )
+    assert (
+        m25_entry.theoretical_or_book_quantity
+        == Decimal("20.000")
+    )
+    assert m25_entry.variance_quantity == Decimal(
+        "0.000"
+    )
+    assert (
+        m25_entry.status
         == ReconciliationEntryStatus.WITHIN_TOLERANCE
     )
 
 
 @pytest.mark.django_db
-def test_variance_falls_back_to_blank_grade_when_no_grade_match(
-    cement, period,
+def test_variance_falls_back_to_blank_grade_standard_when_no_grade_match(
+    cement, category, period,
 ):
+    # No M30-specific rate/mix is configured, so an M30 entry falls
+    # back to the blank-grade company standard - a different tier
+    # (resolve_standard's own fallback), not blending across other
+    # grades' output.
     ItemStandard.objects.create(
         item=cement,
         rate=Decimal("6500.00"),
@@ -249,13 +282,14 @@ def test_variance_falls_back_to_blank_grade_when_no_grade_match(
     )
 
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M30",
         output_quantity=Decimal("100.000"),
     )
 
     entry = period.entries.create(
         item=cement,
+        grade_label="M30",
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("8.000"),
@@ -269,7 +303,7 @@ def test_variance_falls_back_to_blank_grade_when_no_grade_match(
 
 @pytest.mark.django_db
 def test_variance_not_calculated_when_grade_unconfigured(
-    cement, period,
+    cement, category, period,
 ):
     ItemStandard.objects.create(
         item=cement,
@@ -280,7 +314,7 @@ def test_variance_not_calculated_when_grade_unconfigured(
     )
 
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M45",
         output_quantity=Decimal("100.000"),
     )
@@ -304,9 +338,11 @@ def test_variance_not_calculated_when_grade_unconfigured(
 
 
 @pytest.mark.django_db
-def test_variance_value_uses_weighted_average_rate_across_grades(
-    cement, period,
+def test_variance_value_uses_this_entrys_own_grade_rate(
+    cement, category, period,
 ):
+    # Each grade's entry is priced at its OWN grade's rate - no
+    # averaging across other grades produced the same period.
     ItemStandard.objects.create(
         item=cement,
         grade_label="M20",
@@ -323,32 +359,45 @@ def test_variance_value_uses_weighted_average_rate_across_grades(
     )
 
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M20",
         output_quantity=Decimal("100.000"),
     )
     period.output_entries.create(
-        item=cement,
+        category=category,
         grade_label="M25",
         output_quantity=Decimal("100.000"),
     )
 
-    # theoretical = 100*0.30 + 100*0.40 = 70
-    # weighted rate = (100*6000 + 100*8000) / 200 = 7000
-    # actual = 10+30-0 = 40 - the site used less than the recipe
-    # called for, so variance (theoretical - actual) is a positive
-    # "profit": 70-40 = 30
-    # variance_value = 30 * 7000 = 210000.00
-    entry = period.entries.create(
+    # theoretical(M20) = 100*0.30 = 30, actual = 5+20-0 = 25 - a
+    # saving of 5, priced at M20's own rate of 6000.
+    m20_entry = period.entries.create(
         item=cement,
-        opening_stock=Decimal("10.000"),
+        grade_label="M20",
+        opening_stock=Decimal("5.000"),
+        receipts=Decimal("20.000"),
+        closing_stock=Decimal("0.000"),
+    )
+    # theoretical(M25) = 100*0.40 = 40, actual = 5+30-0 = 35 - a
+    # saving of 5, priced at M25's own rate of 8000.
+    m25_entry = period.entries.create(
+        item=cement,
+        grade_label="M25",
+        opening_stock=Decimal("5.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
     )
 
-    assert entry.variance_quantity == Decimal(
-        "30.000"
+    assert m20_entry.variance_quantity == Decimal(
+        "5.000"
     )
-    assert entry.variance_value == Decimal(
-        "210000.00"
+    assert m20_entry.variance_value == Decimal(
+        "30000.00"
+    )
+
+    assert m25_entry.variance_quantity == Decimal(
+        "5.000"
+    )
+    assert m25_entry.variance_value == Decimal(
+        "40000.00"
     )

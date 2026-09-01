@@ -25,6 +25,7 @@ import {
   useActivateReconciliationItemStandard,
   useCreateReconciliationItemStandard,
   useDeactivateReconciliationItemStandard,
+  useReconciliationItemCategories,
   useReconciliationItemStandardExport,
   useReconciliationItemStandards,
   useReconciliationItems,
@@ -95,6 +96,7 @@ const emptyForm = {
 };
 
 function ItemStandardForm({
+  categoriesById,
   error,
   isSubmitting,
   items,
@@ -132,6 +134,11 @@ function ItemStandardForm({
   const isNormBased =
     selectedItem?.reconciliation_type ===
     "NORM_BASED";
+  const selectedCategory = selectedItem
+    ? categoriesById.get(selectedItem.category)
+    : null;
+  const availableGrades =
+    selectedCategory?.grades ?? [];
 
   return (
     <ManagementPanel
@@ -189,7 +196,34 @@ function ItemStandardForm({
           </select>
         </label>
 
-        {isNormBased ? (
+        {isNormBased &&
+        availableGrades.length ? (
+          <label className="form-field">
+            <span>Grade (optional)</span>
+            <select
+              value={form.grade_label}
+              onChange={(event) =>
+                setField(
+                  "grade_label",
+                  event.target.value,
+                )
+              }
+              disabled={Boolean(standard)}
+            >
+              <option value="">
+                Every grade (company-wide)
+              </option>
+              {availableGrades.map((grade) => (
+                <option
+                  key={grade}
+                  value={grade}
+                >
+                  {grade}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : isNormBased ? (
           <label className="form-field">
             <span>Grade (optional)</span>
             <input
@@ -203,6 +237,11 @@ function ItemStandardForm({
               disabled={Boolean(standard)}
               placeholder="Leave blank to apply to every grade, or set e.g. M20"
             />
+            <span className="table-subtext">
+              {selectedCategory
+                ? `${selectedCategory.category_name} has no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
+                : ""}
+            </span>
           </label>
         ) : null}
 
@@ -342,6 +381,11 @@ export function StoreItemStandardManagementPage() {
     page_size: 500,
     is_active: true,
   });
+  const categoriesQuery =
+    useReconciliationItemCategories({
+      page_size: 500,
+      is_active: true,
+    });
   const exportQuery =
     useReconciliationItemStandardExport(
       exportParams,
@@ -358,6 +402,17 @@ export function StoreItemStandardManagementPage() {
   const standards =
     standardsQuery.data?.items ?? [];
   const items = itemsQuery.data?.items ?? [];
+  // Lets the form show/enforce each item's own category's
+  // configured grade list instead of a free-text Grade field.
+  const categoriesById = useMemo(
+    () =>
+      new Map(
+        (categoriesQuery.data?.items ?? []).map(
+          (category) => [category.id, category],
+        ),
+      ),
+    [categoriesQuery.data],
+  );
   const csvFileInputRef = useRef(null);
   const csvImport = useCsvImportControl({
     resource: "item_standards",
@@ -710,6 +765,7 @@ export function StoreItemStandardManagementPage() {
 
       {isFormOpen ? (
         <ItemStandardForm
+          categoriesById={categoriesById}
           error={
             createStandard.error ??
             updateStandard.error

@@ -26,6 +26,7 @@ import {
   useActivateReconciliationSiteItemConfig,
   useCreateReconciliationSiteItemConfig,
   useDeactivateReconciliationSiteItemConfig,
+  useReconciliationItemCategories,
   useReconciliationItems,
   useReconciliationSiteItemConfigExport,
   useReconciliationSiteItemConfigs,
@@ -103,6 +104,7 @@ function findItemIdByCode(items, code) {
 }
 
 function SiteItemConfigForm({
+  categoriesById,
   config,
   error,
   isSubmitting,
@@ -151,6 +153,11 @@ function SiteItemConfigForm({
   const isNormBased =
     selectedItem?.reconciliation_type ===
     "NORM_BASED";
+  const selectedCategory = selectedItem
+    ? categoriesById.get(selectedItem.category)
+    : null;
+  const availableGrades =
+    selectedCategory?.grades ?? [];
   const isMonthOnly = form.scope === "PERIOD";
 
   const handleFormSubmit = async (event) => {
@@ -333,7 +340,35 @@ function SiteItemConfigForm({
           </label>
         </div>
 
-        {isNormBased ? (
+        {isNormBased &&
+        availableGrades.length ? (
+          <label className="form-field">
+            <span>Grade (optional)</span>
+            <select
+              value={form.grade_label}
+              onChange={(event) =>
+                setField(
+                  "grade_label",
+                  event.target.value,
+                )
+              }
+              disabled={Boolean(config)}
+            >
+              <option value="">
+                Every grade (this site's
+                blanket override)
+              </option>
+              {availableGrades.map((grade) => (
+                <option
+                  key={grade}
+                  value={grade}
+                >
+                  {grade}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : isNormBased ? (
           <label className="form-field">
             <span>Grade (optional)</span>
             <input
@@ -347,6 +382,11 @@ function SiteItemConfigForm({
               disabled={Boolean(config)}
               placeholder="Leave blank to apply to every grade, or set e.g. M20"
             />
+            <span className="table-subtext">
+              {selectedCategory
+                ? `${selectedCategory.category_name} has no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
+                : ""}
+            </span>
           </label>
         ) : null}
 
@@ -497,6 +537,11 @@ export function StoreSiteItemConfigManagementPage() {
     page_size: 500,
     is_active: true,
   });
+  const categoriesQuery =
+    useReconciliationItemCategories({
+      page_size: 500,
+      is_active: true,
+    });
   const sitesQuery = useSitesDropdown();
   const exportQuery =
     useReconciliationSiteItemConfigExport(
@@ -514,6 +559,17 @@ export function StoreSiteItemConfigManagementPage() {
   const configs = configsQuery.data?.items ?? [];
   const items = itemsQuery.data?.items ?? [];
   const sites = sitesQuery.data ?? [];
+  // Lets the form show/enforce each item's own category's
+  // configured grade list instead of a free-text Grade field.
+  const categoriesById = useMemo(
+    () =>
+      new Map(
+        (categoriesQuery.data?.items ?? []).map(
+          (category) => [category.id, category],
+        ),
+      ),
+    [categoriesQuery.data],
+  );
   const csvFileInputRef = useRef(null);
   const csvImport = useCsvImportControl({
     resource: "site_item_configs",
@@ -913,6 +969,7 @@ export function StoreSiteItemConfigManagementPage() {
 
       {isFormOpen ? (
         <SiteItemConfigForm
+          categoriesById={categoriesById}
           config={editingConfig}
           error={
             createConfig.error ??

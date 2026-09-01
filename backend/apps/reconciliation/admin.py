@@ -3,6 +3,7 @@ from django.contrib import admin
 from apps.reconciliation.models import (
     Item,
     ItemCategory,
+    ItemCategoryGrade,
     ItemStandard,
     ReconciliationApprovalStep,
     ReconciliationEntry,
@@ -14,17 +15,25 @@ from apps.reconciliation.models import (
 )
 
 
+class ItemCategoryGradeInline(admin.TabularInline):
+    model = ItemCategoryGrade
+    extra = 0
+    fields = ["grade_label", "display_order"]
+
+
 @admin.register(ItemCategory)
 class ItemCategoryAdmin(admin.ModelAdmin):
     list_display = [
         "category_code",
         "category_name",
+        "is_production_output",
         "display_order",
         "is_active",
         "updated_at",
     ]
     list_filter = [
         "is_active",
+        "is_production_output",
     ]
     search_fields = [
         "category_code",
@@ -35,6 +44,7 @@ class ItemCategoryAdmin(admin.ModelAdmin):
         "display_order",
         "category_name",
     ]
+    inlines = [ItemCategoryGradeInline]
 
 
 @admin.register(Item)
@@ -178,13 +188,13 @@ class ReconciliationOutputEntryAdmin(
 ):
     list_display = [
         "period",
-        "item",
+        "category",
         "grade_label",
         "output_quantity",
     ]
     search_fields = [
-        "item__item_code",
-        "item__item_name",
+        "category__category_code",
+        "category__category_name",
     ]
 
 

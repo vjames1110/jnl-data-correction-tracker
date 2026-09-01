@@ -25,7 +25,7 @@ import {
   useActivateReconciliationItem,
   useCreateReconciliationItem,
   useDeactivateReconciliationItem,
-  useReconciliationItemCategoriesDropdown,
+  useReconciliationItemCategories,
   useReconciliationItemExport,
   useReconciliationItems,
   useUpdateReconciliationItem,
@@ -75,7 +75,7 @@ const IMPORT_SAMPLE_ROW = {
   is_active: "true",
 };
 const IMPORT_NOTE =
-  "category_code must match an existing Item Category's code (see its Export). reconciliation_type is NORM_BASED or DIRECT_COUNT. item_code is generated automatically.";
+  "category_code must match an existing Item Category's code (see its Export) - a category flagged as a production type there makes every item assigned to it one of its recipe materials. reconciliation_type is NORM_BASED or DIRECT_COUNT. item_code is generated automatically.";
 
 const emptyForm = {
   item_code: "",
@@ -187,6 +187,15 @@ function ItemForm({
                 >
                   {category.code} -{" "}
                   {category.label}
+                  {category.is_production_output
+                    ? ` (${
+                        category.grades?.length
+                          ? category.grades.join(
+                              ", ",
+                            )
+                          : "no grades yet"
+                      })`
+                    : ""}
                 </option>
               ))}
             </select>
@@ -336,7 +345,10 @@ export function StoreItemManagementPage() {
   const itemsQuery =
     useReconciliationItems(queryParams);
   const categoriesQuery =
-    useReconciliationItemCategoriesDropdown();
+    useReconciliationItemCategories({
+      page_size: 500,
+      is_active: true,
+    });
   const exportQuery =
     useReconciliationItemExport(exportParams);
   const createItem = useCreateReconciliationItem();
@@ -345,8 +357,25 @@ export function StoreItemManagementPage() {
     useActivateReconciliationItem();
   const deactivateItem =
     useDeactivateReconciliationItem();
-  const categoryOptions =
-    categoriesQuery.data ?? [];
+  // Normalized to the {id, code, label} shape the CSV import's
+  // findByCode() and the category filter/picker dropdowns already
+  // expect, with grades/is_production_output added on top so the
+  // Item form can show each production category's configured
+  // grades right in the picker.
+  const categoryOptions = useMemo(
+    () =>
+      (categoriesQuery.data?.items ?? []).map(
+        (category) => ({
+          id: category.id,
+          code: category.category_code,
+          label: category.category_name,
+          is_production_output:
+            category.is_production_output,
+          grades: category.grades ?? [],
+        }),
+      ),
+    [categoriesQuery.data],
+  );
   const csvFileInputRef = useRef(null);
   const csvImport = useCsvImportControl({
     resource: "items",
@@ -546,16 +575,14 @@ export function StoreItemManagementPage() {
               <option value="">
                 All categories
               </option>
-              {(categoriesQuery.data ?? []).map(
-                (category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.code}
-                  </option>
-                ),
-              )}
+              {categoryOptions.map((category) => (
+                <option
+                  key={category.id}
+                  value={category.id}
+                >
+                  {category.code}
+                </option>
+              ))}
             </select>
           </label>
           <label className="filter-control">
@@ -742,9 +769,7 @@ export function StoreItemManagementPage() {
 
       {isFormOpen ? (
         <ItemForm
-          categories={
-            categoriesQuery.data ?? []
-          }
+          categories={categoryOptions}
           error={
             createItem.error ?? updateItem.error
           }

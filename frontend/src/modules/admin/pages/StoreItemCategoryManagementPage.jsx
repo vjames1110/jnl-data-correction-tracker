@@ -46,12 +46,14 @@ import {
 
 const IMPORT_COLUMNS = [
   "category_name",
+  "is_production_output",
   "description",
   "display_order",
   "is_active",
 ];
 const IMPORT_SAMPLE_ROW = {
   category_name: "Concrete Materials",
+  is_production_output: "false",
   description: "Cement, aggregates, sand",
   display_order: "1",
   is_active: "true",
@@ -60,6 +62,10 @@ const IMPORT_SAMPLE_ROW = {
 function normalizeCategoryImportRow(row) {
   return compactPayload({
     category_name: row.category_name,
+    is_production_output: toBoolean(
+      row.is_production_output,
+      false,
+    ),
     description: row.description,
     display_order: toNumber(
       row.display_order,
@@ -71,10 +77,100 @@ function normalizeCategoryImportRow(row) {
 const emptyForm = {
   category_code: "",
   category_name: "",
+  is_production_output: false,
+  grades: [],
   description: "",
   display_order: 0,
   is_active: true,
 };
+
+function GradeChipsField({ grades, onChange }) {
+  const [draft, setDraft] = useState("");
+
+  const addGrade = () => {
+    const label = draft.trim().toUpperCase();
+    if (!label) {
+      return;
+    }
+    if (
+      grades.some(
+        (grade) => grade.toUpperCase() === label,
+      )
+    ) {
+      setDraft("");
+      return;
+    }
+    onChange([...grades, label]);
+    setDraft("");
+  };
+
+  return (
+    <label className="form-field">
+      <span>Grades</span>
+      <div className="grade-chip-list">
+        {grades.length ? (
+          grades.map((grade) => (
+            <span
+              key={grade}
+              className="grade-chip"
+            >
+              {grade}
+              <button
+                type="button"
+                className="grade-chip__remove"
+                onClick={() =>
+                  onChange(
+                    grades.filter(
+                      (existing) =>
+                        existing !== grade,
+                    ),
+                  )
+                }
+                aria-label={`Remove grade ${grade}`}
+              >
+                ×
+              </button>
+            </span>
+          ))
+        ) : (
+          <span className="table-subtext">
+            No grades added yet.
+          </span>
+        )}
+      </div>
+      <div className="grade-chip-input">
+        <input
+          value={draft}
+          onChange={(event) =>
+            setDraft(event.target.value)
+          }
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addGrade();
+            }
+          }}
+          placeholder="e.g. M20"
+        />
+        <button
+          type="button"
+          className="button button--tertiary"
+          onClick={addGrade}
+        >
+          <Plus size={15} />
+          Add Grade
+        </button>
+      </div>
+      <p className="table-subtext">
+        The valid production grades for this
+        category (e.g. M10, M20, M25, M30) -
+        powers the Grade dropdown on Production
+        Output, Company Defaults, and Site
+        Overrides instead of free-typed text.
+      </p>
+    </label>
+  );
+}
 
 function ItemCategoryForm({
   category,
@@ -90,6 +186,10 @@ function ItemCategoryForm({
             category.category_code ?? "",
           category_name:
             category.category_name ?? "",
+          is_production_output:
+            category.is_production_output ??
+            false,
+          grades: category.grades ?? [],
           description:
             category.description ?? "",
           display_order:
@@ -129,6 +229,9 @@ function ItemCategoryForm({
           event.preventDefault();
           onSubmit({
             ...form,
+            grades: form.is_production_output
+              ? form.grades
+              : [],
             display_order: Number(
               form.display_order || 0,
             ),
@@ -159,6 +262,40 @@ function ItemCategoryForm({
             />
           </label>
         </div>
+
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={
+              form.is_production_output
+            }
+            onChange={(event) =>
+              setField(
+                "is_production_output",
+                event.target.checked,
+              )
+            }
+          />
+          <span>
+            This is a production type (e.g.
+            Concrete) - every item assigned to
+            it becomes one of its recipe
+            materials, and it becomes
+            selectable as a product on
+            Production Output. Leave unchecked
+            for an ordinary grouping (e.g.
+            Steel).
+          </span>
+        </label>
+
+        {form.is_production_output ? (
+          <GradeChipsField
+            grades={form.grades}
+            onChange={(grades) =>
+              setField("grades", grades)
+            }
+          />
+        ) : null}
 
         <label className="form-field">
           <span>Description</span>
@@ -315,6 +452,10 @@ export function StoreItemCategoryManagementPage() {
         {
           key: "category_name",
           label: "Category Name",
+        },
+        {
+          key: "is_production_output",
+          label: "Production Type",
         },
         {
           key: "description",
@@ -477,6 +618,7 @@ export function StoreItemCategoryManagementPage() {
                 <tr>
                   <th>Code</th>
                   <th>Category</th>
+                  <th>Type</th>
                   <th>Order</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -496,6 +638,27 @@ export function StoreItemCategoryManagementPage() {
                         {category.description ||
                           "-"}
                       </span>
+                    </td>
+                    <td>
+                      {category.is_production_output ? (
+                        <>
+                          <span className="status-chip status-chip--warning">
+                            Production Type
+                          </span>
+                          <span className="table-subtext">
+                            {category.grades
+                              ?.length
+                              ? category.grades.join(
+                                  ", ",
+                                )
+                              : "No grades added yet"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="table-subtext">
+                          Materials
+                        </span>
+                      )}
                     </td>
                     <td>
                       {category.display_order}

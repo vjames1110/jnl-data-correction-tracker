@@ -1,11 +1,20 @@
-import { useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   Plus,
   Printer,
+  RotateCcw,
   Trash2,
   Upload,
+  XCircle,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +24,7 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { OfflineQueueBanner } from "../../../components/common/OfflineQueueBanner";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import {
+  isApprovalRole,
   isStoreRole,
   USER_ROLES,
 } from "../../../constants/roles";
@@ -22,6 +32,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useOfflineQueue } from "../../../hooks/useOfflineQueue";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
+  useApproveReconciliationPeriod,
   useCreateReconciliationAttachment,
   useCreateReconciliationEntry,
   useCreateReconciliationOutputEntry,
@@ -30,9 +41,12 @@ import {
   useReconciliationAttachments,
   useReconciliationCurrentPeriod,
   useReconciliationEntries,
+  useReconciliationItemCategories,
   useReconciliationItems,
   useReconciliationOutputEntries,
+  useRejectReconciliationPeriod,
   useReopenReconciliationPeriod,
+  useReturnReconciliationPeriod,
   useSubmitReconciliationPeriod,
   useUpdateReconciliationEntry,
   useUpdateReconciliationPeriod,
@@ -146,9 +160,182 @@ function VarianceStatusChip({ status }) {
   );
 }
 
+// A material can now have a separate entry per production grade
+// (mirroring the output side), so an item alone no longer uniquely
+// identifies an entry - every lookup keyed on "which entry is this"
+// needs the grade folded in too.
+function entryKey(itemId, gradeLabel) {
+  return `${itemId}::${gradeLabel || ""}`;
+}
+
+function LocationCell({ section, rack }) {
+  if (!section && !rack) {
+    return "-";
+  }
+  return [section, rack]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function QuantityFields({
+  isNormBased,
+  form,
+  setField,
+}) {
+  if (isNormBased) {
+    return (
+      <div className="entry-compact-col">
+        <label className="entry-compact-field">
+          <span>Opening</span>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={form.opening_stock}
+            onChange={(event) =>
+              setField(
+                "opening_stock",
+                event.target.value,
+              )
+            }
+            className="entry-row-input"
+          />
+        </label>
+        <label className="entry-compact-field">
+          <span>Receipts</span>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={form.receipts}
+            onChange={(event) =>
+              setField(
+                "receipts",
+                event.target.value,
+              )
+            }
+            className="entry-row-input"
+          />
+        </label>
+        <label className="entry-compact-field">
+          <span>Closing</span>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={form.closing_stock}
+            onChange={(event) =>
+              setField(
+                "closing_stock",
+                event.target.value,
+              )
+            }
+            className="entry-row-input"
+          />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <div className="entry-compact-col">
+      <label className="entry-compact-field">
+        <span>Book</span>
+        <input
+          type="number"
+          step="0.001"
+          min="0"
+          value={form.book_stock}
+          onChange={(event) =>
+            setField(
+              "book_stock",
+              event.target.value,
+            )
+          }
+          className="entry-row-input"
+        />
+      </label>
+      <label className="entry-compact-field">
+        <span>Physical</span>
+        <input
+          type="number"
+          step="0.001"
+          min="0"
+          value={form.physical_count}
+          onChange={(event) =>
+            setField(
+              "physical_count",
+              event.target.value,
+            )
+          }
+          className="entry-row-input"
+        />
+      </label>
+    </div>
+  );
+}
+
+function QuantityDisplay({
+  isNormBased,
+  entry,
+}) {
+  if (isNormBased) {
+    return (
+      <div className="entry-compact-col">
+        <span>
+          Opening: {entry?.opening_stock ?? "-"}
+        </span>
+        <span>
+          Receipts: {entry?.receipts ?? "-"}
+        </span>
+        <span>
+          Closing: {entry?.closing_stock ?? "-"}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="entry-compact-col">
+      <span>
+        Book: {entry?.book_stock ?? "-"}
+      </span>
+      <span>
+        Physical:{" "}
+        {entry?.physical_count ?? "-"}
+      </span>
+    </div>
+  );
+}
+
+function ResultDisplay({ entry }) {
+  return (
+    <div className="entry-compact-col">
+      <span>
+        Actual: {entry?.actual_quantity ?? "-"}
+      </span>
+      <span>
+        Theoretical/Book:{" "}
+        {entry?.theoretical_or_book_quantity ??
+          "-"}
+      </span>
+      <span
+        className={varianceCellClass(
+          entry?.variance_quantity,
+        )}
+      >
+        Variance:{" "}
+        {entry?.variance_quantity ?? "-"}
+      </span>
+    </div>
+  );
+}
+
 function EntryRow({
   entry,
   item,
+  gradeLabel,
+  showGradeColumn,
   onSave,
   saving,
   queued,
@@ -202,133 +389,53 @@ function EntryRow({
           {item.item_name}
         </span>
       </td>
+      {showGradeColumn ? (
+        <td>{gradeLabel || "-"}</td>
+      ) : null}
       <td>{item.uom}</td>
       <td>
-        <input
-          type="text"
-          value={form.section}
-          onChange={(event) =>
-            setField(
-              "section",
-              event.target.value,
-            )
-          }
-          placeholder="Optional"
-          className="entry-row-input"
+        <div className="entry-compact-col">
+          <label className="entry-compact-field">
+            <span>Section</span>
+            <input
+              type="text"
+              value={form.section}
+              onChange={(event) =>
+                setField(
+                  "section",
+                  event.target.value,
+                )
+              }
+              placeholder="Optional"
+              className="entry-row-input"
+            />
+          </label>
+          <label className="entry-compact-field">
+            <span>Rack</span>
+            <input
+              type="text"
+              value={form.rack}
+              onChange={(event) =>
+                setField(
+                  "rack",
+                  event.target.value,
+                )
+              }
+              placeholder="Optional"
+              className="entry-row-input"
+            />
+          </label>
+        </div>
+      </td>
+      <td>
+        <QuantityFields
+          isNormBased={isNormBased}
+          form={form}
+          setField={setField}
         />
       </td>
       <td>
-        <input
-          type="text"
-          value={form.rack}
-          onChange={(event) =>
-            setField(
-              "rack",
-              event.target.value,
-            )
-          }
-          placeholder="Optional"
-          className="entry-row-input"
-        />
-      </td>
-      {isNormBased ? (
-        <>
-          <td>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.opening_stock}
-              onChange={(event) =>
-                setField(
-                  "opening_stock",
-                  event.target.value,
-                )
-              }
-              className="entry-row-input"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.receipts}
-              onChange={(event) =>
-                setField(
-                  "receipts",
-                  event.target.value,
-                )
-              }
-              className="entry-row-input"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.closing_stock}
-              onChange={(event) =>
-                setField(
-                  "closing_stock",
-                  event.target.value,
-                )
-              }
-              className="entry-row-input"
-            />
-          </td>
-        </>
-      ) : (
-        <>
-          <td>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.book_stock}
-              onChange={(event) =>
-                setField(
-                  "book_stock",
-                  event.target.value,
-                )
-              }
-              className="entry-row-input"
-            />
-          </td>
-          <td>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.physical_count}
-              onChange={(event) =>
-                setField(
-                  "physical_count",
-                  event.target.value,
-                )
-              }
-              className="entry-row-input"
-            />
-          </td>
-          <td className="table-subtext">
-            n/a
-          </td>
-        </>
-      )}
-      <td>
-        {entry?.actual_quantity ?? "-"}
-      </td>
-      <td>
-        {entry?.theoretical_or_book_quantity ??
-          "-"}
-      </td>
-      <td
-        className={varianceCellClass(
-          entry?.variance_quantity,
-        )}
-      >
-        {entry?.variance_quantity ?? "-"}
+        <ResultDisplay entry={entry} />
       </td>
       <td>
         {queued ? (
@@ -385,6 +492,7 @@ const BLANK_ENTRY_FORM = {
 function SavedEntryRow({
   item,
   entry,
+  showGradeColumn,
   onSave,
   saving,
   queued,
@@ -398,6 +506,8 @@ function SavedEntryRow({
       <EntryRow
         item={item}
         entry={entry}
+        gradeLabel={entry?.grade_label}
+        showGradeColumn={showGradeColumn}
         saving={saving}
         queued={queued}
         onSave={async (payload) => {
@@ -419,35 +529,24 @@ function SavedEntryRow({
           {item.item_name}
         </span>
       </td>
+      {showGradeColumn ? (
+        <td>{entry.grade_label || "-"}</td>
+      ) : null}
       <td>{item.uom}</td>
-      <td>{entry.section || "-"}</td>
-      <td>{entry.rack || "-"}</td>
       <td>
-        {isNormBased
-          ? (entry.opening_stock ?? "-")
-          : (entry.book_stock ?? "-")}
+        <LocationCell
+          section={entry.section}
+          rack={entry.rack}
+        />
       </td>
       <td>
-        {isNormBased
-          ? (entry.receipts ?? "-")
-          : (entry.physical_count ?? "-")}
+        <QuantityDisplay
+          isNormBased={isNormBased}
+          entry={entry}
+        />
       </td>
       <td>
-        {isNormBased
-          ? (entry.closing_stock ?? "-")
-          : "n/a"}
-      </td>
-      <td>{entry.actual_quantity ?? "-"}</td>
-      <td>
-        {entry.theoretical_or_book_quantity ??
-          "-"}
-      </td>
-      <td
-        className={varianceCellClass(
-          entry.variance_quantity,
-        )}
-      >
-        {entry.variance_quantity ?? "-"}
+        <ResultDisplay entry={entry} />
       </td>
       <td>
         {queued ? (
@@ -493,8 +592,76 @@ function SavedEntryRow({
   );
 }
 
+function EntriesTable({
+  rows,
+  isEditable,
+  saving,
+  onSave,
+  emptyMessage,
+  showGradeColumn = false,
+}) {
+  const columnCount =
+    6 +
+    (showGradeColumn ? 1 : 0) +
+    (isEditable ? 1 : 0);
+
+  return (
+    <div className="data-table-wrapper">
+      <table className="data-table reco-entries-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            {showGradeColumn ? (
+              <th>Grade</th>
+            ) : null}
+            <th>UOM</th>
+            <th>Location</th>
+            <th>Quantities</th>
+            <th>Result</th>
+            <th>Status</th>
+            {isEditable ? <th>Edit</th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ item, entry, queued }) => (
+            <SavedEntryRow
+              key={`${item.id}-${
+                entry?.grade_label ?? ""
+              }-${entry?.updated_at ?? "pending"}`}
+              item={item}
+              entry={entry}
+              queued={queued}
+              editable={isEditable}
+              showGradeColumn={showGradeColumn}
+              saving={saving}
+              onSave={(payload) =>
+                onSave(
+                  item,
+                  payload,
+                  entry?.grade_label ?? "",
+                )
+              }
+            />
+          ))}
+          {!rows.length ? (
+            <tr>
+              <td
+                colSpan={columnCount}
+                className="table-empty-state"
+              >
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AddEntryForm({
   availableItems,
+  gradeLabel = "",
   onSubmit,
   submitting,
 }) {
@@ -538,7 +705,11 @@ function AddEntryForm({
         };
     payload.section = form.section || "";
     payload.rack = form.rack || "";
-    await onSubmit(selectedItem, payload);
+    await onSubmit(
+      selectedItem,
+      payload,
+      gradeLabel,
+    );
     setItemId("");
     setForm(BLANK_ENTRY_FORM);
   };
@@ -546,17 +717,26 @@ function AddEntryForm({
   if (!availableItems.length) {
     return (
       <p className="table-subtext">
-        Every active item already has an entry
-        this period.
+        Every item{" "}
+        {gradeLabel
+          ? `for grade ${gradeLabel}`
+          : "here"}{" "}
+        already has an entry this period.
       </p>
     );
   }
 
   return (
     <form
-      className="site-toolbar"
+      className="entry-form-row"
       onSubmit={handleSubmit}
     >
+      {gradeLabel ? (
+        <div className="entry-form-row__badge">
+          <span>Grade</span>
+          <strong>{gradeLabel}</strong>
+        </div>
+      ) : null}
       <label className="filter-control">
         <span>Item</span>
         <select
@@ -774,62 +954,163 @@ function ApprovalStatusBanner({ period }) {
   return null;
 }
 
+// Approve/Return/Reject right from the read-only "View Entries"
+// page a Director opens from their Approval Inbox - the same
+// mutations InboxRow uses, so a reviewer doesn't have to leave,
+// remember the numbers, then go back to the inbox to act on them.
+function DirectorApprovalPanel({ period }) {
+  const [comment, setComment] = useState("");
+  const approve = useApproveReconciliationPeriod();
+  const reject = useRejectReconciliationPeriod();
+  const returnForCorrection =
+    useReturnReconciliationPeriod();
+
+  const isPending =
+    approve.isPending ||
+    reject.isPending ||
+    returnForCorrection.isPending;
+  const error =
+    approve.error ??
+    reject.error ??
+    returnForCorrection.error;
+
+  return (
+    <div className="director-approval-panel print-hidden">
+      {error ? (
+        <div className="inline-alert inline-alert--error">
+          {error?.message}
+        </div>
+      ) : null}
+      <label className="form-field">
+        <span>
+          Comment (required for Return / Reject)
+        </span>
+        <textarea
+          rows={2}
+          value={comment}
+          onChange={(event) =>
+            setComment(event.target.value)
+          }
+          placeholder="Add a comment..."
+        />
+      </label>
+      <div className="management-panel__actions">
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={isPending}
+          onClick={() =>
+            approve.mutate({
+              id: period.id,
+              comment,
+            })
+          }
+        >
+          <CheckCircle2 size={15} />
+          Approve
+        </button>
+        <button
+          type="button"
+          className="button button--secondary"
+          disabled={isPending || !comment.trim()}
+          onClick={() =>
+            returnForCorrection.mutate({
+              id: period.id,
+              comment,
+            })
+          }
+        >
+          <RotateCcw size={15} />
+          Return For Correction
+        </button>
+        <button
+          type="button"
+          className="button button--tertiary"
+          disabled={isPending || !comment.trim()}
+          onClick={() =>
+            reject.mutate({
+              id: period.id,
+              comment,
+            })
+          }
+        >
+          <XCircle size={15} />
+          Reject
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OutputEntryForm({
-  items,
+  categories,
   onSubmit,
   submitting,
 }) {
   const [form, setForm] = useState({
-    item: "",
+    category: "",
     grade_label: "",
     output_quantity: "",
   });
+
+  const selectedCategory = categories.find(
+    (category) => category.id === form.category,
+  );
+  const availableGrades =
+    selectedCategory?.grades ?? [];
 
   return (
     <form
       className="site-toolbar"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!form.item || !form.output_quantity) {
+        if (
+          !form.category ||
+          !form.grade_label ||
+          !form.output_quantity
+        ) {
           return;
         }
         onSubmit(form);
         setForm({
-          item: "",
+          category: "",
           grade_label: "",
           output_quantity: "",
         });
       }}
     >
       <label className="filter-control">
-        <span>Item</span>
+        <span>Product</span>
         <select
-          value={form.item}
+          value={form.category}
           onChange={(event) =>
             setForm((current) => ({
               ...current,
-              item: event.target.value,
+              category: event.target.value,
+              // A different product's grade list rarely overlaps
+              // with the last one picked - reset rather than risk
+              // submitting a grade that belongs to the old product.
+              grade_label: "",
             }))
           }
           required
         >
           <option value="" disabled hidden>
-            Select item
+            Select product
           </option>
-          {items.map((item) => (
+          {categories.map((category) => (
             <option
-              key={item.id}
-              value={item.id}
+              key={category.id}
+              value={category.id}
             >
-              {item.item_code} -{" "}
-              {item.item_name}
+              {category.category_name}
             </option>
           ))}
         </select>
       </label>
       <label className="filter-control">
-        <span>Grade (optional)</span>
-        <input
+        <span>Grade</span>
+        <select
           value={form.grade_label}
           onChange={(event) =>
             setForm((current) => ({
@@ -837,8 +1118,22 @@ function OutputEntryForm({
               grade_label: event.target.value,
             }))
           }
-          placeholder="M20, M25..."
-        />
+          disabled={!availableGrades.length}
+          required
+        >
+          <option value="" disabled hidden>
+            {!selectedCategory
+              ? "Select a product first"
+              : availableGrades.length
+                ? "Select grade"
+                : "No grades configured"}
+          </option>
+          {availableGrades.map((grade) => (
+            <option key={grade} value={grade}>
+              {grade}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="filter-control">
         <span>Output Quantity</span>
@@ -865,6 +1160,18 @@ function OutputEntryForm({
         <Plus size={15} />
         Add Output
       </button>
+      {selectedCategory &&
+      !availableGrades.length ? (
+        <p
+          className="table-subtext"
+          style={{ gridColumn: "1 / -1" }}
+        >
+          {selectedCategory.category_name} has no
+          grades configured yet - add some in
+          Item Category Management before logging
+          output for it.
+        </p>
+      ) : null}
     </form>
   );
 }
@@ -1082,11 +1389,11 @@ export function StoreEntryPage() {
   const isStoreHo =
     user?.role === USER_ROLES.STORE_HO;
   const [searchParams] = useSearchParams();
-  const [pendingByItemId, setPendingByItemId] =
+  const [pendingByKey, setPendingByKey] =
     useState(new Map());
   const offlineQueue = useOfflineQueue({
     onSynced: () => {
-      setPendingByItemId(new Map());
+      setPendingByKey(new Map());
       queryClient.invalidateQueries({
         queryKey: ["reconciliation"],
       });
@@ -1103,6 +1410,11 @@ export function StoreEntryPage() {
   const csvInputRef = useRef(null);
   const [csvMessage, setCsvMessage] =
     useState("");
+  // Which production-output row's materials panel is open - one at
+  // a time, since every panel shows the same period-wide material
+  // list regardless of which output batch you expanded.
+  const [expandedOutputId, setExpandedOutputId] =
+    useState(null);
 
   const sitesQuery = useSitesDropdown();
 
@@ -1125,6 +1437,11 @@ export function StoreEntryPage() {
     page_size: 500,
     is_active: true,
   });
+  const categoriesQuery =
+    useReconciliationItemCategories({
+      page_size: 500,
+      is_active: true,
+    });
   const entriesQuery = useReconciliationEntries(
     period ? { period: period.id } : undefined,
   );
@@ -1150,21 +1467,44 @@ export function StoreEntryPage() {
     () => itemsQuery.data?.items ?? [],
     [itemsQuery.data],
   );
+  const categories = useMemo(
+    () => categoriesQuery.data?.items ?? [],
+    [categoriesQuery.data],
+  );
   const entries = useMemo(
     () => entriesQuery.data ?? [],
     [entriesQuery.data],
   );
   const outputEntries =
     outputEntriesQuery.data ?? [];
-  const normBasedItems = items.filter(
-    (item) =>
-      item.reconciliation_type === "NORM_BASED",
+  // The Production Output form only ever offers categories flagged
+  // as a production type (e.g. Concrete) - every item assigned to
+  // one of these categories is one of its recipe materials, and is
+  // reconciled through the category's expanded panel below instead
+  // of being selectable as a product itself.
+  const productionTypeCategories = categories.filter(
+    (category) => category.is_production_output,
+  );
+  const productionTypeCategoryIds = useMemo(
+    () =>
+      new Set(
+        productionTypeCategories.map(
+          (category) => category.id,
+        ),
+      ),
+    [productionTypeCategories],
   );
 
-  const entryByItemId = useMemo(() => {
+  // Keyed by entryKey(itemId, gradeLabel) - a material can now have
+  // a separate entry per production grade, so item id alone no
+  // longer identifies a unique entry.
+  const entryByKey = useMemo(() => {
     const map = new Map();
     entries.forEach((entry) => {
-      map.set(entry.item, entry);
+      map.set(
+        entryKey(entry.item, entry.grade_label),
+        entry,
+      );
     });
     return map;
   }, [entries]);
@@ -1177,37 +1517,84 @@ export function StoreEntryPage() {
     [items],
   );
 
-  const enteredItemIds = useMemo(() => {
+  const enteredKeys = useMemo(() => {
     const set = new Set(
-      entries.map((entry) => entry.item),
+      entries.map((entry) =>
+        entryKey(entry.item, entry.grade_label),
+      ),
     );
-    pendingByItemId.forEach((_, itemId) =>
-      set.add(itemId),
+    pendingByKey.forEach((_, key) =>
+      set.add(key),
     );
     return set;
-  }, [entries, pendingByItemId]);
+  }, [entries, pendingByKey]);
 
-  // Items that don't have an entry yet this period - the pool the
-  // "add an item" form picks from, so the same item can't be added
-  // twice and the list naturally shrinks as entries are added.
+  // Items with no blank-grade entry yet this period - the pool the
+  // standalone "Other Items" add form picks from (those items are
+  // never tied to a production grade, so they only ever get one,
+  // blank-grade entry).
   const itemsAvailableToAdd = useMemo(
     () =>
       items.filter(
-        (item) => !enteredItemIds.has(item.id),
+        (item) =>
+          !enteredKeys.has(entryKey(item.id, "")),
       ),
-    [items, enteredItemIds],
+    [items, enteredKeys],
   );
 
-  // One row per item that actually has an entry (server-saved or
-  // still offline-queued) - sourced from the entries themselves
-  // (which already carry their own item_code/name/uom) rather than
-  // the active items list, so a since-deactivated item's submitted
-  // entry still shows up correctly.
+  // A material is only ever added from inside its own category's
+  // production-output panel, if that category is a production type
+  // - it's consumed according to that product's recipe, not entered
+  // standalone. Items whose category isn't a production type at all
+  // (e.g. Steel) have no product to belong to, so they keep their
+  // own add flow in a standalone section instead. Within a
+  // production category, the same material can still be added again
+  // for a different grade - only an entry for THIS exact grade
+  // excludes it from this panel's pool.
+  const availableToAddByCategory = (
+    categoryId,
+    gradeLabel,
+  ) =>
+    items.filter(
+      (item) =>
+        item.category === categoryId &&
+        !enteredKeys.has(
+          entryKey(item.id, gradeLabel),
+        ),
+    );
+  const otherAvailableToAdd = useMemo(
+    () =>
+      itemsAvailableToAdd.filter(
+        (item) =>
+          !productionTypeCategoryIds.has(
+            item.category,
+          ),
+      ),
+    [
+      itemsAvailableToAdd,
+      productionTypeCategoryIds,
+    ],
+  );
+  const hasOtherItems = items.some(
+    (item) =>
+      !productionTypeCategoryIds.has(
+        item.category,
+      ),
+  );
+
+  // One row per (item, grade) entry that actually exists
+  // (server-saved or still offline-queued) - sourced from the
+  // entries themselves (which already carry their own
+  // item_code/name/uom) rather than the active items list, so a
+  // since-deactivated item's submitted entry still shows up
+  // correctly.
   const entriesForDisplay = useMemo(() => {
     const rows = entries.map((serverEntry) => {
-      const pending = pendingByItemId.get(
+      const key = entryKey(
         serverEntry.item,
+        serverEntry.grade_label,
       );
+      const pending = pendingByKey.get(key);
       const entry = pending
         ? {
             ...serverEntry,
@@ -1231,30 +1618,52 @@ export function StoreEntryPage() {
       };
     });
 
-    pendingByItemId.forEach(
-      (pending, itemId) => {
-        if (entryByItemId.has(itemId)) {
-          return;
-        }
-        const item = itemById.get(itemId);
-        if (!item) {
-          return;
-        }
-        rows.push({
-          item,
-          entry: pending.payload,
-          queued: true,
-        });
-      },
-    );
+    pendingByKey.forEach((pending, key) => {
+      if (entryByKey.has(key)) {
+        return;
+      }
+      const item = itemById.get(pending.itemId);
+      if (!item) {
+        return;
+      }
+      rows.push({
+        item,
+        entry: {
+          ...pending.payload,
+          item: pending.itemId,
+          grade_label: pending.gradeLabel ?? "",
+        },
+        queued: true,
+      });
+    });
 
     return rows;
   }, [
     entries,
-    pendingByItemId,
+    pendingByKey,
     itemById,
-    entryByItemId,
+    entryByKey,
   ]);
+
+  // The materials list shown inside an expanded production-output
+  // row - every item belonging to that exact category AND matching
+  // this exact grade (blank included), whether already entered or
+  // still queued/offline. A material with entries for more than one
+  // grade shows up in each grade's own panel, never blended
+  // together. Items in a different (or no) production-type category
+  // are excluded; they show up only in the flat table below and in
+  // their own add section, since they don't belong to this
+  // product's recipe.
+  const entriesForDisplayByCategory = (
+    categoryId,
+    gradeLabel,
+  ) =>
+    entriesForDisplay.filter(
+      ({ item, entry }) =>
+        item.category === categoryId &&
+        (entry?.grade_label ?? "") ===
+          (gradeLabel ?? ""),
+    );
 
   // Director can open this page (read-only) from the approval
   // inbox's "View Entries" link, but only Store HO/Admin/Super
@@ -1266,8 +1675,13 @@ export function StoreEntryPage() {
     canEditPeriod &&
     (!period || period.status === "DRAFT");
 
-  const queueEntrySave = (item, payload) => {
-    const existing = entryByItemId.get(item.id);
+  const queueEntrySave = (
+    item,
+    payload,
+    gradeLabel = "",
+  ) => {
+    const key = entryKey(item.id, gradeLabel);
+    const existing = entryByKey.get(key);
 
     if (existing) {
       const queuedAction = offlineOutbox.enqueue({
@@ -1278,21 +1692,21 @@ export function StoreEntryPage() {
         label: `${item.item_code} (update)`,
       });
       offlineQueue.refreshQueueCount();
-      setPendingByItemId((current) => {
+      setPendingByKey((current) => {
         const next = new Map(current);
-        next.set(item.id, {
+        next.set(key, {
           payload,
           actionId: queuedAction.id,
           isCreate: false,
+          itemId: item.id,
+          gradeLabel,
         });
         return next;
       });
       return;
     }
 
-    const existingPending = pendingByItemId.get(
-      item.id,
-    );
+    const existingPending = pendingByKey.get(key);
     const clientId =
       existingPending?.clientId ??
       offlineOutbox.generateId();
@@ -1302,31 +1716,39 @@ export function StoreEntryPage() {
         id: clientId,
         period: period.id,
         item: item.id,
+        grade_label: gradeLabel,
         ...payload,
       },
-      dedupeKey: `create-entry-${period.id}-${item.id}`,
-      label: `${item.item_code} (new)`,
+      dedupeKey: `create-entry-${period.id}-${item.id}-${gradeLabel}`,
+      label: `${item.item_code}${
+        gradeLabel ? ` (${gradeLabel})` : ""
+      } (new)`,
     });
     offlineQueue.refreshQueueCount();
-    setPendingByItemId((current) => {
+    setPendingByKey((current) => {
       const next = new Map(current);
-      next.set(item.id, {
-        payload,
+      next.set(key, {
+        payload: {
+          ...payload,
+          grade_label: gradeLabel,
+        },
         actionId: queuedAction.id,
         isCreate: true,
         clientId,
+        itemId: item.id,
+        gradeLabel,
       });
       return next;
     });
   };
 
-  const clearPending = (itemId) => {
-    setPendingByItemId((current) => {
-      if (!current.has(itemId)) {
+  const clearPending = (key) => {
+    setPendingByKey((current) => {
+      if (!current.has(key)) {
         return current;
       }
       const next = new Map(current);
-      next.delete(itemId);
+      next.delete(key);
       return next;
     });
   };
@@ -1334,13 +1756,15 @@ export function StoreEntryPage() {
   const handleSaveEntry = async (
     item,
     payload,
+    gradeLabel = "",
   ) => {
     if (!offlineQueue.isOnline) {
-      queueEntrySave(item, payload);
+      queueEntrySave(item, payload, gradeLabel);
       return;
     }
 
-    const existing = entryByItemId.get(item.id);
+    const key = entryKey(item.id, gradeLabel);
+    const existing = entryByKey.get(key);
     try {
       if (existing) {
         await updateEntry.mutateAsync({
@@ -1351,13 +1775,14 @@ export function StoreEntryPage() {
         await createEntry.mutateAsync({
           period: period.id,
           item: item.id,
+          grade_label: gradeLabel,
           ...payload,
         });
       }
-      clearPending(item.id);
+      clearPending(key);
     } catch (error) {
       if (isNetworkError(error)) {
-        queueEntrySave(item, payload);
+        queueEntrySave(item, payload, gradeLabel);
       } else {
         throw error;
       }
@@ -1481,8 +1906,8 @@ export function StoreEntryPage() {
         continue;
       }
 
-      const existing = entryByItemId.get(
-        item.id,
+      const existing = entryByKey.get(
+        entryKey(item.id, ""),
       );
       if (existing) {
         await updateEntry.mutateAsync({
@@ -1750,6 +2175,13 @@ export function StoreEntryPage() {
               <ApprovalStatusBanner
                 period={period}
               />
+              {isApprovalRole(user?.role) &&
+              period.status ===
+                "PENDING_APPROVAL" ? (
+                <DirectorApprovalPanel
+                  period={period}
+                />
+              ) : null}
               {isEditable ? (
                 <button
                   type="button"
@@ -1821,87 +2253,296 @@ export function StoreEntryPage() {
             isEditable={isEditable}
           />
 
-          {normBasedItems.length ? (
+          <SurfaceCard className="print-hidden">
+            <div className="surface-card__header">
+              <h2>Production Output</h2>
+            </div>
+            <div className="surface-card__body">
+              {productionTypeCategories.length ? (
+                <>
+                  {isEditable ? (
+                    <OutputEntryForm
+                      categories={
+                        productionTypeCategories
+                      }
+                      submitting={
+                        createOutputEntry.isPending
+                      }
+                      onSubmit={
+                        handleCreateOutputEntry
+                      }
+                    />
+                  ) : null}
+                  <p className="table-subtext">
+                    Click a row to see the
+                    materials it's made from and
+                    record what was actually used.
+                  </p>
+                  <div className="data-table-wrapper">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th />
+                          <th>Product</th>
+                          <th>Grade</th>
+                          <th>Quantity</th>
+                          {isEditable ? (
+                            <th>Actions</th>
+                          ) : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {outputEntries.map(
+                          (output) => {
+                            const isExpanded =
+                              expandedOutputId ===
+                              output.id;
+                            return (
+                              <Fragment
+                                key={output.id}
+                              >
+                                <tr
+                                  className="reco-output-row"
+                                  onClick={() =>
+                                    setExpandedOutputId(
+                                      isExpanded
+                                        ? null
+                                        : output.id,
+                                    )
+                                  }
+                                >
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="icon-button"
+                                      aria-label={
+                                        isExpanded
+                                          ? "Hide materials"
+                                          : "Show materials"
+                                      }
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp
+                                          size={
+                                            15
+                                          }
+                                        />
+                                      ) : (
+                                        <ChevronDown
+                                          size={
+                                            15
+                                          }
+                                        />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td>
+                                    {
+                                      output.category_name
+                                    }
+                                  </td>
+                                  <td>
+                                    {output.grade_label ||
+                                      "-"}
+                                  </td>
+                                  <td>
+                                    {
+                                      output.output_quantity
+                                    }
+                                  </td>
+                                  {isEditable ? (
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className="icon-button"
+                                        onClick={(
+                                          event,
+                                        ) => {
+                                          event.stopPropagation();
+                                          handleDeleteOutputEntry(
+                                            output.id,
+                                          );
+                                        }}
+                                        aria-label="Delete output entry"
+                                      >
+                                        <Trash2
+                                          size={
+                                            15
+                                          }
+                                        />
+                                      </button>
+                                    </td>
+                                  ) : null}
+                                </tr>
+                                {isExpanded ? (
+                                  <tr>
+                                    <td
+                                      colSpan={
+                                        isEditable
+                                          ? 5
+                                          : 4
+                                      }
+                                    >
+                                      <div className="reco-output-detail">
+                                        <p className="table-subtext">
+                                          Materials
+                                          used to
+                                          make{" "}
+                                          {
+                                            output.category_name
+                                          }
+                                          {output.grade_label
+                                            ? ` (${output.grade_label})`
+                                            : ""}
+                                          . Theoretical
+                                          comes
+                                          from the
+                                          recipe;
+                                          enter
+                                          each
+                                          material's
+                                          actual
+                                          opening/receipts/closing
+                                          below.
+                                        </p>
+                                        {isEditable ? (
+                                          <AddEntryForm
+                                            availableItems={availableToAddByCategory(
+                                              output.category,
+                                              output.grade_label,
+                                            )}
+                                            gradeLabel={
+                                              output.grade_label
+                                            }
+                                            submitting={
+                                              createEntry.isPending ||
+                                              updateEntry.isPending
+                                            }
+                                            onSubmit={(
+                                              item,
+                                              payload,
+                                              gradeLabel,
+                                            ) =>
+                                              handleSaveEntry(
+                                                item,
+                                                payload,
+                                                gradeLabel,
+                                              )
+                                            }
+                                          />
+                                        ) : null}
+                                        <EntriesTable
+                                          rows={entriesForDisplayByCategory(
+                                            output.category,
+                                            output.grade_label,
+                                          )}
+                                          isEditable={
+                                            isEditable
+                                          }
+                                          saving={
+                                            createEntry.isPending ||
+                                            updateEntry.isPending
+                                          }
+                                          onSave={
+                                            handleSaveEntry
+                                          }
+                                          emptyMessage="No materials recorded yet - add one above."
+                                        />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ) : null}
+                              </Fragment>
+                            );
+                          },
+                        )}
+                        {!outputEntries.length ? (
+                          <tr>
+                            <td
+                              colSpan={
+                                isEditable ? 5 : 4
+                              }
+                              className="table-empty-state"
+                            >
+                              No production output
+                              recorded yet.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="table-subtext">
+                  No category is marked as a
+                  production type yet - ask an
+                  administrator to flag one (e.g.
+                  Concrete) in Item Category
+                  Management before this section
+                  can be used.
+                </p>
+              )}
+            </div>
+          </SurfaceCard>
+
+          {hasOtherItems ? (
             <SurfaceCard className="print-hidden">
               <div className="surface-card__header">
-                <h2>Production Output</h2>
-              </div>
-              <div className="surface-card__body">
+                <h2>Other Items</h2>
                 {isEditable ? (
-                  <OutputEntryForm
-                    items={normBasedItems}
-                    submitting={
-                      createOutputEntry.isPending
+                  <label className="button button--secondary">
+                    <Upload size={15} />
+                    Upload Book Stock CSV
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={
+                        handleCsvUpload
+                      }
+                      style={{
+                        display: "none",
+                      }}
+                    />
+                  </label>
+                ) : null}
+              </div>
+              {csvMessage ? (
+                <div className="inline-alert">
+                  {csvMessage}
+                </div>
+              ) : null}
+              <div className="surface-card__body">
+                <p className="table-subtext">
+                  Items not assigned to any
+                  production-type category - no
+                  recipe of their own, so they're
+                  entered directly instead of
+                  through a product's panel above.
+                </p>
+                {isEditable ? (
+                  <AddEntryForm
+                    availableItems={
+                      otherAvailableToAdd
                     }
-                    onSubmit={
-                      handleCreateOutputEntry
+                    submitting={
+                      createEntry.isPending ||
+                      updateEntry.isPending
+                    }
+                    onSubmit={(
+                      item,
+                      payload,
+                      gradeLabel,
+                    ) =>
+                      handleSaveEntry(
+                        item,
+                        payload,
+                        gradeLabel,
+                      )
                     }
                   />
                 ) : null}
-                <div className="data-table-wrapper">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Item</th>
-                        <th>Grade</th>
-                        <th>Quantity</th>
-                        {isEditable ? (
-                          <th>Actions</th>
-                        ) : null}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {outputEntries.map(
-                        (output) => (
-                          <tr key={output.id}>
-                            <td>
-                              {output.item_code}{" "}
-                              - {output.item_name}
-                            </td>
-                            <td>
-                              {output.grade_label ||
-                                "-"}
-                            </td>
-                            <td>
-                              {
-                                output.output_quantity
-                              }
-                            </td>
-                            {isEditable ? (
-                              <td>
-                                <button
-                                  type="button"
-                                  className="icon-button"
-                                  onClick={() =>
-                                    handleDeleteOutputEntry(
-                                      output.id,
-                                    )
-                                  }
-                                  aria-label="Delete output entry"
-                                >
-                                  <Trash2
-                                    size={15}
-                                  />
-                                </button>
-                              </td>
-                            ) : null}
-                          </tr>
-                        ),
-                      )}
-                      {!outputEntries.length ? (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="table-empty-state"
-                          >
-                            No production output
-                            recorded yet.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </SurfaceCard>
           ) : null}
@@ -1909,116 +2550,30 @@ export function StoreEntryPage() {
           <SurfaceCard className="print-hidden">
             <div className="surface-card__header">
               <h2>Reconciliation Entries</h2>
-              {isEditable ? (
-                <label className="button button--secondary">
-                  <Upload size={15} />
-                  Upload Book Stock CSV
-                  <input
-                    ref={csvInputRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    onChange={handleCsvUpload}
-                    style={{
-                      display: "none",
-                    }}
-                  />
-                </label>
-              ) : null}
             </div>
-            {csvMessage ? (
-              <div className="inline-alert">
-                {csvMessage}
-              </div>
-            ) : null}
-            {isEditable ? (
-              <div className="surface-card__body">
-                {items.length ? (
-                  <AddEntryForm
-                    availableItems={
-                      itemsAvailableToAdd
-                    }
-                    submitting={
-                      createEntry.isPending ||
-                      updateEntry.isPending
-                    }
-                    onSubmit={(item, payload) =>
-                      handleSaveEntry(
-                        item,
-                        payload,
-                      )
-                    }
-                  />
-                ) : (
-                  <p className="table-subtext">
-                    No active items configured
-                    yet. Ask an administrator to
-                    set up the item master.
-                  </p>
-                )}
-              </div>
-            ) : null}
-            <div className="data-table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>UOM</th>
-                    <th>Section</th>
-                    <th>Rack</th>
-                    <th>Opening/Book</th>
-                    <th>Receipts/Physical</th>
-                    <th>Closing</th>
-                    <th>Actual</th>
-                    <th>Theoretical/Book</th>
-                    <th>Variance</th>
-                    <th>Status</th>
-                    {isEditable ? (
-                      <th>Edit</th>
-                    ) : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {entriesForDisplay.map(
-                    ({ item, entry, queued }) => (
-                      <SavedEntryRow
-                        key={`${item.id}-${
-                          entry?.updated_at ??
-                          "pending"
-                        }`}
-                        item={item}
-                        entry={entry}
-                        queued={queued}
-                        editable={isEditable}
-                        saving={
-                          createEntry.isPending ||
-                          updateEntry.isPending
-                        }
-                        onSave={(payload) =>
-                          handleSaveEntry(
-                            item,
-                            payload,
-                          )
-                        }
-                      />
-                    ),
-                  )}
-                  {!entriesForDisplay.length ? (
-                    <tr>
-                      <td
-                        colSpan={
-                          isEditable ? 12 : 11
-                        }
-                        className="table-empty-state"
-                      >
-                        {isEditable
-                          ? "No entries added yet — select an item above to add one."
-                          : "No entries were recorded for this period."}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+            <p className="table-subtext">
+              Add or edit a material from Production
+              Output above (or Other Items) - this
+              is a read-only summary of every entry
+              recorded this period.
+            </p>
+            <EntriesTable
+              rows={entriesForDisplay}
+              isEditable={isEditable}
+              showGradeColumn={
+                productionTypeCategories.length > 0
+              }
+              saving={
+                createEntry.isPending ||
+                updateEntry.isPending
+              }
+              onSave={handleSaveEntry}
+              emptyMessage={
+                isEditable
+                  ? "No entries added yet."
+                  : "No entries were recorded for this period."
+              }
+            />
           </SurfaceCard>
         </>
       )}

@@ -33,8 +33,12 @@ def site():
 
 @pytest.fixture
 def category():
+    # Flagged as a production type so output entries can be logged
+    # against it directly - every item created under it (below) is
+    # then one of its recipe materials.
     return ItemCategory.objects.create(
         category_name="Cement",
+        is_production_output=True,
     )
 
 
@@ -73,6 +77,7 @@ def period(site):
 @pytest.mark.django_db
 def test_norm_based_entry_computes_variance_against_output(
     norm_based_item,
+    category,
     period,
 ):
     ItemStandard.objects.create(
@@ -83,7 +88,7 @@ def test_norm_based_entry_computes_variance_against_output(
     )
     ReconciliationOutputEntry.objects.create(
         period=period,
-        item=norm_based_item,
+        category=category,
         output_quantity=Decimal("100.000"),
     )
 
@@ -115,6 +120,7 @@ def test_norm_based_entry_computes_variance_against_output(
 @pytest.mark.django_db
 def test_norm_based_saving_is_a_positive_profit_variance(
     norm_based_item,
+    category,
     period,
 ):
     # Recipe calls for 32 MT (100 * 0.32); the site only used 22 MT
@@ -128,7 +134,7 @@ def test_norm_based_saving_is_a_positive_profit_variance(
     )
     ReconciliationOutputEntry.objects.create(
         period=period,
-        item=norm_based_item,
+        category=category,
         output_quantity=Decimal("100.000"),
     )
 
@@ -154,6 +160,7 @@ def test_norm_based_saving_is_a_positive_profit_variance(
 @pytest.mark.django_db
 def test_norm_based_overuse_is_a_negative_loss_variance(
     norm_based_item,
+    category,
     period,
 ):
     # Recipe calls for 32 MT; the site used 42 MT - overuse against
@@ -166,7 +173,7 @@ def test_norm_based_overuse_is_a_negative_loss_variance(
     )
     ReconciliationOutputEntry.objects.create(
         period=period,
-        item=norm_based_item,
+        category=category,
         output_quantity=Decimal("100.000"),
     )
 
@@ -413,6 +420,7 @@ def test_over_tolerance_status_and_flag(
 @pytest.mark.django_db
 def test_site_override_used_over_company_default(
     norm_based_item,
+    category,
     period,
     site,
 ):
@@ -431,7 +439,7 @@ def test_site_override_used_over_company_default(
     )
     ReconciliationOutputEntry.objects.create(
         period=period,
-        item=norm_based_item,
+        category=category,
         output_quantity=Decimal("100.000"),
     )
 
@@ -570,13 +578,19 @@ def test_section_and_rack_are_optional_and_normalized(
 
 
 @pytest.mark.django_db
-def test_output_entry_serializer_exposes_resolved_mix_ratio(
+def test_entry_serializer_exposes_mix_ratio_by_grade(
     norm_based_item,
+    category,
     period,
     site,
 ):
+    # Production output is no longer logged per material, so the
+    # per-grade mix ratio a material used is exposed on the
+    # material's own reconciliation entry instead of on the output
+    # entry - this is what the statement/multi-site pack now rebuild
+    # the Design Mix table from.
     from apps.reconciliation.api.serializers import (
-        ReconciliationOutputEntrySerializer,
+        ReconciliationEntrySerializer,
     )
 
     ItemStandard.objects.create(
@@ -593,25 +607,33 @@ def test_output_entry_serializer_exposes_resolved_mix_ratio(
         mix_ratio=Decimal("0.35"),
         effective_from=date(2026, 3, 1),
     )
-    output = ReconciliationOutputEntry.objects.create(
+    ReconciliationOutputEntry.objects.create(
         period=period,
-        item=norm_based_item,
+        category=category,
         grade_label="M20",
         output_quantity=Decimal("100.000"),
     )
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        opening_stock=Decimal("0.000"),
+        receipts=Decimal("35.000"),
+        closing_stock=Decimal("0.000"),
+    )
 
-    data = ReconciliationOutputEntrySerializer(
-        output
+    data = ReconciliationEntrySerializer(
+        entry
     ).data
 
-    assert data["resolved_mix_ratio"] == Decimal(
-        "0.350000"
-    )
+    assert data["mix_ratio_by_grade"] == {
+        "M20": Decimal("0.350000"),
+    }
 
 
 @pytest.mark.django_db
 def test_output_entry_change_recomputes_existing_entry(
     norm_based_item,
+    category,
     period,
 ):
     ItemStandard.objects.create(
@@ -635,7 +657,7 @@ def test_output_entry_change_recomputes_existing_entry(
     output = (
         ReconciliationOutputEntry.objects.create(
             period=period,
-            item=norm_based_item,
+            category=category,
             output_quantity=Decimal("100.000"),
         )
     )
@@ -652,4 +674,95 @@ def test_output_entry_change_recomputes_existing_entry(
     assert (
         entry.theoretical_or_book_quantity
         == Decimal("0.000")
+    )
+
+
+@pytest.mark.django_db
+def test_output_entry_rejects_a_non_production_category(
+    period,
+):
+    from django.core.exceptions import (
+        ValidationError,
+    )
+
+    plain_category = ItemCategory.objects.create(
+        category_name="Plain Materials",
+    )
+
+    with pytest.raises(ValidationError):
+        ReconciliationOutputEntry.objects.create(
+            period=period,
+            category=plain_category,
+            output_quantity=Decimal("100.000"),
+        )
+
+
+@pytest.mark.django_db
+def test_one_output_entry_drives_theoretical_for_multiple_materials(
+    category,
+    period,
+):
+    # The core of this change: ONE production-output batch (e.g. 100
+    # cum of Concrete) should drive the theoretical consumption of
+    # every raw material that goes into it, without the material
+    # having to be entered as its own "output".
+    cement = Item.objects.create(
+        item_name="Cement",
+        category=category,
+        reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        uom="MT",
+    )
+    aggregate = Item.objects.create(
+        item_name="10mm Aggregate",
+        category=category,
+        reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        uom="MT",
+    )
+    ItemStandard.objects.create(
+        item=cement,
+        rate=Decimal("6500.00"),
+        mix_ratio=Decimal("0.30"),
+        effective_from=date(2026, 1, 1),
+    )
+    ItemStandard.objects.create(
+        item=aggregate,
+        rate=Decimal("650.00"),
+        mix_ratio=Decimal("1.10"),
+        effective_from=date(2026, 1, 1),
+    )
+
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=category,
+        output_quantity=Decimal("100.000"),
+    )
+
+    cement_entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=cement,
+        opening_stock=Decimal("0.000"),
+        receipts=Decimal("30.000"),
+        closing_stock=Decimal("0.000"),
+    )
+    aggregate_entry = (
+        ReconciliationEntry.objects.create(
+            period=period,
+            item=aggregate,
+            opening_stock=Decimal("0.000"),
+            receipts=Decimal("110.000"),
+            closing_stock=Decimal("0.000"),
+        )
+    )
+
+    assert (
+        cement_entry.theoretical_or_book_quantity
+        == Decimal("30.000")
+    )
+    assert (
+        aggregate_entry.theoretical_or_book_quantity
+        == Decimal("110.000")
     )
