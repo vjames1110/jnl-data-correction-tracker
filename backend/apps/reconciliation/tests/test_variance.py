@@ -44,26 +44,28 @@ def category():
 
 @pytest.fixture
 def norm_based_item(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 @pytest.fixture
 def direct_count_item(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="TMT Steel Bars",
-        category=category,
         reconciliation_type=(
             ReconciliationType.DIRECT_COUNT
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 @pytest.fixture
@@ -95,6 +97,7 @@ def test_norm_based_entry_computes_variance_against_output(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("8.000"),
@@ -141,6 +144,7 @@ def test_norm_based_saving_is_a_positive_profit_variance(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("20.000"),
         closing_stock=Decimal("8.000"),
@@ -180,6 +184,7 @@ def test_norm_based_overuse_is_a_negative_loss_variance(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("40.000"),
         closing_stock=Decimal("8.000"),
@@ -446,6 +451,7 @@ def test_site_override_used_over_company_default(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -616,6 +622,7 @@ def test_entry_serializer_exposes_mix_ratio_by_grade(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("35.000"),
         closing_stock=Decimal("0.000"),
@@ -645,6 +652,7 @@ def test_output_entry_change_recomputes_existing_entry(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
+        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("50.000"),
         closing_stock=Decimal("0.000"),
@@ -708,20 +716,20 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
     # having to be entered as its own "output".
     cement = Item.objects.create(
         item_name="Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    cement.categories.add(category)
     aggregate = Item.objects.create(
         item_name="10mm Aggregate",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    aggregate.categories.add(category)
     ItemStandard.objects.create(
         item=cement,
         rate=Decimal("6500.00"),
@@ -744,6 +752,7 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
     cement_entry = ReconciliationEntry.objects.create(
         period=period,
         item=cement,
+        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -752,6 +761,7 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
         ReconciliationEntry.objects.create(
             period=period,
             item=aggregate,
+            category=category,
             opening_stock=Decimal("0.000"),
             receipts=Decimal("110.000"),
             closing_stock=Decimal("0.000"),

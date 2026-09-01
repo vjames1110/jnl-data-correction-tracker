@@ -56,14 +56,15 @@ def plain_category():
 
 @pytest.fixture
 def cement(production_category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="Cement",
-        category=production_category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(production_category)
+    return item
 
 
 @pytest.fixture

@@ -44,6 +44,7 @@ import {
   useReconciliationItemCategories,
   useReconciliationItems,
   useReconciliationOutputEntries,
+  useReconciliationSiteItemConfigs,
   useRejectReconciliationPeriod,
   useReopenReconciliationPeriod,
   useReturnReconciliationPeriod,
@@ -1449,6 +1450,24 @@ export function StoreEntryPage() {
     useReconciliationOutputEntries(
       period ? { period: period.id } : undefined,
     );
+  // Two sites can produce the same grade with genuinely different
+  // materials (e.g. Site A's M20 uses Loose Cement, Site B's uses
+  // Cement OPC) - both items sit in the same category, but only one
+  // applies at each site. A Site Override is what marks an item as
+  // "this site actually uses this one", so its mere existence for an
+  // item at this site is read as an eligibility signal, independent
+  // of the rate/mix ratio it happens to carry.
+  const siteItemConfigsQuery =
+    useReconciliationSiteItemConfigs(
+      selectedSite
+        ? {
+            site: selectedSite,
+            is_active: true,
+            page_size: 500,
+          }
+        : undefined,
+      { enabled: Boolean(selectedSite) },
+    );
 
   const createEntry = useCreateReconciliationEntry();
   const updateEntry = useUpdateReconciliationEntry();
@@ -1477,6 +1496,19 @@ export function StoreEntryPage() {
   );
   const outputEntries =
     outputEntriesQuery.data ?? [];
+  // Every item that this site has an active Site Override for, of
+  // any grade or period - read as "this site actually uses this
+  // item", not as a rate lookup (the resolved rate/mix is computed
+  // server-side regardless). Empty until a site is selected.
+  const siteConfiguredItemIds = useMemo(
+    () =>
+      new Set(
+        (
+          siteItemConfigsQuery.data?.items ?? []
+        ).map((config) => config.item),
+      ),
+    [siteItemConfigsQuery.data],
+  );
   // The Production Output form only ever offers categories flagged
   // as a production type (e.g. Concrete) - every item assigned to
   // one of these categories is one of its recipe materials, and is
@@ -1554,20 +1586,41 @@ export function StoreEntryPage() {
   const availableToAddByCategory = (
     categoryId,
     gradeLabel,
-  ) =>
-    items.filter(
+  ) => {
+    const categoryItems = items.filter((item) =>
+      item.categories?.includes(categoryId),
+    );
+    // Opt-in site scoping: once this site has an active Site
+    // Override for at least one of this category's items, the panel
+    // narrows to only those configured items - e.g. Site A configured
+    // Loose Cement for Concrete M20, so Cement OPC (also in that
+    // category, but never configured for Site A) no longer shows
+    // there. A site that hasn't configured anything for this category
+    // yet keeps seeing every item in it, unchanged from before.
+    const siteEligibleItems = categoryItems.some(
+      (item) => siteConfiguredItemIds.has(item.id),
+    )
+      ? categoryItems.filter((item) =>
+          siteConfiguredItemIds.has(item.id),
+        )
+      : categoryItems;
+
+    return siteEligibleItems.filter(
       (item) =>
-        item.category === categoryId &&
         !enteredKeys.has(
           entryKey(item.id, gradeLabel),
         ),
     );
+  };
+  // An item with no production-type category at all (among
+  // possibly several categories it belongs to) has no recipe of its
+  // own and is entered standalone instead.
   const otherAvailableToAdd = useMemo(
     () =>
       itemsAvailableToAdd.filter(
         (item) =>
-          !productionTypeCategoryIds.has(
-            item.category,
+          !(item.categories ?? []).some((id) =>
+            productionTypeCategoryIds.has(id),
           ),
       ),
     [
@@ -1577,8 +1630,8 @@ export function StoreEntryPage() {
   );
   const hasOtherItems = items.some(
     (item) =>
-      !productionTypeCategoryIds.has(
-        item.category,
+      !(item.categories ?? []).some((id) =>
+        productionTypeCategoryIds.has(id),
       ),
   );
 
@@ -1659,8 +1712,8 @@ export function StoreEntryPage() {
     gradeLabel,
   ) =>
     entriesForDisplay.filter(
-      ({ item, entry }) =>
-        item.category === categoryId &&
+      ({ entry }) =>
+        entry?.category === categoryId &&
         (entry?.grade_label ?? "") ===
           (gradeLabel ?? ""),
     );
@@ -1679,6 +1732,7 @@ export function StoreEntryPage() {
     item,
     payload,
     gradeLabel = "",
+    categoryId = null,
   ) => {
     const key = entryKey(item.id, gradeLabel);
     const existing = entryByKey.get(key);
@@ -1716,6 +1770,7 @@ export function StoreEntryPage() {
         id: clientId,
         period: period.id,
         item: item.id,
+        category: categoryId,
         grade_label: gradeLabel,
         ...payload,
       },
@@ -1730,6 +1785,7 @@ export function StoreEntryPage() {
       next.set(key, {
         payload: {
           ...payload,
+          category: categoryId,
           grade_label: gradeLabel,
         },
         actionId: queuedAction.id,
@@ -1757,9 +1813,15 @@ export function StoreEntryPage() {
     item,
     payload,
     gradeLabel = "",
+    categoryId = null,
   ) => {
     if (!offlineQueue.isOnline) {
-      queueEntrySave(item, payload, gradeLabel);
+      queueEntrySave(
+        item,
+        payload,
+        gradeLabel,
+        categoryId,
+      );
       return;
     }
 
@@ -1775,6 +1837,7 @@ export function StoreEntryPage() {
         await createEntry.mutateAsync({
           period: period.id,
           item: item.id,
+          category: categoryId,
           grade_label: gradeLabel,
           ...payload,
         });
@@ -1782,7 +1845,12 @@ export function StoreEntryPage() {
       clearPending(key);
     } catch (error) {
       if (isNetworkError(error)) {
-        queueEntrySave(item, payload, gradeLabel);
+        queueEntrySave(
+          item,
+          payload,
+          gradeLabel,
+          categoryId,
+        );
       } else {
         throw error;
       }
@@ -2427,6 +2495,7 @@ export function StoreEntryPage() {
                                                 item,
                                                 payload,
                                                 gradeLabel,
+                                                output.category,
                                               )
                                             }
                                           />

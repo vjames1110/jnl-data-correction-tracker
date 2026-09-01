@@ -150,6 +150,19 @@ export function useDeactivateReconciliationItemCategory() {
   });
 }
 
+export function useDeleteReconciliationItemCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.deleteItemCategory,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useImportReconciliationMasters() {
   const queryClient = useQueryClient();
 
@@ -255,6 +268,18 @@ export function useDeactivateReconciliationItem() {
   });
 }
 
+export function useDeleteReconciliationItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: reconciliationService.deleteItem,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useReconciliationItemStandards(
   params,
 ) {
@@ -341,8 +366,22 @@ export function useDeactivateReconciliationItemStandard() {
   });
 }
 
+export function useDeleteReconciliationItemStandard() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.deleteItemStandard,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useReconciliationSiteItemConfigs(
   params,
+  { enabled = true } = {},
 ) {
   return useQuery({
     queryKey:
@@ -353,6 +392,7 @@ export function useReconciliationSiteItemConfigs(
       reconciliationService.getSiteItemConfigs(
         params,
       ),
+    enabled,
   });
 }
 
@@ -420,6 +460,19 @@ export function useDeactivateReconciliationSiteItemConfig() {
   return useMutation({
     mutationFn:
       reconciliationService.deactivateSiteItemConfig,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useDeleteReconciliationSiteItemConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.deleteSiteItemConfig,
     onSuccess: () =>
       invalidateReconciliationQueries(
         queryClient,

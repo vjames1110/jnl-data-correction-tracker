@@ -127,14 +127,15 @@ def _resolve_norm_based_theoretical(entry, item):
 
     Production output isn't tracked per material - a store produces
     one thing (e.g. Concrete, by grade), and every raw material
-    assigned to THAT SAME category derives its theoretical
+    entered against THAT category derives its theoretical
     consumption from the category's output batches for its own exact
     grade, using its own mix ratio - not from a batch logged against
     the material itself, and not blended across other grades this
-    entry doesn't represent. This is scoped to the material's own
-    category so that a site producing more than one thing in the
-    same period doesn't have one product's output bleed into an
-    unrelated product's materials.
+    entry doesn't represent. This is scoped to the ENTRY's own
+    ``category`` (not the item's, which can now span more than one
+    production type at once) so a material shared across several
+    products - or several grade-scoped categories - never has one
+    product's output bleed into another's.
 
     Returns ``(None, None)`` if this grade has no resolvable
     rate/mix ratio at all, or no output was recorded for it - that
@@ -144,7 +145,7 @@ def _resolve_norm_based_theoretical(entry, item):
     output_total = (
         ReconciliationOutputEntry.objects.filter(
             period_id=entry.period_id,
-            category_id=item.category_id,
+            category_id=entry.category_id,
             grade_label=entry.grade_label,
         ).aggregate(
             total=django_models.Sum(

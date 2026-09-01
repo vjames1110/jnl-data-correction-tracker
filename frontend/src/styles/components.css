@@ -82,6 +82,14 @@
   background: var(--color-neutral-100);
 }
 
+.icon-button--danger {
+  color: var(--color-error-700);
+}
+
+.icon-button--danger:hover {
+  background: var(--color-error-100);
+}
+
 .form-field {
   display: grid;
   gap: var(--space-1);

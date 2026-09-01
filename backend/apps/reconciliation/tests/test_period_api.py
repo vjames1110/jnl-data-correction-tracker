@@ -68,12 +68,12 @@ def norm_based_item():
     )
     item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
     ItemStandard.objects.create(
         item=item,
         rate=Decimal("6500.00"),
@@ -85,7 +85,7 @@ def norm_based_item():
 
 @pytest.fixture
 def production_category(norm_based_item):
-    category = norm_based_item.category
+    category = norm_based_item.categories.first()
     category.is_production_output = True
     category.save(
         update_fields=["is_production_output"],
@@ -275,6 +275,9 @@ def test_full_entry_lifecycle_and_submit(
         {
             "period": period_id,
             "item": str(norm_based_item.id),
+            "category": str(
+                production_category.id
+            ),
             "opening_stock": "10.000",
             "receipts": "30.000",
             "closing_stock": "8.000",

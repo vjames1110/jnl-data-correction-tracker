@@ -52,17 +52,18 @@ class ItemAdmin(admin.ModelAdmin):
     list_display = [
         "item_code",
         "item_name",
-        "category",
+        "categories_display",
         "reconciliation_type",
         "uom",
         "is_active",
         "updated_at",
     ]
     list_filter = [
-        "category",
+        "categories",
         "reconciliation_type",
         "is_active",
     ]
+    filter_horizontal = ["categories"]
     search_fields = [
         "item_code",
         "item_name",
@@ -71,6 +72,17 @@ class ItemAdmin(admin.ModelAdmin):
     ordering = [
         "item_name",
     ]
+
+    def categories_display(self, obj):
+        return ", ".join(
+            obj.categories.values_list(
+                "category_code", flat=True
+            )
+        )
+
+    categories_display.short_description = (
+        "Categories"
+    )
 
 
 @admin.register(ItemStandard)

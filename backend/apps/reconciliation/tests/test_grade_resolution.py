@@ -49,14 +49,15 @@ def category():
 
 @pytest.fixture
 def cement(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 @pytest.fixture
@@ -221,6 +222,7 @@ def test_variance_uses_exact_grade_ratio_per_entry(
     # theoretical(M20) = 100*0.30 = 30, actual = 5+25-0 = 30
     m20_entry = period.entries.create(
         item=cement,
+        category=category,
         grade_label="M20",
         opening_stock=Decimal("5.000"),
         receipts=Decimal("25.000"),
@@ -229,6 +231,7 @@ def test_variance_uses_exact_grade_ratio_per_entry(
     # theoretical(M25) = 50*0.40 = 20, actual = 5+15-0 = 20
     m25_entry = period.entries.create(
         item=cement,
+        category=category,
         grade_label="M25",
         opening_stock=Decimal("5.000"),
         receipts=Decimal("15.000"),
@@ -289,6 +292,7 @@ def test_variance_falls_back_to_blank_grade_standard_when_no_grade_match(
 
     entry = period.entries.create(
         item=cement,
+        category=category,
         grade_label="M30",
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
@@ -373,6 +377,7 @@ def test_variance_value_uses_this_entrys_own_grade_rate(
     # saving of 5, priced at M20's own rate of 6000.
     m20_entry = period.entries.create(
         item=cement,
+        category=category,
         grade_label="M20",
         opening_stock=Decimal("5.000"),
         receipts=Decimal("20.000"),
@@ -382,6 +387,7 @@ def test_variance_value_uses_this_entrys_own_grade_rate(
     # saving of 5, priced at M25's own rate of 8000.
     m25_entry = period.entries.create(
         item=cement,
+        category=category,
         grade_label="M25",
         opening_stock=Decimal("5.000"),
         receipts=Decimal("30.000"),

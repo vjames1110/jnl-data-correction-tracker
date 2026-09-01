@@ -77,12 +77,12 @@ def norm_based_item():
     )
     item = Item.objects.create(
         item_name="Attachment Test Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
     ItemStandard.objects.create(
         item=item,
         rate=Decimal("6500.00"),

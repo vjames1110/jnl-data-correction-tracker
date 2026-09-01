@@ -1,9 +1,11 @@
 import uuid
+from collections import Counter
 from datetime import date
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Prefetch
+from django.db.models.deletion import ProtectedError
 from django.http import FileResponse
 from django.utils import timezone
 from rest_framework import parsers, status, viewsets
@@ -314,11 +316,48 @@ class ReconciliationMasterViewSet(
         )
 
     def destroy(self, request, *args, **kwargs):
-        raise MethodNotAllowed(
-            "DELETE",
-            detail=(
-                "Use the deactivate action instead."
-            ),
+        # A genuine delete for sample/mistaken master rows that were
+        # never actually used - anything already referenced by real
+        # data (a rate history, a site override, a saved entry) is
+        # protected at the database level (PROTECT FKs), so this
+        # only ever succeeds on rows nothing else points to yet.
+        # Deactivate remains the right tool for a master that IS in
+        # use but should stop being offered going forward.
+        instance = self.get_object()
+        prefix = self._message_prefix()
+
+        try:
+            instance.delete()
+        except ProtectedError as exc:
+            # A plain-string ValidationError (rather than one keyed
+            # by a field name) surfaces as-is to the frontend, since
+            # this isn't a bad value on any one field of the request
+            # - it's "this row is in use," full stop.
+            raise ValidationError(
+                f"This {prefix.lower()} can't be "
+                "deleted - it's still referenced "
+                f"by {self._describe_protected_objects(exc)}. "
+                "Deactivate it instead so it stops "
+                "being offered without losing that "
+                "history."
+            ) from exc
+
+        return success_response(
+            message=f"{prefix} deleted successfully.",
+            data=None,
+        )
+
+    @staticmethod
+    def _describe_protected_objects(exc):
+        counts = Counter(
+            type(obj)._meta.verbose_name_plural
+            for obj in exc.protected_objects
+        )
+        return ", ".join(
+            f"{count} {label}"
+            for label, count in sorted(
+                counts.items()
+            )
         )
 
     def _set_active_state(self, instance, is_active):
@@ -465,7 +504,7 @@ class ItemCategoryViewSet(ReconciliationMasterViewSet):
 class ItemViewSet(ReconciliationMasterViewSet):
     queryset = Item.objects.all()
     serializer_class = ItemSerializer
-    select_related_fields = ("category",)
+    prefetch_related_fields = ("categories",)
     search_fields = [
         "item_code",
         "item_name",
@@ -473,7 +512,7 @@ class ItemViewSet(ReconciliationMasterViewSet):
         "description",
     ]
     filterset_fields = [
-        "category",
+        "categories",
         "reconciliation_type",
         "is_active",
     ]
@@ -495,8 +534,10 @@ class ItemStandardViewSet(ReconciliationMasterViewSet):
     serializer_class = ItemStandardSerializer
     select_related_fields = (
         "item",
-        "item__category",
         "created_by",
+    )
+    prefetch_related_fields = (
+        "item__categories",
     )
     search_fields = [
         "item__item_code",
@@ -1120,6 +1161,7 @@ class ReconciliationEntryViewSet(
             "period",
             "period__site",
             "item",
+            "category",
         )
         .prefetch_related("flags")
         .all()

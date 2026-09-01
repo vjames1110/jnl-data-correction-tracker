@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -25,6 +26,7 @@ import {
   useActivateReconciliationItemCategory,
   useCreateReconciliationItemCategory,
   useDeactivateReconciliationItemCategory,
+  useDeleteReconciliationItemCategory,
   useReconciliationItemCategories,
   useReconciliationItemCategoryExport,
   useUpdateReconciliationItemCategory,
@@ -405,6 +407,8 @@ export function StoreItemCategoryManagementPage() {
     useActivateReconciliationItemCategory();
   const deactivateCategory =
     useDeactivateReconciliationItemCategory();
+  const deleteCategory =
+    useDeleteReconciliationItemCategory();
   const csvFileInputRef = useRef(null);
   const csvImport = useCsvImportControl({
     resource: "item_categories",
@@ -437,6 +441,24 @@ export function StoreItemCategoryManagementPage() {
 
     setEditingCategory(null);
     setIsFormOpen(false);
+  };
+
+  const handleDelete = async (category) => {
+    const confirmed = window.confirm(
+      `Permanently delete "${category.category_name}"? ` +
+        "This can't be undone. If it's still in " +
+        "use, deactivate it instead.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteCategory.mutateAsync(category.id);
+    } catch {
+      // Mutation error is shown in the inline alert.
+    }
   };
 
   const handleExport = async () => {
@@ -562,6 +584,14 @@ export function StoreItemCategoryManagementPage() {
       />
 
       <SurfaceCard>
+        {deleteCategory.error ? (
+          <div className="inline-alert inline-alert--error">
+            <strong>
+              {deleteCategory.error.message}
+            </strong>
+          </div>
+        ) : null}
+
         <div className="site-toolbar">
           <label className="input-control">
             <Search size={17} />
@@ -710,6 +740,17 @@ export function StoreItemCategoryManagementPage() {
                           }
                         >
                           <Power size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button icon-button--danger"
+                          onClick={() =>
+                            handleDelete(category)
+                          }
+                          aria-label="Delete item category"
+                          title="Delete permanently"
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     </td>

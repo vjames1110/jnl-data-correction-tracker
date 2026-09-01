@@ -183,13 +183,11 @@ class ItemSerializer(ReconciliationCleanModelSerializer):
         required=False,
         allow_blank=True,
     )
-    category_code = serializers.CharField(
-        source="category.category_code",
-        read_only=True,
+    category_codes = (
+        serializers.SerializerMethodField()
     )
-    category_name = serializers.CharField(
-        source="category.category_name",
-        read_only=True,
+    category_names = (
+        serializers.SerializerMethodField()
     )
     reconciliation_type_display = serializers.CharField(
         source="get_reconciliation_type_display",
@@ -202,9 +200,9 @@ class ItemSerializer(ReconciliationCleanModelSerializer):
             "id",
             "item_code",
             "item_name",
-            "category",
-            "category_code",
-            "category_name",
+            "categories",
+            "category_codes",
+            "category_names",
             "reconciliation_type",
             "reconciliation_type_display",
             "uom",
@@ -216,12 +214,56 @@ class ItemSerializer(ReconciliationCleanModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "category_code",
-            "category_name",
+            "category_codes",
+            "category_names",
             "reconciliation_type_display",
             "created_at",
             "updated_at",
         ]
+
+    def get_category_codes(self, obj):
+        return list(
+            obj.categories.order_by(
+                "category_name"
+            ).values_list(
+                "category_code", flat=True
+            )
+        )
+
+    def get_category_names(self, obj):
+        return list(
+            obj.categories.order_by(
+                "category_name"
+            ).values_list(
+                "category_name", flat=True
+            )
+        )
+
+    def validate(self, attrs):
+        # "categories" is a many-to-many field - the base class's
+        # generic validate() sets every attr onto a scratch model
+        # instance for full_clean(), and Django refuses both direct
+        # assignment AND .set() on an m2m field before the instance
+        # has a pk. Pulled out before that runs, restored after (the
+        # base ModelViewSet's create()/update() already knows how to
+        # apply an m2m field from validated_data once the instance
+        # is saved).
+        categories = attrs.pop("categories", None)
+        attrs = super().validate(attrs)
+
+        if categories is not None:
+            if not categories:
+                raise serializers.ValidationError(
+                    {
+                        "categories": (
+                            "Select at least one "
+                            "category."
+                        )
+                    }
+                )
+            attrs["categories"] = categories
+
+        return attrs
         validators = []
 
 
@@ -568,6 +610,7 @@ class ReconciliationEntrySerializer(
             "id",
             "period",
             "item",
+            "category",
             "grade_label",
             "item_code",
             "item_name",
@@ -625,6 +668,7 @@ class ReconciliationEntrySerializer(
         if (
             obj.item.reconciliation_type
             != ReconciliationType.NORM_BASED
+            or not obj.category_id
         ):
             return {}
 
@@ -635,7 +679,7 @@ class ReconciliationEntrySerializer(
         grades = (
             ReconciliationOutputEntry.objects.filter(
                 period_id=obj.period_id,
-                category_id=obj.item.category_id,
+                category_id=obj.category_id,
             )
             .values_list(
                 "grade_label",

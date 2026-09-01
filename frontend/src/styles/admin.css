@@ -1424,6 +1424,40 @@
   border-top: 1px solid var(--color-neutral-200);
 }
 
+/* Multi-select for an item's categories (a shared material like
+   Cement or Water can belong to more than one product) - a plain
+   checkbox list rather than a native multi-select, for a clearer
+   click target and visible selection state. */
+.category-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-neutral-500);
+  border-radius: var(--radius-sm);
+}
+
+.category-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.category-checkbox-row input {
+  /* .form-field input sets width:100% for the real form controls
+     (select/input/textarea) it's meant for - this checkbox needs
+     its native size instead, or that 100% becomes its flex-basis
+     and it swallows the whole row, squeezing the label to nothing. */
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 .grade-chip-input input {
   flex: 0 1 160px;
   min-height: var(--control-height);

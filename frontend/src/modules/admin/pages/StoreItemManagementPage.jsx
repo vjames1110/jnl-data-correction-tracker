@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -25,6 +26,7 @@ import {
   useActivateReconciliationItem,
   useCreateReconciliationItem,
   useDeactivateReconciliationItem,
+  useDeleteReconciliationItem,
   useReconciliationItemCategories,
   useReconciliationItemExport,
   useReconciliationItems,
@@ -58,7 +60,7 @@ const RECONCILIATION_TYPES = [
 
 const IMPORT_COLUMNS = [
   "item_name",
-  "category_code",
+  "category_codes",
   "reconciliation_type",
   "uom",
   "erp_item_code",
@@ -67,7 +69,7 @@ const IMPORT_COLUMNS = [
 ];
 const IMPORT_SAMPLE_ROW = {
   item_name: "Cement",
-  category_code: "CONMAT",
+  category_codes: "CONMAT;MORTAR",
   reconciliation_type: "NORM_BASED",
   uom: "MT",
   erp_item_code: "",
@@ -75,18 +77,63 @@ const IMPORT_SAMPLE_ROW = {
   is_active: "true",
 };
 const IMPORT_NOTE =
-  "category_code must match an existing Item Category's code (see its Export) - a category flagged as a production type there makes every item assigned to it one of its recipe materials. reconciliation_type is NORM_BASED or DIRECT_COUNT. item_code is generated automatically.";
+  "category_codes can list more than one Item Category code separated by semicolons (e.g. \"CONMAT;MORTAR\") for a material shared across several products - each must match an existing category's code (see its Export). A category flagged as a production type there makes every item assigned to it one of its recipe materials. reconciliation_type is NORM_BASED or DIRECT_COUNT. item_code is generated automatically and is unique across every item.";
 
 const emptyForm = {
   item_code: "",
   item_name: "",
-  category: "",
+  categories: [],
   reconciliation_type: "",
   uom: "",
   erp_item_code: "",
   description: "",
   is_active: true,
 };
+
+function CategoryCheckboxList({
+  categories,
+  selectedIds,
+  onChange,
+}) {
+  const toggle = (id) => {
+    onChange(
+      selectedIds.includes(id)
+        ? selectedIds.filter(
+            (existing) => existing !== id,
+          )
+        : [...selectedIds, id],
+    );
+  };
+
+  return (
+    <div className="category-checkbox-list">
+      {categories.map((category) => (
+        <label
+          key={category.id}
+          className="category-checkbox-row"
+        >
+          <input
+            type="checkbox"
+            checked={selectedIds.includes(
+              category.id,
+            )}
+            onChange={() => toggle(category.id)}
+          />
+          <span>
+            {category.code} - {category.label}
+            {category.is_production_output
+              ? ` (${
+                  category.grades?.length
+                    ? category.grades.join(", ")
+                    : "no grades yet"
+                })`
+              : ""}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 function ItemForm({
   categories,
@@ -101,7 +148,7 @@ function ItemForm({
       ? {
           item_code: item.item_code ?? "",
           item_name: item.item_name ?? "",
-          category: item.category ?? "",
+          categories: item.categories ?? [],
           reconciliation_type:
             item.reconciliation_type ?? "",
           uom: item.uom ?? "",
@@ -164,42 +211,27 @@ function ItemForm({
           </label>
         </div>
 
+        <div className="form-field">
+          <span>
+            Categories (a shared material like
+            Cement or Water can belong to more than
+            one)
+          </span>
+          <CategoryCheckboxList
+            categories={categories}
+            selectedIds={form.categories}
+            onChange={(categories) =>
+              setField("categories", categories)
+            }
+          />
+          {!form.categories.length ? (
+            <p className="table-subtext">
+              Select at least one category.
+            </p>
+          ) : null}
+        </div>
+
         <div className="form-grid">
-          <label className="form-field">
-            <span>Category</span>
-            <select
-              value={form.category}
-              onChange={(event) =>
-                setField(
-                  "category",
-                  event.target.value,
-                )
-              }
-              required
-            >
-              <option value="" disabled hidden>
-                Select category
-              </option>
-              {categories.map((category) => (
-                <option
-                  key={category.id}
-                  value={category.id}
-                >
-                  {category.code} -{" "}
-                  {category.label}
-                  {category.is_production_output
-                    ? ` (${
-                        category.grades?.length
-                          ? category.grades.join(
-                              ", ",
-                            )
-                          : "no grades yet"
-                      })`
-                    : ""}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="form-field">
             <span>Reconciliation Type</span>
             <select
@@ -314,7 +346,7 @@ export function StoreItemManagementPage() {
   const { user } = useAuth();
   const [filters, setFilters] = useState({
     search: "",
-    category: "",
+    categories: "",
     reconciliation_type: "",
     is_active: "",
     ordering: "item_name",
@@ -333,7 +365,7 @@ export function StoreItemManagementPage() {
     () =>
       buildParams({
         search: filters.search,
-        category: filters.category,
+        categories: filters.categories,
         reconciliation_type:
           filters.reconciliation_type,
         is_active: filters.is_active,
@@ -357,6 +389,7 @@ export function StoreItemManagementPage() {
     useActivateReconciliationItem();
   const deactivateItem =
     useDeactivateReconciliationItem();
+  const deleteItem = useDeleteReconciliationItem();
   // Normalized to the {id, code, label} shape the CSV import's
   // findByCode() and the category filter/picker dropdowns already
   // expect, with grades/is_production_output added on top so the
@@ -383,10 +416,25 @@ export function StoreItemManagementPage() {
     normalizeRow: (row) =>
       compactPayload({
         item_name: row.item_name,
-        category: findByCode(
-          categoryOptions,
-          row.category_code,
-        ),
+        // Deliberately kept even when unresolved (falls
+        // back to the raw code instead of being dropped) so
+        // a typo'd category code fails the row with a clear
+        // backend error naming the bad code, instead of the
+        // item silently importing with fewer categories than
+        // the row asked for.
+        categories: (
+          row.category_codes ||
+          row.category_code ||
+          ""
+        )
+          .split(/[;,]/)
+          .map((code) => code.trim())
+          .filter(Boolean)
+          .map(
+            (code) =>
+              findByCode(categoryOptions, code) ||
+              code,
+          ),
         reconciliation_type: (
           row.reconciliation_type ||
           "NORM_BASED"
@@ -429,6 +477,24 @@ export function StoreItemManagementPage() {
     setIsFormOpen(false);
   };
 
+  const handleDelete = async (item) => {
+    const confirmed = window.confirm(
+      `Permanently delete "${item.item_name}"? ` +
+        "This can't be undone. If it's still in " +
+        "use, deactivate it instead.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteItem.mutateAsync(item.id);
+    } catch {
+      // Mutation error is shown in the inline alert.
+    }
+  };
+
   const handleExport = async () => {
     const result = await exportQuery.refetch();
     downloadCsv(
@@ -438,8 +504,8 @@ export function StoreItemManagementPage() {
         { key: "item_code", label: "Item Code" },
         { key: "item_name", label: "Item Name" },
         {
-          key: "category_code",
-          label: "Category",
+          key: "category_codes",
+          label: "Categories",
         },
         {
           key: "reconciliation_type",
@@ -547,6 +613,14 @@ export function StoreItemManagementPage() {
       />
 
       <SurfaceCard>
+        {deleteItem.error ? (
+          <div className="inline-alert inline-alert--error">
+            <strong>
+              {deleteItem.error.message}
+            </strong>
+          </div>
+        ) : null}
+
         <div className="site-toolbar">
           <label className="input-control">
             <Search size={17} />
@@ -564,10 +638,10 @@ export function StoreItemManagementPage() {
           <label className="filter-control">
             <span>Category</span>
             <select
-              value={filters.category}
+              value={filters.categories}
               onChange={(event) =>
                 setFilter(
-                  "category",
+                  "categories",
                   event.target.value,
                 )
               }
@@ -666,7 +740,12 @@ export function StoreItemManagementPage() {
                       </strong>
                     </td>
                     <td>
-                      {item.category_code || "-"}
+                      {item.category_codes
+                        ?.length
+                        ? item.category_codes.join(
+                            ", ",
+                          )
+                        : "-"}
                     </td>
                     <td>
                       {
@@ -717,6 +796,17 @@ export function StoreItemManagementPage() {
                           }
                         >
                           <Power size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button icon-button--danger"
+                          onClick={() =>
+                            handleDelete(item)
+                          }
+                          aria-label="Delete item"
+                          title="Delete permanently"
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     </td>

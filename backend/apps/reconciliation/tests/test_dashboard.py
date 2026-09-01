@@ -64,12 +64,12 @@ def cement(site_a, site_b):
     )
     item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
     ItemStandard.objects.create(
         item=item,
         rate=Decimal("6500.00"),
@@ -91,11 +91,12 @@ def dataset(site_a, site_b, cement):
         period_month=date(2026, 6, 1),
     )
     period_a.output_entries.create(
-        category=cement.category,
+        category=cement.categories.first(),
         output_quantity=Decimal("100.000"),
     )
     period_a.entries.create(
         item=cement,
+        category=cement.categories.first(),
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -106,11 +107,12 @@ def dataset(site_a, site_b, cement):
         period_month=date(2026, 6, 1),
     )
     period_b.output_entries.create(
-        category=cement.category,
+        category=cement.categories.first(),
         output_quantity=Decimal("100.000"),
     )
     period_b.entries.create(
         item=cement,
+        category=cement.categories.first(),
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("8.000"),

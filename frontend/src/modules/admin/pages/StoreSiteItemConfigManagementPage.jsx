@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -26,6 +27,7 @@ import {
   useActivateReconciliationSiteItemConfig,
   useCreateReconciliationSiteItemConfig,
   useDeactivateReconciliationSiteItemConfig,
+  useDeleteReconciliationSiteItemConfig,
   useReconciliationItemCategories,
   useReconciliationItems,
   useReconciliationSiteItemConfigExport,
@@ -153,11 +155,22 @@ function SiteItemConfigForm({
   const isNormBased =
     selectedItem?.reconciliation_type ===
     "NORM_BASED";
-  const selectedCategory = selectedItem
-    ? categoriesById.get(selectedItem.category)
-    : null;
-  const availableGrades =
-    selectedCategory?.grades ?? [];
+  // An item can belong to more than one category now - the grade
+  // dropdown offers the union of every one of them, matching the
+  // backend's own validation (grade must be configured on at least
+  // one of the item's categories).
+  const selectedCategories = (
+    selectedItem?.categories ?? []
+  )
+    .map((id) => categoriesById.get(id))
+    .filter(Boolean);
+  const availableGrades = Array.from(
+    new Set(
+      selectedCategories.flatMap(
+        (category) => category.grades ?? [],
+      ),
+    ),
+  );
   const isMonthOnly = form.scope === "PERIOD";
 
   const handleFormSubmit = async (event) => {
@@ -383,8 +396,19 @@ function SiteItemConfigForm({
               placeholder="Leave blank to apply to every grade, or set e.g. M20"
             />
             <span className="table-subtext">
-              {selectedCategory
-                ? `${selectedCategory.category_name} has no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
+              {selectedCategories.length
+                ? `${selectedCategories
+                    .map(
+                      (category) =>
+                        category.category_name,
+                    )
+                    .join(
+                      ", ",
+                    )} ${
+                    selectedCategories.length > 1
+                      ? "have"
+                      : "has"
+                  } no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
                 : ""}
             </span>
           </label>
@@ -555,6 +579,8 @@ export function StoreSiteItemConfigManagementPage() {
     useActivateReconciliationSiteItemConfig();
   const deactivateConfig =
     useDeactivateReconciliationSiteItemConfig();
+  const deleteConfig =
+    useDeleteReconciliationSiteItemConfig();
 
   const configs = configsQuery.data?.items ?? [];
   const items = itemsQuery.data?.items ?? [];
@@ -620,6 +646,26 @@ export function StoreSiteItemConfigManagementPage() {
     setIsFormOpen(false);
   };
 
+  const handleDelete = async (config) => {
+    const label = config.grade_label
+      ? `${config.item_code} at ${config.site_code} (${config.grade_label})`
+      : `${config.item_code} at ${config.site_code}`;
+    const confirmed = window.confirm(
+      `Permanently delete the override for ${label}? ` +
+        "This can't be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteConfig.mutateAsync(config.id);
+    } catch {
+      // Mutation error is shown in the inline alert.
+    }
+  };
+
   const handleExport = async () => {
     const result = await exportQuery.refetch();
     downloadCsv(
@@ -659,7 +705,15 @@ export function StoreSiteItemConfigManagementPage() {
             Site-level tier of the inheritance
             model. An active override locks that
             site to its own figures until
-            deactivated.
+            deactivated. It also decides which
+            item Monthly Entry offers that site for
+            a shared product - once a site has an
+            override for at least one item in a
+            category, only that site's configured
+            items show there (e.g. Site A gets
+            Loose Cement for M20, Site B gets
+            Cement OPC, even though both items sit
+            in the same category).
           </p>
         </div>
 
@@ -741,6 +795,14 @@ export function StoreSiteItemConfigManagementPage() {
       />
 
       <SurfaceCard>
+        {deleteConfig.error ? (
+          <div className="inline-alert inline-alert--error">
+            <strong>
+              {deleteConfig.error.message}
+            </strong>
+          </div>
+        ) : null}
+
         <div className="site-toolbar">
           <label className="input-control">
             <Search size={17} />
@@ -917,6 +979,17 @@ export function StoreSiteItemConfigManagementPage() {
                           }
                         >
                           <Power size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button icon-button--danger"
+                          onClick={() =>
+                            handleDelete(config)
+                          }
+                          aria-label="Delete site override"
+                          title="Delete permanently"
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     </td>

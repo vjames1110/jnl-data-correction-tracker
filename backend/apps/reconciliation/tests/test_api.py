@@ -45,12 +45,12 @@ def reconciliation_master_data():
     )
     item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
     standard = ItemStandard.objects.create(
         item=item,
         rate=6500,
@@ -220,11 +220,13 @@ def test_admin_can_create_item_scoped_to_category(
         reverse("reconciliation-api:items-list"),
         {
             "item_name": "TMT Steel Bars",
-            "category": str(
-                reconciliation_master_data[
-                    "category"
-                ].id
-            ),
+            "categories": [
+                str(
+                    reconciliation_master_data[
+                        "category"
+                    ].id
+                )
+            ],
             "reconciliation_type": (
                 ReconciliationType.DIRECT_COUNT
             ),
@@ -257,11 +259,13 @@ def test_store_ho_can_create_item(
         reverse("reconciliation-api:items-list"),
         {
             "item_name": "Diesel",
-            "category": str(
-                reconciliation_master_data[
-                    "category"
-                ].id
-            ),
+            "categories": [
+                str(
+                    reconciliation_master_data[
+                        "category"
+                    ].id
+                )
+            ],
             "reconciliation_type": (
                 ReconciliationType.DIRECT_COUNT
             ),

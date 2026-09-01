@@ -44,26 +44,28 @@ def category():
 
 @pytest.fixture
 def norm_based_item(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 @pytest.fixture
 def direct_count_item(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="TMT Steel Bars",
-        category=category,
         reconciliation_type=(
             ReconciliationType.DIRECT_COUNT
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 @pytest.mark.django_db
@@ -80,30 +82,67 @@ def test_item_category_normalizes_and_generates_code():
 
 
 @pytest.mark.django_db
-def test_item_code_scoped_unique_per_category(
+def test_item_code_is_globally_unique(
     category,
 ):
+    # An item can now belong to more than one category, so
+    # item_code can no longer be scoped per category the way it used
+    # to be - it's a single, company-wide code.
     first = Item.objects.create(
         item_name="Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    first.categories.add(category)
     second_category = ItemCategory.objects.create(
         category_name="Steel",
     )
     second = Item.objects.create(
         item_name="Cement",
-        category=second_category,
         reconciliation_type=(
             ReconciliationType.DIRECT_COUNT
         ),
         uom="MT",
     )
+    second.categories.add(second_category)
 
-    assert first.item_code == second.item_code == "CEM"
+    assert first.item_code == "CEM"
+    assert second.item_code != first.item_code
+    assert second.item_code.startswith("CEM")
+
+
+@pytest.mark.django_db
+def test_item_can_belong_to_multiple_categories(
+    category,
+):
+    steel_category = ItemCategory.objects.create(
+        category_name="Steel",
+    )
+    water = Item.objects.create(
+        item_name="Water",
+        reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        uom="LTR",
+    )
+    water.categories.add(category, steel_category)
+
+    assert (
+        set(
+            water.categories.values_list(
+                "id", flat=True
+            )
+        )
+        == {category.id, steel_category.id}
+    )
+    assert category.items.filter(
+        id=water.id
+    ).exists()
+    assert steel_category.items.filter(
+        id=water.id
+    ).exists()
 
 
 @pytest.mark.django_db

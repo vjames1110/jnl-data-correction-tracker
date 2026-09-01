@@ -10,6 +10,7 @@ import {
   Plus,
   Power,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -25,6 +26,7 @@ import {
   useActivateReconciliationItemStandard,
   useCreateReconciliationItemStandard,
   useDeactivateReconciliationItemStandard,
+  useDeleteReconciliationItemStandard,
   useReconciliationItemCategories,
   useReconciliationItemStandardExport,
   useReconciliationItemStandards,
@@ -134,11 +136,22 @@ function ItemStandardForm({
   const isNormBased =
     selectedItem?.reconciliation_type ===
     "NORM_BASED";
-  const selectedCategory = selectedItem
-    ? categoriesById.get(selectedItem.category)
-    : null;
-  const availableGrades =
-    selectedCategory?.grades ?? [];
+  // An item can belong to more than one category now - the grade
+  // dropdown offers the union of every one of them, matching the
+  // backend's own validation (grade must be configured on at least
+  // one of the item's categories).
+  const selectedCategories = (
+    selectedItem?.categories ?? []
+  )
+    .map((id) => categoriesById.get(id))
+    .filter(Boolean);
+  const availableGrades = Array.from(
+    new Set(
+      selectedCategories.flatMap(
+        (category) => category.grades ?? [],
+      ),
+    ),
+  );
 
   return (
     <ManagementPanel
@@ -238,8 +251,19 @@ function ItemStandardForm({
               placeholder="Leave blank to apply to every grade, or set e.g. M20"
             />
             <span className="table-subtext">
-              {selectedCategory
-                ? `${selectedCategory.category_name} has no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
+              {selectedCategories.length
+                ? `${selectedCategories
+                    .map(
+                      (category) =>
+                        category.category_name,
+                    )
+                    .join(
+                      ", ",
+                    )} ${
+                    selectedCategories.length > 1
+                      ? "have"
+                      : "has"
+                  } no grades configured yet - add some in Item Category Management for a controlled dropdown here.`
                 : ""}
             </span>
           </label>
@@ -398,6 +422,8 @@ export function StoreItemStandardManagementPage() {
     useActivateReconciliationItemStandard();
   const deactivateStandard =
     useDeactivateReconciliationItemStandard();
+  const deleteStandard =
+    useDeleteReconciliationItemStandard();
 
   const standards =
     standardsQuery.data?.items ?? [];
@@ -457,6 +483,26 @@ export function StoreItemStandardManagementPage() {
 
     setEditingStandard(null);
     setIsFormOpen(false);
+  };
+
+  const handleDelete = async (standard) => {
+    const label = standard.grade_label
+      ? `${standard.item_code} (${standard.grade_label})`
+      : `${standard.item_code} (company-wide)`;
+    const confirmed = window.confirm(
+      `Permanently delete the default for ${label}? ` +
+        "This can't be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteStandard.mutateAsync(standard.id);
+    } catch {
+      // Mutation error is shown in the inline alert.
+    }
   };
 
   const handleExport = async () => {
@@ -581,6 +627,14 @@ export function StoreItemStandardManagementPage() {
       />
 
       <SurfaceCard>
+        {deleteStandard.error ? (
+          <div className="inline-alert inline-alert--error">
+            <strong>
+              {deleteStandard.error.message}
+            </strong>
+          </div>
+        ) : null}
+
         <div className="site-toolbar">
           <label className="input-control">
             <Search size={17} />
@@ -713,6 +767,17 @@ export function StoreItemStandardManagementPage() {
                           }
                         >
                           <Power size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button icon-button--danger"
+                          onClick={() =>
+                            handleDelete(standard)
+                          }
+                          aria-label="Delete company default"
+                          title="Delete permanently"
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     </td>

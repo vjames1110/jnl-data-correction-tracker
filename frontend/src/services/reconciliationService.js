@@ -84,6 +84,12 @@ export const reconciliationService = {
     return response.data.data;
   },
 
+  async deleteItemCategory(id) {
+    await apiClient.delete(
+      `/reconciliation/item-categories/${id}/`,
+    );
+  },
+
   getItems(params = {}) {
     return getMasterList(
       "/reconciliation/items/",
@@ -140,6 +146,12 @@ export const reconciliationService = {
     return response.data.data;
   },
 
+  async deleteItem(id) {
+    await apiClient.delete(
+      `/reconciliation/items/${id}/`,
+    );
+  },
+
   getItemStandards(params = {}) {
     return getMasterList(
       "/reconciliation/item-standards/",
@@ -186,6 +198,12 @@ export const reconciliationService = {
     );
 
     return response.data.data;
+  },
+
+  async deleteItemStandard(id) {
+    await apiClient.delete(
+      `/reconciliation/item-standards/${id}/`,
+    );
   },
 
   /**
@@ -277,6 +295,12 @@ export const reconciliationService = {
     );
 
     return response.data.data;
+  },
+
+  async deleteSiteItemConfig(id) {
+    await apiClient.delete(
+      `/reconciliation/site-item-configs/${id}/`,
+    );
   },
 
   async getToleranceSettings() {

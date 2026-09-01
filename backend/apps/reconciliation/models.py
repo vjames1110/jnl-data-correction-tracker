@@ -255,6 +255,61 @@ def _validate_grade_against_category(
     return {}
 
 
+def _validate_grade_against_item_categories(
+    *,
+    item: "Item | None",
+    grade_label: str,
+    allow_blank: bool,
+) -> dict:
+    """
+    Same idea as ``_validate_grade_against_category``, but for a
+    rate/mix row (``ItemStandard``/``SiteItemConfig``) that's scoped
+    to an item rather than a single category - an item can now
+    belong to more than one production-type category, so the valid
+    grade set is the union across all of them. Blank grade is always
+    ignored here too when ``allow_blank``.
+    """
+    if item is None:
+        return {}
+
+    if allow_blank and not grade_label:
+        return {}
+
+    valid_grades = set()
+    has_any_configured = False
+    for category in item.categories.filter(
+        is_production_output=True
+    ):
+        category_grades = set(
+            category.grades.values_list(
+                "grade_label", flat=True
+            )
+        )
+        if category_grades:
+            has_any_configured = True
+            valid_grades.update(category_grades)
+
+    if not has_any_configured:
+        return {}
+
+    if grade_label not in valid_grades:
+        return {
+            "grade_label": (
+                f"'{grade_label or '(blank)'}' is "
+                "not a configured grade for any of "
+                "this item's production-type "
+                "categories. Add it in Item "
+                "Category Management first"
+                + (
+                    ", or leave this blank."
+                    if allow_blank
+                    else "."
+                )
+            )
+        }
+    return {}
+
+
 class Item(BusinessModel):
     """
     Store item master covering every reconciliation category.
@@ -262,19 +317,28 @@ class Item(BusinessModel):
     ``reconciliation_type`` is a fixed two-value enum (the calculation
     strategy), but which category and behaviour a given item has is
     pure data - new categories never require a code change.
+
+    ``categories`` is many-to-many: a shared raw material (Cement,
+    Water, Admixture) is often required across more than one
+    production type - or the same product split into one category
+    per grade - and needs to be created exactly once and linked to
+    every category it participates in, rather than duplicated per
+    category. Which ONE of an item's categories a given reconciliation
+    entry is actually for is recorded on the entry itself
+    (``ReconciliationEntry.category``), not inferred here.
     """
 
     item_code = models.CharField(
         max_length=30,
         blank=True,
+        unique=True,
         db_index=True,
     )
     item_name = models.CharField(
         max_length=150,
     )
-    category = models.ForeignKey(
+    categories = models.ManyToManyField(
         ItemCategory,
-        on_delete=models.PROTECT,
         related_name="items",
     )
     reconciliation_type = models.CharField(
@@ -297,21 +361,8 @@ class Item(BusinessModel):
 
     class Meta:
         db_table = "reconciliation_item"
-        ordering = [
-            "category__display_order",
-            "item_name",
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["category", "item_code"],
-                name="reco_item_category_code_uniq",
-            ),
-        ]
+        ordering = ["item_name"]
         indexes = [
-            models.Index(
-                fields=["category", "is_active"],
-                name="reco_item_cat_active_idx",
-            ),
             models.Index(
                 fields=[
                     "reconciliation_type",
@@ -343,11 +394,6 @@ class Item(BusinessModel):
                 "item_code",
                 build_abbreviation(self.item_name),
                 exclude_pk=self.pk,
-                scope={
-                    "category_id": self.category_id,
-                }
-                if self.category_id
-                else None,
             )
 
         if self.erp_item_code:
@@ -504,12 +550,8 @@ class ItemStandard(BusinessModel, UserTrackingModel):
             mix_ratio=self.mix_ratio,
         )
         errors.update(
-            _validate_grade_against_category(
-                category=(
-                    self.item.category
-                    if self.item_id
-                    else None
-                ),
+            _validate_grade_against_item_categories(
+                item=self.item if self.item_id else None,
                 grade_label=self.grade_label,
                 allow_blank=True,
             )
@@ -682,12 +724,8 @@ class SiteItemConfig(BusinessModel, UserTrackingModel):
             mix_ratio=self.mix_ratio,
         )
         errors.update(
-            _validate_grade_against_category(
-                category=(
-                    self.item.category
-                    if self.item_id
-                    else None
-                ),
+            _validate_grade_against_item_categories(
+                item=self.item if self.item_id else None,
                 grade_label=self.grade_label,
                 allow_blank=True,
             )
@@ -997,6 +1035,22 @@ class ReconciliationEntry(
         on_delete=models.PROTECT,
         related_name="reconciliation_entries",
     )
+    category = models.ForeignKey(
+        ItemCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reconciliation_entries",
+        help_text=(
+            "Which of the item's (possibly "
+            "several) production-type categories "
+            "this entry's theoretical consumption "
+            "is derived from - must be one of "
+            "the item's own categories. Blank for "
+            "a material not tied to any specific "
+            "product's output batch."
+        ),
+    )
     grade_label = models.CharField(
         max_length=50,
         blank=True,
@@ -1114,13 +1168,31 @@ class ReconciliationEntry(
         db_table = "reconciliation_entry"
         ordering = ["item__item_name"]
         constraints = [
+            # Split in two because Postgres/SQLite treat NULL as
+            # distinct from NULL - a single constraint spanning the
+            # nullable `category` column would silently let a
+            # category-less item (Other Items, no recipe) collect
+            # duplicate entries for the same grade.
             models.UniqueConstraint(
                 fields=[
                     "period",
                     "item",
                     "grade_label",
                 ],
+                condition=Q(category__isnull=True),
                 name="reco_entry_period_item_grade_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=[
+                    "period",
+                    "item",
+                    "category",
+                    "grade_label",
+                ],
+                condition=Q(
+                    category__isnull=False
+                ),
+                name="reco_entry_period_item_cat_grade_uniq",
             ),
         ]
         indexes = [
@@ -1140,9 +1212,15 @@ class ReconciliationEntry(
             if self.grade_label
             else ""
         )
+        category_suffix = (
+            f" [{self.category.category_code}]"
+            if self.category_id
+            else ""
+        )
         return (
             f"{self.period} - "
-            f"{self.item.item_code}{grade_suffix}"
+            f"{self.item.item_code}"
+            f"{category_suffix}{grade_suffix}"
         )
 
     def clean(self):
@@ -1166,6 +1244,24 @@ class ReconciliationEntry(
             ).upper()
 
         errors = {}
+
+        if self.category_id and self.item_id:
+            if not self.item.categories.filter(
+                id=self.category_id
+            ).exists():
+                errors["category"] = (
+                    "This category isn't one of "
+                    "the item's assigned "
+                    "categories."
+                )
+            else:
+                errors.update(
+                    _validate_grade_against_category(
+                        category=self.category,
+                        grade_label=self.grade_label,
+                        allow_blank=True,
+                    )
+                )
 
         if self.item_id and self.period_id:
             is_norm_based = (
@@ -1358,7 +1454,7 @@ class ReconciliationOutputEntry(
         result = super().delete(*args, **kwargs)
 
         for entry in period.entries.filter(
-            item__category_id=category_id,
+            category_id=category_id,
             grade_label=grade_label,
             item__reconciliation_type=(
                 ReconciliationType.NORM_BASED
@@ -1370,12 +1466,14 @@ class ReconciliationOutputEntry(
 
     def _refresh_norm_based_entries(self):
         # A production-output batch is the shared basis every
-        # norm-based material IN ITS OWN CATEGORY, FOR THIS EXACT
-        # GRADE, derives its theoretical consumption from (see
-        # services.variance._resolve_norm_based_theoretical) - only
-        # entries matching both are affected.
+        # norm-based material entry explicitly linked to THIS SAME
+        # CATEGORY, FOR THIS EXACT GRADE, derives its theoretical
+        # consumption from (see
+        # services.variance._resolve_norm_based_theoretical) - an
+        # entry's own `category` (not its item's, which may now span
+        # more than one) decides which output batches apply to it.
         for entry in self.period.entries.filter(
-            item__category_id=self.category_id,
+            category_id=self.category_id,
             grade_label=self.grade_label,
             item__reconciliation_type=(
                 ReconciliationType.NORM_BASED

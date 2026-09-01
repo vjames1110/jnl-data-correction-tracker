@@ -57,14 +57,15 @@ def category():
 
 @pytest.fixture
 def cement(category):
-    return Item.objects.create(
+    item = Item.objects.create(
         item_name="OPC 43 Grade Cement",
-        category=category,
         reconciliation_type=(
             ReconciliationType.NORM_BASED
         ),
         uom="MT",
     )
+    item.categories.add(category)
+    return item
 
 
 
@@ -288,6 +289,7 @@ def test_variance_computation_uses_period_override(
     # 100 * 0.30 (standing override).
     entry = april_period.entries.create(
         item=cement,
+        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
