@@ -72,6 +72,8 @@ const IMPORT_SAMPLE_ROW = {
 };
 const IMPORT_NOTE =
   "site_code must match an existing Site's code and item_code an existing Item's code (see each master's Export). Leave grade_label blank for this site's blanket override, or set it (e.g. M20) for a grade-specific one. Leave mix_ratio blank for Direct Count items. effective_from is YYYY-MM-DD. An active override locks that site to its own figures.";
+const SITE_ELIGIBILITY_NOTE =
+  "An override also decides which item Monthly Entry offers that site for a shared product - once a site has an override for at least one item in a category, only that site's configured items show there (e.g. Site A gets Loose Cement for M20, Site B gets Cement OPC, even though both items sit in the same category).";
 
 const emptyForm = {
   site: "",
@@ -705,15 +707,7 @@ export function StoreSiteItemConfigManagementPage() {
             Site-level tier of the inheritance
             model. An active override locks that
             site to its own figures until
-            deactivated. It also decides which
-            item Monthly Entry offers that site for
-            a shared product - once a site has an
-            override for at least one item in a
-            category, only that site's configured
-            items show there (e.g. Site A gets
-            Loose Cement for M20, Site B gets
-            Cement OPC, even though both items sit
-            in the same category).
+            deactivated.
           </p>
         </div>
 
@@ -786,6 +780,9 @@ export function StoreSiteItemConfigManagementPage() {
         </div>
       </div>
 
+      <p className="table-subtext">
+        {SITE_ELIGIBILITY_NOTE}
+      </p>
       <p className="table-subtext">
         {IMPORT_NOTE}
       </p>
