@@ -276,12 +276,21 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",
-        "user": "1000/hour",
+        # "user" is a single shared budget across every endpoint one
+        # logged-in user calls all session - dashboard/notifications/
+        # organization/etc. each poll every 60s in the background, so
+        # 2-3 open tabs alone can already burn several hundred/hour
+        # before any manual work. 1000/hour left too little headroom
+        # for genuine bursts of data entry (e.g. adding many Store
+        # Reconciliation rates back to back) and was tripping for
+        # real, legitimate usage - raised well clear of realistic
+        # ambient + active load while still bounding a runaway loop.
+        "user": "5000/hour",
         "login": "10/minute",
         "token_refresh": "30/minute",
         "token_verify": "60/minute",
         "password_reset": "5/hour",
-        "admin_dashboard": "300/hour",
+        "admin_dashboard": "1000/hour",
     },
 }
 
