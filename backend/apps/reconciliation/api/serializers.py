@@ -610,8 +610,6 @@ class ReconciliationEntrySerializer(
             "id",
             "period",
             "item",
-            "category",
-            "grade_label",
             "item_code",
             "item_name",
             "uom",
@@ -658,17 +656,17 @@ class ReconciliationEntrySerializer(
     def get_mix_ratio_by_grade(self, obj):
         """
         This material's resolved mix ratio for every grade produced
-        this period - the ``ReconciliationStatementSheet`` frontend
-        component uses this to rebuild the Design Mix / Theoretical
-        Consumption tables per grade, since production output is no
-        longer logged per material (see ``ReconciliationOutputEntry``).
-        ``None`` for a grade that isn't matched to a rate/mix ratio
-        anywhere - the statement shows that as "Not configured".
+        this period against a category the material belongs to - the
+        ``ReconciliationStatementSheet`` component uses it to rebuild
+        the Design Mix table. Only grades the material actually
+        participates in are keyed; a keyed grade whose value is
+        ``None`` is a genuine gap the statement shows as "Not
+        configured", while a grade the material isn't used for is
+        simply absent (rendered as "-").
         """
         if (
             obj.item.reconciliation_type
             != ReconciliationType.NORM_BASED
-            or not obj.category_id
         ):
             return {}
 
@@ -679,7 +677,7 @@ class ReconciliationEntrySerializer(
         grades = (
             ReconciliationOutputEntry.objects.filter(
                 period_id=obj.period_id,
-                category_id=obj.category_id,
+                category__items=obj.item,
             )
             .values_list(
                 "grade_label",

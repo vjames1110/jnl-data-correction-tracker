@@ -152,23 +152,12 @@ export function ReconciliationStatementSheet({
   );
   // Concrete (or whatever is flagged as the production output) is
   // never itself reconciled, so it never appears here - only the
-  // raw materials the recipe is made from do. Sections 2/3 are
-  // material-level reference tables (design mix / theoretical
-  // consumption for every grade this material could apply to) -
-  // deduped to one row per material, since a material can now carry
-  // more than one entry (one per grade actually produced) and
-  // mix_ratio_by_grade already covers every grade regardless of
-  // which entry it's read from.
-  const normBasedEntries = Array.from(
-    new Map(
-      entries
-        .filter(
-          (entry) =>
-            entry.reconciliation_type ===
-            "NORM_BASED",
-        )
-        .map((entry) => [entry.item, entry]),
-    ).values(),
+  // raw materials the recipe is made from do. There's one entry per
+  // material per month; its mix_ratio_by_grade covers every grade
+  // it's actually used for.
+  const normBasedEntries = entries.filter(
+    (entry) =>
+      entry.reconciliation_type === "NORM_BASED",
   );
 
   function materialLabel(entry) {
@@ -177,16 +166,8 @@ export function ReconciliationStatementSheet({
     }`;
   }
 
-  // Section 1's columns and Section 3's rows are per-ENTRY, and a
-  // material can now have a separate entry per grade - append the
-  // grade so two entries for the same material aren't shown under
-  // identical labels. Deliberately doesn't reuse materialLabel's
-  // UOM suffix, to keep matching each section's existing label
-  // format otherwise.
   function entryLabel(entry) {
-    return entry.grade_label
-      ? `${entry.item_name} - ${entry.grade_label}`
-      : entry.item_name;
+    return entry.item_name;
   }
 
   return (
@@ -249,12 +230,7 @@ export function ReconciliationStatementSheet({
               </th>
               {entries.map((entry) => (
                 <th key={entry.id}>
-                  {entryLabel({
-                    id: entry.item,
-                    item_code: entry.item_code,
-                    item_name: entry.item_name,
-                    grade_label: entry.grade_label,
-                  })}
+                  {entryLabel(entry)}
                 </th>
               ))}
             </tr>
@@ -399,10 +375,20 @@ export function ReconciliationStatementSheet({
                       {materialLabel(entry)}
                     </td>
                     {pivot.grades.map((grade) => {
-                      const ratio =
-                        entry.mix_ratio_by_grade?.[
-                          grade
-                        ];
+                      const byGrade =
+                        entry.mix_ratio_by_grade ??
+                        {};
+                      // Grade the material isn't used for at all
+                      // (no key) -> "-"; used for it but no ratio
+                      // resolved (key present, null) -> a real gap.
+                      if (
+                        !(grade in byGrade)
+                      ) {
+                        return (
+                          <td key={grade}>-</td>
+                        );
+                      }
+                      const ratio = byGrade[grade];
                       return (
                         <td key={grade}>
                           {ratio === null ||

@@ -30,13 +30,9 @@ function num(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-// A material can have a separate entry per production grade - append
-// the grade so two rows for the same material aren't shown under
-// identical labels.
+// One entry per material per month.
 function entryLabel(entry) {
-  return entry.grade_label
-    ? `${entry.item_name} - ${entry.grade_label}`
-    : entry.item_name;
+  return entry.item_name;
 }
 
 /**

@@ -1035,37 +1035,6 @@ class ReconciliationEntry(
         on_delete=models.PROTECT,
         related_name="reconciliation_entries",
     )
-    category = models.ForeignKey(
-        ItemCategory,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="reconciliation_entries",
-        help_text=(
-            "Which of the item's (possibly "
-            "several) production-type categories "
-            "this entry's theoretical consumption "
-            "is derived from - must be one of "
-            "the item's own categories. Blank for "
-            "a material not tied to any specific "
-            "product's output batch."
-        ),
-    )
-    grade_label = models.CharField(
-        max_length=50,
-        blank=True,
-        default="",
-        help_text=(
-            "Which production grade this "
-            "material's actual consumption is "
-            "for (e.g. M20) - blank for a "
-            "material not tied to a specific "
-            "grade's output batch, or for a "
-            "material with no recipe at all. A "
-            "norm-based item can have one entry "
-            "per grade produced this period."
-        ),
-    )
     opening_stock = models.DecimalField(
         max_digits=14,
         decimal_places=3,
@@ -1168,31 +1137,15 @@ class ReconciliationEntry(
         db_table = "reconciliation_entry"
         ordering = ["item__item_name"]
         constraints = [
-            # Split in two because Postgres/SQLite treat NULL as
-            # distinct from NULL - a single constraint spanning the
-            # nullable `category` column would silently let a
-            # category-less item (Other Items, no recipe) collect
-            # duplicate entries for the same grade.
+            # One reconciliation entry per material per month. Raw
+            # material stock (opening/receipts/closing) is a single
+            # physical figure - production output is what varies by
+            # grade, and a material's theoretical consumption is
+            # summed across every grade produced (see
+            # services.variance._resolve_norm_based_theoretical).
             models.UniqueConstraint(
-                fields=[
-                    "period",
-                    "item",
-                    "grade_label",
-                ],
-                condition=Q(category__isnull=True),
-                name="reco_entry_period_item_grade_uniq",
-            ),
-            models.UniqueConstraint(
-                fields=[
-                    "period",
-                    "item",
-                    "category",
-                    "grade_label",
-                ],
-                condition=Q(
-                    category__isnull=False
-                ),
-                name="reco_entry_period_item_cat_grade_uniq",
+                fields=["period", "item"],
+                name="reco_entry_period_item_uniq",
             ),
         ]
         indexes = [
@@ -1207,20 +1160,8 @@ class ReconciliationEntry(
         )
 
     def __str__(self) -> str:
-        grade_suffix = (
-            f" ({self.grade_label})"
-            if self.grade_label
-            else ""
-        )
-        category_suffix = (
-            f" [{self.category.category_code}]"
-            if self.category_id
-            else ""
-        )
         return (
-            f"{self.period} - "
-            f"{self.item.item_code}"
-            f"{category_suffix}{grade_suffix}"
+            f"{self.period} - {self.item.item_code}"
         )
 
     def clean(self):
@@ -1238,30 +1179,8 @@ class ReconciliationEntry(
             self.rack = normalize_whitespace(
                 self.rack
             )
-        if self.grade_label:
-            self.grade_label = normalize_whitespace(
-                self.grade_label
-            ).upper()
 
         errors = {}
-
-        if self.category_id and self.item_id:
-            if not self.item.categories.filter(
-                id=self.category_id
-            ).exists():
-                errors["category"] = (
-                    "This category isn't one of "
-                    "the item's assigned "
-                    "categories."
-                )
-            else:
-                errors.update(
-                    _validate_grade_against_category(
-                        category=self.category,
-                        grade_label=self.grade_label,
-                        allow_blank=True,
-                    )
-                )
 
         if self.item_id and self.period_id:
             is_norm_based = (
@@ -1332,6 +1251,27 @@ class ReconciliationEntry(
         super().save(*args, **kwargs)
         refresh_entry_flags(self)
         return self
+
+
+def _refresh_period_norm_entries(*, period, category_id):
+    """
+    Re-save every norm-based material entry in ``period`` whose item
+    belongs to ``category_id`` - a production-output batch for that
+    category feeds each such material's theoretical consumption (see
+    ``services.variance._resolve_norm_based_theoretical``), so
+    changing/removing a batch has to recompute them. A material's
+    stock is one entry for the whole month; its theoretical is
+    summed across every grade produced, so this is no longer scoped
+    by ``grade_label``.
+    """
+    entries = period.entries.filter(
+        item__reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        item__categories=category_id,
+    ).distinct()
+    for entry in entries:
+        entry.save()
 
 
 class ReconciliationOutputEntry(
@@ -1450,36 +1390,19 @@ class ReconciliationOutputEntry(
     def delete(self, *args, **kwargs):
         period = self.period
         category_id = self.category_id
-        grade_label = self.grade_label
         result = super().delete(*args, **kwargs)
 
-        for entry in period.entries.filter(
+        _refresh_period_norm_entries(
+            period=period,
             category_id=category_id,
-            grade_label=grade_label,
-            item__reconciliation_type=(
-                ReconciliationType.NORM_BASED
-            ),
-        ):
-            entry.save()
-
+        )
         return result
 
     def _refresh_norm_based_entries(self):
-        # A production-output batch is the shared basis every
-        # norm-based material entry explicitly linked to THIS SAME
-        # CATEGORY, FOR THIS EXACT GRADE, derives its theoretical
-        # consumption from (see
-        # services.variance._resolve_norm_based_theoretical) - an
-        # entry's own `category` (not its item's, which may now span
-        # more than one) decides which output batches apply to it.
-        for entry in self.period.entries.filter(
+        _refresh_period_norm_entries(
+            period=self.period,
             category_id=self.category_id,
-            grade_label=self.grade_label,
-            item__reconciliation_type=(
-                ReconciliationType.NORM_BASED
-            ),
-        ):
-            entry.save()
+        )
 
 
 class ReconciliationFlagType(models.TextChoices):

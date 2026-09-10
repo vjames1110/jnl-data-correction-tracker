@@ -43,12 +43,14 @@ def compute_entry_variance(entry) -> None:
     )
 
     if is_norm_based:
-        rate, theoretical = (
+        rate, theoretical, missing_grades = (
             _resolve_norm_based_theoretical(
                 entry, item
             )
         )
+        entry._missing_ratio_grades = missing_grades
     else:
+        entry._missing_ratio_grades = []
         resolved = resolve_standard(
             item=item,
             site=entry.period.site,
@@ -120,66 +122,84 @@ def compute_entry_variance(entry) -> None:
 
 def _resolve_norm_based_theoretical(entry, item):
     """
-    Theoretical consumption for a norm-based material, for the ONE
-    production grade this entry itself is for (``entry.grade_label``,
-    blank included - a material can have a separate entry per grade
-    produced this period, mirroring the output side).
+    Theoretical consumption for a norm-based material for the whole
+    month - one entry per material, summed across every production
+    grade it's used for.
 
-    Production output isn't tracked per material - a store produces
-    one thing (e.g. Concrete, by grade), and every raw material
-    entered against THAT category derives its theoretical
-    consumption from the category's output batches for its own exact
-    grade, using its own mix ratio - not from a batch logged against
-    the material itself, and not blended across other grades this
-    entry doesn't represent. This is scoped to the ENTRY's own
-    ``category`` (not the item's, which can now span more than one
-    production type at once) so a material shared across several
-    products - or several grade-scoped categories - never has one
-    product's output bleed into another's.
+    A store produces one thing (e.g. Concrete) at several grades;
+    raw-material stock (opening/receipts/closing) is a single
+    physical figure entered once. Theoretical consumption is
+    therefore the sum, over every ``ReconciliationOutputEntry`` in
+    the period whose category contains this material, of
+    ``output_quantity x mix_ratio`` for that batch's grade - each
+    grade's mix ratio resolved independently via
+    ``resolve_standard``.
 
-    Returns ``(None, None)`` if this grade has no resolvable
-    rate/mix ratio at all, or no output was recorded for it - that
-    should be flagged as a configuration/data gap, not silently
-    approximated.
+    Returns ``(rate, theoretical, missing_grades)``:
+    - ``rate`` - the material's rate (rates don't vary by grade
+      here, so the first produced grade that resolves one wins;
+      falls back to the blank-grade standard when nothing was
+      produced).
+    - ``theoretical`` - summed across the grades that DO have a mix
+      ratio (``ZERO`` when nothing was produced against any of the
+      material's categories).
+    - ``missing_grades`` - grades produced this period for which no
+      mix ratio could be resolved; the caller flags these but still
+      keeps the partial figure.
     """
-    output_total = (
+    site = entry.period.site
+    on_date = entry.period.period_month
+
+    output_by_grade = list(
         ReconciliationOutputEntry.objects.filter(
             period_id=entry.period_id,
-            category_id=entry.category_id,
-            grade_label=entry.grade_label,
-        ).aggregate(
+            category__items=item,
+        )
+        .values("grade_label")
+        .annotate(
             total=django_models.Sum(
                 "output_quantity"
             )
-        )["total"]
-        or ZERO
+        )
     )
 
-    if output_total == ZERO:
-        resolved = resolve_standard(
+    if not output_by_grade:
+        blank = resolve_standard(
             item=item,
-            site=entry.period.site,
-            on_date=entry.period.period_month,
-            grade_label=entry.grade_label,
+            site=site,
+            on_date=on_date,
+            grade_label="",
             period=entry.period,
         )
-        return resolved.rate, ZERO
+        return blank.rate, ZERO, []
 
-    resolved = resolve_standard(
-        item=item,
-        site=entry.period.site,
-        on_date=entry.period.period_month,
-        grade_label=entry.grade_label,
-        period=entry.period,
-    )
-    if (
-        resolved.rate is None
-        or resolved.mix_ratio is None
-    ):
-        return None, None
+    theoretical = ZERO
+    rate = None
+    missing_grades = []
 
-    theoretical = output_total * resolved.mix_ratio
-    return resolved.rate, theoretical
+    for row in output_by_grade:
+        grade = row["grade_label"] or ""
+        total = row["total"] or ZERO
+        resolved = resolve_standard(
+            item=item,
+            site=site,
+            on_date=on_date,
+            grade_label=grade,
+            period=entry.period,
+        )
+        if (
+            rate is None
+            and resolved.rate is not None
+        ):
+            rate = resolved.rate
+        if resolved.mix_ratio is None:
+            missing_grades.append(
+                grade or "(no grade)"
+            )
+            continue
+        theoretical += total * resolved.mix_ratio
+
+    return rate, theoretical, missing_grades
 
 
 def _resolve_status(
@@ -231,6 +251,17 @@ def refresh_entry_flags(entry) -> None:
         entry=entry
     ).delete()
 
+    missing_grades = getattr(
+        entry, "_missing_ratio_grades", []
+    )
+    missing_grade_flag = None
+    if missing_grades:
+        missing_grade_flag = (
+            ReconciliationFlagType.MISSING_MIX_OR_RATE,
+            "No mix ratio configured for grade(s): "
+            f"{', '.join(missing_grades)}.",
+        )
+
     if (
         entry.status
         == ReconciliationEntryStatus.NOT_CALCULATED
@@ -255,22 +286,23 @@ def refresh_entry_flags(entry) -> None:
             # flagging.
             return
 
+        flag_type, message = missing_grade_flag or (
+            ReconciliationFlagType.MISSING_MIX_OR_RATE,
+            "No rate or mix ratio is configured for "
+            "this item at this site.",
+        )
         ReconciliationFlag.objects.create(
             period=entry.period,
             entry=entry,
-            flag_type=(
-                ReconciliationFlagType
-                .MISSING_MIX_OR_RATE
-            ),
-            message=(
-                "No rate or mix ratio is "
-                "configured for this item at "
-                "this site."
-            ),
+            flag_type=flag_type,
+            message=message,
         )
         return
 
     flags = []
+
+    if missing_grade_flag is not None:
+        flags.append(missing_grade_flag)
 
     if (
         entry.actual_quantity is not None

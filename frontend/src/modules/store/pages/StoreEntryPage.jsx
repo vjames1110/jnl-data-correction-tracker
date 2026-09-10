@@ -1,13 +1,10 @@
 import {
-  Fragment,
   useMemo,
   useRef,
   useState,
 } from "react";
 import {
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Download,
   Plus,
   Printer,
@@ -161,12 +158,12 @@ function VarianceStatusChip({ status }) {
   );
 }
 
-// A material can now have a separate entry per production grade
-// (mirroring the output side), so an item alone no longer uniquely
-// identifies an entry - every lookup keyed on "which entry is this"
-// needs the grade folded in too.
-function entryKey(itemId, gradeLabel) {
-  return `${itemId}::${gradeLabel || ""}`;
+// Raw-material stock is one entry per material per month - the item
+// id alone identifies its entry. (Production output is what varies
+// by grade; a material's theoretical consumption is summed across
+// every grade produced.)
+function entryKey(itemId) {
+  return `${itemId}`;
 }
 
 function LocationCell({ section, rack }) {
@@ -335,8 +332,6 @@ function ResultDisplay({ entry }) {
 function EntryRow({
   entry,
   item,
-  gradeLabel,
-  showGradeColumn,
   onSave,
   saving,
   queued,
@@ -390,9 +385,6 @@ function EntryRow({
           {item.item_name}
         </span>
       </td>
-      {showGradeColumn ? (
-        <td>{gradeLabel || "-"}</td>
-      ) : null}
       <td>{item.uom}</td>
       <td>
         <div className="entry-compact-col">
@@ -493,7 +485,6 @@ const BLANK_ENTRY_FORM = {
 function SavedEntryRow({
   item,
   entry,
-  showGradeColumn,
   onSave,
   saving,
   queued,
@@ -507,8 +498,6 @@ function SavedEntryRow({
       <EntryRow
         item={item}
         entry={entry}
-        gradeLabel={entry?.grade_label}
-        showGradeColumn={showGradeColumn}
         saving={saving}
         queued={queued}
         onSave={async (payload) => {
@@ -530,9 +519,6 @@ function SavedEntryRow({
           {item.item_name}
         </span>
       </td>
-      {showGradeColumn ? (
-        <td>{entry.grade_label || "-"}</td>
-      ) : null}
       <td>{item.uom}</td>
       <td>
         <LocationCell
@@ -599,12 +585,8 @@ function EntriesTable({
   saving,
   onSave,
   emptyMessage,
-  showGradeColumn = false,
 }) {
-  const columnCount =
-    6 +
-    (showGradeColumn ? 1 : 0) +
-    (isEditable ? 1 : 0);
+  const columnCount = 6 + (isEditable ? 1 : 0);
 
   return (
     <div className="data-table-wrapper">
@@ -612,9 +594,6 @@ function EntriesTable({
         <thead>
           <tr>
             <th>Item</th>
-            {showGradeColumn ? (
-              <th>Grade</th>
-            ) : null}
             <th>UOM</th>
             <th>Location</th>
             <th>Quantities</th>
@@ -627,20 +606,15 @@ function EntriesTable({
           {rows.map(({ item, entry, queued }) => (
             <SavedEntryRow
               key={`${item.id}-${
-                entry?.grade_label ?? ""
-              }-${entry?.updated_at ?? "pending"}`}
+                entry?.updated_at ?? "pending"
+              }`}
               item={item}
               entry={entry}
               queued={queued}
               editable={isEditable}
-              showGradeColumn={showGradeColumn}
               saving={saving}
               onSave={(payload) =>
-                onSave(
-                  item,
-                  payload,
-                  entry?.grade_label ?? "",
-                )
+                onSave(item, payload)
               }
             />
           ))}
@@ -662,7 +636,6 @@ function EntriesTable({
 
 function AddEntryForm({
   availableItems,
-  gradeLabel = "",
   onSubmit,
   submitting,
 }) {
@@ -706,11 +679,7 @@ function AddEntryForm({
         };
     payload.section = form.section || "";
     payload.rack = form.rack || "";
-    await onSubmit(
-      selectedItem,
-      payload,
-      gradeLabel,
-    );
+    await onSubmit(selectedItem, payload);
     setItemId("");
     setForm(BLANK_ENTRY_FORM);
   };
@@ -718,11 +687,8 @@ function AddEntryForm({
   if (!availableItems.length) {
     return (
       <p className="table-subtext">
-        Every item{" "}
-        {gradeLabel
-          ? `for grade ${gradeLabel}`
-          : "here"}{" "}
-        already has an entry this period.
+        Every item here already has an entry this
+        period.
       </p>
     );
   }
@@ -732,12 +698,6 @@ function AddEntryForm({
       className="entry-form-row"
       onSubmit={handleSubmit}
     >
-      {gradeLabel ? (
-        <div className="entry-form-row__badge">
-          <span>Grade</span>
-          <strong>{gradeLabel}</strong>
-        </div>
-      ) : null}
       <label className="filter-control">
         <span>Item</span>
         <select
@@ -1411,11 +1371,6 @@ export function StoreEntryPage() {
   const csvInputRef = useRef(null);
   const [csvMessage, setCsvMessage] =
     useState("");
-  // Which production-output row's materials panel is open - one at
-  // a time, since every panel shows the same period-wide material
-  // list regardless of which output batch you expanded.
-  const [expandedOutputId, setExpandedOutputId] =
-    useState(null);
 
   const sitesQuery = useSitesDropdown();
 
@@ -1510,33 +1465,18 @@ export function StoreEntryPage() {
     [siteItemConfigsQuery.data],
   );
   // The Production Output form only ever offers categories flagged
-  // as a production type (e.g. Concrete) - every item assigned to
-  // one of these categories is one of its recipe materials, and is
-  // reconciled through the category's expanded panel below instead
-  // of being selectable as a product itself.
+  // as a production type (e.g. Concrete). Every norm-based item is a
+  // recipe material entered once per month in the Recipe Materials
+  // card; direct-count items are entered in Other Items.
   const productionTypeCategories = categories.filter(
     (category) => category.is_production_output,
   );
-  const productionTypeCategoryIds = useMemo(
-    () =>
-      new Set(
-        productionTypeCategories.map(
-          (category) => category.id,
-        ),
-      ),
-    [productionTypeCategories],
-  );
 
-  // Keyed by entryKey(itemId, gradeLabel) - a material can now have
-  // a separate entry per production grade, so item id alone no
-  // longer identifies a unique entry.
+  // One entry per material per month - the item id alone keys it.
   const entryByKey = useMemo(() => {
     const map = new Map();
     entries.forEach((entry) => {
-      map.set(
-        entryKey(entry.item, entry.grade_label),
-        entry,
-      );
+      map.set(entryKey(entry.item), entry);
     });
     return map;
   }, [entries]);
@@ -1552,7 +1492,7 @@ export function StoreEntryPage() {
   const enteredKeys = useMemo(() => {
     const set = new Set(
       entries.map((entry) =>
-        entryKey(entry.item, entry.grade_label),
+        entryKey(entry.item),
       ),
     );
     pendingByKey.forEach((_, key) =>
@@ -1561,92 +1501,68 @@ export function StoreEntryPage() {
     return set;
   }, [entries, pendingByKey]);
 
-  // Items with no blank-grade entry yet this period - the pool the
-  // standalone "Other Items" add form picks from (those items are
-  // never tied to a production grade, so they only ever get one,
-  // blank-grade entry).
   const itemsAvailableToAdd = useMemo(
     () =>
       items.filter(
         (item) =>
-          !enteredKeys.has(entryKey(item.id, "")),
+          !enteredKeys.has(entryKey(item.id)),
       ),
     [items, enteredKeys],
   );
 
-  // A material is only ever added from inside its own category's
-  // production-output panel, if that category is a production type
-  // - it's consumed according to that product's recipe, not entered
-  // standalone. Items whose category isn't a production type at all
-  // (e.g. Steel) have no product to belong to, so they keep their
-  // own add flow in a standalone section instead. Within a
-  // production category, the same material can still be added again
-  // for a different grade - only an entry for THIS exact grade
-  // excludes it from this panel's pool.
-  const availableToAddByCategory = (
-    categoryId,
-    gradeLabel,
-  ) => {
-    const categoryItems = items.filter((item) =>
-      item.categories?.includes(categoryId),
+  // Norm-based materials, entered once per month in the Recipe
+  // Materials card. Opt-in site scoping: once this site has an
+  // active Site Override for at least one material, the list narrows
+  // to only its configured materials; a site that hasn't configured
+  // anything yet sees every norm-based item.
+  const materialsAvailableToAdd = useMemo(() => {
+    const materials = itemsAvailableToAdd.filter(
+      (item) =>
+        item.reconciliation_type ===
+        "NORM_BASED",
     );
-    // Opt-in site scoping: once this site has an active Site
-    // Override for at least one of this category's items, the panel
-    // narrows to only those configured items - e.g. Site A configured
-    // Loose Cement for Concrete M20, so Cement OPC (also in that
-    // category, but never configured for Site A) no longer shows
-    // there. A site that hasn't configured anything for this category
-    // yet keeps seeing every item in it, unchanged from before.
-    const siteEligibleItems = categoryItems.some(
-      (item) => siteConfiguredItemIds.has(item.id),
-    )
-      ? categoryItems.filter((item) =>
+    const allMaterials = items.filter(
+      (item) =>
+        item.reconciliation_type ===
+        "NORM_BASED",
+    );
+    const siteConfigured = allMaterials.some(
+      (item) =>
+        siteConfiguredItemIds.has(item.id),
+    );
+    return siteConfigured
+      ? materials.filter((item) =>
           siteConfiguredItemIds.has(item.id),
         )
-      : categoryItems;
+      : materials;
+  }, [
+    itemsAvailableToAdd,
+    items,
+    siteConfiguredItemIds,
+  ]);
 
-    return siteEligibleItems.filter(
-      (item) =>
-        !enteredKeys.has(
-          entryKey(item.id, gradeLabel),
-        ),
-    );
-  };
-  // An item with no production-type category at all (among
-  // possibly several categories it belongs to) has no recipe of its
-  // own and is entered standalone instead.
   const otherAvailableToAdd = useMemo(
     () =>
       itemsAvailableToAdd.filter(
         (item) =>
-          !(item.categories ?? []).some((id) =>
-            productionTypeCategoryIds.has(id),
-          ),
+          item.reconciliation_type !==
+          "NORM_BASED",
       ),
-    [
-      itemsAvailableToAdd,
-      productionTypeCategoryIds,
-    ],
+    [itemsAvailableToAdd],
   );
   const hasOtherItems = items.some(
     (item) =>
-      !(item.categories ?? []).some((id) =>
-        productionTypeCategoryIds.has(id),
-      ),
+      item.reconciliation_type !== "NORM_BASED",
   );
 
-  // One row per (item, grade) entry that actually exists
-  // (server-saved or still offline-queued) - sourced from the
-  // entries themselves (which already carry their own
-  // item_code/name/uom) rather than the active items list, so a
-  // since-deactivated item's submitted entry still shows up
-  // correctly.
+  // One row per material entry that actually exists (server-saved
+  // or still offline-queued) - sourced from the entries themselves
+  // (which already carry their own item_code/name/uom) rather than
+  // the active items list, so a since-deactivated item's submitted
+  // entry still shows up correctly.
   const entriesForDisplay = useMemo(() => {
     const rows = entries.map((serverEntry) => {
-      const key = entryKey(
-        serverEntry.item,
-        serverEntry.grade_label,
-      );
+      const key = entryKey(serverEntry.item);
       const pending = pendingByKey.get(key);
       const entry = pending
         ? {
@@ -1684,7 +1600,6 @@ export function StoreEntryPage() {
         entry: {
           ...pending.payload,
           item: pending.itemId,
-          grade_label: pending.gradeLabel ?? "",
         },
         queued: true,
       });
@@ -1698,25 +1613,25 @@ export function StoreEntryPage() {
     entryByKey,
   ]);
 
-  // The materials list shown inside an expanded production-output
-  // row - every item belonging to that exact category AND matching
-  // this exact grade (blank included), whether already entered or
-  // still queued/offline. A material with entries for more than one
-  // grade shows up in each grade's own panel, never blended
-  // together. Items in a different (or no) production-type category
-  // are excluded; they show up only in the flat table below and in
-  // their own add section, since they don't belong to this
-  // product's recipe.
-  const entriesForDisplayByCategory = (
-    categoryId,
-    gradeLabel,
-  ) =>
-    entriesForDisplay.filter(
-      ({ entry }) =>
-        entry?.category === categoryId &&
-        (entry?.grade_label ?? "") ===
-          (gradeLabel ?? ""),
-    );
+  // Recipe materials (norm-based) vs. direct-count "Other Items".
+  const materialEntriesForDisplay = useMemo(
+    () =>
+      entriesForDisplay.filter(
+        ({ item }) =>
+          item.reconciliation_type ===
+          "NORM_BASED",
+      ),
+    [entriesForDisplay],
+  );
+  const otherEntriesForDisplay = useMemo(
+    () =>
+      entriesForDisplay.filter(
+        ({ item }) =>
+          item.reconciliation_type !==
+          "NORM_BASED",
+      ),
+    [entriesForDisplay],
+  );
 
   // Director can open this page (read-only) from the approval
   // inbox's "View Entries" link, but only Store HO/Admin/Super
@@ -1728,13 +1643,8 @@ export function StoreEntryPage() {
     canEditPeriod &&
     (!period || period.status === "DRAFT");
 
-  const queueEntrySave = (
-    item,
-    payload,
-    gradeLabel = "",
-    categoryId = null,
-  ) => {
-    const key = entryKey(item.id, gradeLabel);
+  const queueEntrySave = (item, payload) => {
+    const key = entryKey(item.id);
     const existing = entryByKey.get(key);
 
     if (existing) {
@@ -1753,7 +1663,6 @@ export function StoreEntryPage() {
           actionId: queuedAction.id,
           isCreate: false,
           itemId: item.id,
-          gradeLabel,
         });
         return next;
       });
@@ -1770,29 +1679,20 @@ export function StoreEntryPage() {
         id: clientId,
         period: period.id,
         item: item.id,
-        category: categoryId,
-        grade_label: gradeLabel,
         ...payload,
       },
-      dedupeKey: `create-entry-${period.id}-${item.id}-${gradeLabel}`,
-      label: `${item.item_code}${
-        gradeLabel ? ` (${gradeLabel})` : ""
-      } (new)`,
+      dedupeKey: `create-entry-${period.id}-${item.id}`,
+      label: `${item.item_code} (new)`,
     });
     offlineQueue.refreshQueueCount();
     setPendingByKey((current) => {
       const next = new Map(current);
       next.set(key, {
-        payload: {
-          ...payload,
-          category: categoryId,
-          grade_label: gradeLabel,
-        },
+        payload: { ...payload },
         actionId: queuedAction.id,
         isCreate: true,
         clientId,
         itemId: item.id,
-        gradeLabel,
       });
       return next;
     });
@@ -1809,23 +1709,13 @@ export function StoreEntryPage() {
     });
   };
 
-  const handleSaveEntry = async (
-    item,
-    payload,
-    gradeLabel = "",
-    categoryId = null,
-  ) => {
+  const handleSaveEntry = async (item, payload) => {
     if (!offlineQueue.isOnline) {
-      queueEntrySave(
-        item,
-        payload,
-        gradeLabel,
-        categoryId,
-      );
+      queueEntrySave(item, payload);
       return;
     }
 
-    const key = entryKey(item.id, gradeLabel);
+    const key = entryKey(item.id);
     const existing = entryByKey.get(key);
     try {
       if (existing) {
@@ -1837,20 +1727,13 @@ export function StoreEntryPage() {
         await createEntry.mutateAsync({
           period: period.id,
           item: item.id,
-          category: categoryId,
-          grade_label: gradeLabel,
           ...payload,
         });
       }
       clearPending(key);
     } catch (error) {
       if (isNetworkError(error)) {
-        queueEntrySave(
-          item,
-          payload,
-          gradeLabel,
-          categoryId,
-        );
+        queueEntrySave(item, payload);
       } else {
         throw error;
       }
@@ -2342,15 +2225,16 @@ export function StoreEntryPage() {
                     />
                   ) : null}
                   <p className="table-subtext">
-                    Click a row to see the
-                    materials it's made from and
-                    record what was actually used.
+                    Log how much of each product was
+                    produced, grade by grade. Each
+                    material's theoretical
+                    consumption is the sum across
+                    every grade produced.
                   </p>
                   <div className="data-table-wrapper">
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th />
                           <th>Product</th>
                           <th>Grade</th>
                           <th>Quantity</th>
@@ -2361,175 +2245,48 @@ export function StoreEntryPage() {
                       </thead>
                       <tbody>
                         {outputEntries.map(
-                          (output) => {
-                            const isExpanded =
-                              expandedOutputId ===
-                              output.id;
-                            return (
-                              <Fragment
-                                key={output.id}
-                              >
-                                <tr
-                                  className="reco-output-row"
-                                  onClick={() =>
-                                    setExpandedOutputId(
-                                      isExpanded
-                                        ? null
-                                        : output.id,
-                                    )
-                                  }
-                                >
-                                  <td>
-                                    <button
-                                      type="button"
-                                      className="icon-button"
-                                      aria-label={
-                                        isExpanded
-                                          ? "Hide materials"
-                                          : "Show materials"
-                                      }
-                                    >
-                                      {isExpanded ? (
-                                        <ChevronUp
-                                          size={
-                                            15
-                                          }
-                                        />
-                                      ) : (
-                                        <ChevronDown
-                                          size={
-                                            15
-                                          }
-                                        />
-                                      )}
-                                    </button>
-                                  </td>
-                                  <td>
-                                    {
-                                      output.category_name
+                          (output) => (
+                            <tr key={output.id}>
+                              <td>
+                                {
+                                  output.category_name
+                                }
+                              </td>
+                              <td>
+                                {output.grade_label ||
+                                  "-"}
+                              </td>
+                              <td>
+                                {
+                                  output.output_quantity
+                                }
+                              </td>
+                              {isEditable ? (
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="icon-button icon-button--danger"
+                                    onClick={() =>
+                                      handleDeleteOutputEntry(
+                                        output.id,
+                                      )
                                     }
-                                  </td>
-                                  <td>
-                                    {output.grade_label ||
-                                      "-"}
-                                  </td>
-                                  <td>
-                                    {
-                                      output.output_quantity
-                                    }
-                                  </td>
-                                  {isEditable ? (
-                                    <td>
-                                      <button
-                                        type="button"
-                                        className="icon-button"
-                                        onClick={(
-                                          event,
-                                        ) => {
-                                          event.stopPropagation();
-                                          handleDeleteOutputEntry(
-                                            output.id,
-                                          );
-                                        }}
-                                        aria-label="Delete output entry"
-                                      >
-                                        <Trash2
-                                          size={
-                                            15
-                                          }
-                                        />
-                                      </button>
-                                    </td>
-                                  ) : null}
-                                </tr>
-                                {isExpanded ? (
-                                  <tr>
-                                    <td
-                                      colSpan={
-                                        isEditable
-                                          ? 5
-                                          : 4
-                                      }
-                                    >
-                                      <div className="reco-output-detail">
-                                        <p className="table-subtext">
-                                          Materials
-                                          used to
-                                          make{" "}
-                                          {
-                                            output.category_name
-                                          }
-                                          {output.grade_label
-                                            ? ` (${output.grade_label})`
-                                            : ""}
-                                          . Theoretical
-                                          comes
-                                          from the
-                                          recipe;
-                                          enter
-                                          each
-                                          material's
-                                          actual
-                                          opening/receipts/closing
-                                          below.
-                                        </p>
-                                        {isEditable ? (
-                                          <AddEntryForm
-                                            availableItems={availableToAddByCategory(
-                                              output.category,
-                                              output.grade_label,
-                                            )}
-                                            gradeLabel={
-                                              output.grade_label
-                                            }
-                                            submitting={
-                                              createEntry.isPending ||
-                                              updateEntry.isPending
-                                            }
-                                            onSubmit={(
-                                              item,
-                                              payload,
-                                              gradeLabel,
-                                            ) =>
-                                              handleSaveEntry(
-                                                item,
-                                                payload,
-                                                gradeLabel,
-                                                output.category,
-                                              )
-                                            }
-                                          />
-                                        ) : null}
-                                        <EntriesTable
-                                          rows={entriesForDisplayByCategory(
-                                            output.category,
-                                            output.grade_label,
-                                          )}
-                                          isEditable={
-                                            isEditable
-                                          }
-                                          saving={
-                                            createEntry.isPending ||
-                                            updateEntry.isPending
-                                          }
-                                          onSave={
-                                            handleSaveEntry
-                                          }
-                                          emptyMessage="No materials recorded yet - add one above."
-                                        />
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ) : null}
-                              </Fragment>
-                            );
-                          },
+                                    aria-label="Delete output entry"
+                                  >
+                                    <Trash2
+                                      size={15}
+                                    />
+                                  </button>
+                                </td>
+                              ) : null}
+                            </tr>
+                          ),
                         )}
                         {!outputEntries.length ? (
                           <tr>
                             <td
                               colSpan={
-                                isEditable ? 5 : 4
+                                isEditable ? 4 : 3
                               }
                               className="table-empty-state"
                             >
@@ -2554,6 +2311,51 @@ export function StoreEntryPage() {
               )}
             </div>
           </SurfaceCard>
+
+          {productionTypeCategories.length ? (
+            <SurfaceCard className="print-hidden">
+              <div className="surface-card__header">
+                <h2>Recipe Materials</h2>
+              </div>
+              <div className="surface-card__body">
+                <p className="table-subtext">
+                  Enter each material's opening,
+                  receipts and closing stock{" "}
+                  <strong>once for the month</strong>
+                  . Theoretical consumption is
+                  calculated from the production
+                  output above, summed across every
+                  grade the material is used for.
+                </p>
+                {isEditable ? (
+                  <AddEntryForm
+                    availableItems={
+                      materialsAvailableToAdd
+                    }
+                    submitting={
+                      createEntry.isPending ||
+                      updateEntry.isPending
+                    }
+                    onSubmit={handleSaveEntry}
+                  />
+                ) : null}
+                <EntriesTable
+                  rows={materialEntriesForDisplay}
+                  isEditable={isEditable}
+                  saving={
+                    createEntry.isPending ||
+                    updateEntry.isPending
+                  }
+                  onSave={handleSaveEntry}
+                  emptyMessage={
+                    isEditable
+                      ? "No materials recorded yet - add one above."
+                      : "No materials were recorded for this period."
+                  }
+                />
+              </div>
+            </SurfaceCard>
+          ) : null}
 
           {hasOtherItems ? (
             <SurfaceCard className="print-hidden">
@@ -2584,11 +2386,11 @@ export function StoreEntryPage() {
               ) : null}
               <div className="surface-card__body">
                 <p className="table-subtext">
-                  Items not assigned to any
-                  production-type category - no
-                  recipe of their own, so they're
-                  entered directly instead of
-                  through a product's panel above.
+                  Direct-count items (book vs.
+                  physical) with no recipe of their
+                  own - entered directly rather
+                  than derived from production
+                  output.
                 </p>
                 {isEditable ? (
                   <AddEntryForm
@@ -2599,19 +2401,23 @@ export function StoreEntryPage() {
                       createEntry.isPending ||
                       updateEntry.isPending
                     }
-                    onSubmit={(
-                      item,
-                      payload,
-                      gradeLabel,
-                    ) =>
-                      handleSaveEntry(
-                        item,
-                        payload,
-                        gradeLabel,
-                      )
-                    }
+                    onSubmit={handleSaveEntry}
                   />
                 ) : null}
+                <EntriesTable
+                  rows={otherEntriesForDisplay}
+                  isEditable={isEditable}
+                  saving={
+                    createEntry.isPending ||
+                    updateEntry.isPending
+                  }
+                  onSave={handleSaveEntry}
+                  emptyMessage={
+                    isEditable
+                      ? "No items recorded yet - add one above."
+                      : "No items were recorded for this period."
+                  }
+                />
               </div>
             </SurfaceCard>
           ) : null}
@@ -2621,17 +2427,14 @@ export function StoreEntryPage() {
               <h2>Reconciliation Entries</h2>
             </div>
             <p className="table-subtext">
-              Add or edit a material from Production
-              Output above (or Other Items) - this
-              is a read-only summary of every entry
-              recorded this period.
+              A read-only summary of every entry
+              recorded this period - add or edit
+              from Recipe Materials or Other Items
+              above.
             </p>
             <EntriesTable
               rows={entriesForDisplay}
               isEditable={isEditable}
-              showGradeColumn={
-                productionTypeCategories.length > 0
-              }
               saving={
                 createEntry.isPending ||
                 updateEntry.isPending

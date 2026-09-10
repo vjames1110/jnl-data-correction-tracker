@@ -97,7 +97,6 @@ def test_norm_based_entry_computes_variance_against_output(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("8.000"),
@@ -144,7 +143,6 @@ def test_norm_based_saving_is_a_positive_profit_variance(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("20.000"),
         closing_stock=Decimal("8.000"),
@@ -184,7 +182,6 @@ def test_norm_based_overuse_is_a_negative_loss_variance(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("10.000"),
         receipts=Decimal("40.000"),
         closing_stock=Decimal("8.000"),
@@ -451,7 +448,6 @@ def test_site_override_used_over_company_default(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -622,7 +618,6 @@ def test_entry_serializer_exposes_mix_ratio_by_grade(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("35.000"),
         closing_stock=Decimal("0.000"),
@@ -635,6 +630,160 @@ def test_entry_serializer_exposes_mix_ratio_by_grade(
     assert data["mix_ratio_by_grade"] == {
         "M20": Decimal("0.350000"),
     }
+
+
+@pytest.mark.django_db
+def test_material_in_many_grade_categories_resolves_every_configured_ratio(
+    period, site,
+):
+    # Regression: a material used across several grade-scoped
+    # categories (each producing its own grade this month) used to
+    # show "Not configured" for every grade but the one its single
+    # arbitrarily-picked entry knew about. With one entry per
+    # material, and mix_ratio_by_grade covering every grade the
+    # material actually participates in, all configured ratios show.
+    from apps.reconciliation.api.serializers import (
+        ReconciliationEntrySerializer,
+    )
+
+    cat_m10 = ItemCategory.objects.create(
+        category_name="Concrete M10",
+        is_production_output=True,
+    )
+    cat_m20 = ItemCategory.objects.create(
+        category_name="Concrete M20",
+        is_production_output=True,
+    )
+    aggregate = Item.objects.create(
+        item_name="10mm Aggregate",
+        reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        uom="MT",
+    )
+    aggregate.categories.set([cat_m10, cat_m20])
+
+    for grade, ratio in (
+        ("M10", Decimal("0.50")),
+        ("M20", Decimal("0.849")),
+    ):
+        SiteItemConfig.objects.create(
+            item=aggregate,
+            site=site,
+            grade_label=grade,
+            rate=Decimal("639.00"),
+            mix_ratio=ratio,
+            effective_from=date(2026, 1, 1),
+        )
+
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=cat_m10,
+        grade_label="M10",
+        output_quantity=Decimal("6.120"),
+    )
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=cat_m20,
+        grade_label="M20",
+        output_quantity=Decimal("1439.100"),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=aggregate,
+        opening_stock=Decimal("560.000"),
+        receipts=Decimal("1504.330"),
+        closing_stock=Decimal("652.700"),
+    )
+
+    # theoretical = 6.120*0.50 + 1439.100*0.849
+    #            = 3.060 + 1221.7959 = 1224.856 (quantized)
+    assert (
+        entry.theoretical_or_book_quantity
+        == Decimal("1224.856")
+    )
+
+    data = ReconciliationEntrySerializer(entry).data
+    assert data["mix_ratio_by_grade"] == {
+        "M10": Decimal("0.500000"),
+        "M20": Decimal("0.849000"),
+    }
+    assert not any(
+        v is None
+        for v in data[
+            "mix_ratio_by_grade"
+        ].values()
+    )
+
+
+@pytest.mark.django_db
+def test_missing_ratio_for_one_produced_grade_is_flagged_but_still_computes(
+    period, site,
+):
+    from apps.reconciliation.models import (
+        ReconciliationFlagType,
+    )
+
+    cat_m10 = ItemCategory.objects.create(
+        category_name="Concrete M10",
+        is_production_output=True,
+    )
+    cat_m30 = ItemCategory.objects.create(
+        category_name="Concrete M30",
+        is_production_output=True,
+    )
+    aggregate = Item.objects.create(
+        item_name="10mm Aggregate",
+        reconciliation_type=(
+            ReconciliationType.NORM_BASED
+        ),
+        uom="MT",
+    )
+    aggregate.categories.set([cat_m10, cat_m30])
+
+    # Only M10 has a mix ratio; M30 does not.
+    SiteItemConfig.objects.create(
+        item=aggregate,
+        site=site,
+        grade_label="M10",
+        rate=Decimal("639.00"),
+        mix_ratio=Decimal("0.50"),
+        effective_from=date(2026, 1, 1),
+    )
+
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=cat_m10,
+        grade_label="M10",
+        output_quantity=Decimal("100.000"),
+    )
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=cat_m30,
+        grade_label="M30",
+        output_quantity=Decimal("50.000"),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=aggregate,
+        opening_stock=Decimal("10.000"),
+        receipts=Decimal("40.000"),
+        closing_stock=Decimal("0.000"),
+    )
+
+    # Only M10 contributes: 100 * 0.50 = 50 (M30 skipped, flagged).
+    assert (
+        entry.theoretical_or_book_quantity
+        == Decimal("50.000")
+    )
+    flag = entry.flags.get(
+        flag_type=(
+            ReconciliationFlagType.MISSING_MIX_OR_RATE
+        )
+    )
+    assert "M30" in flag.message
 
 
 @pytest.mark.django_db
@@ -652,7 +801,6 @@ def test_output_entry_change_recomputes_existing_entry(
     entry = ReconciliationEntry.objects.create(
         period=period,
         item=norm_based_item,
-        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("50.000"),
         closing_stock=Decimal("0.000"),
@@ -752,7 +900,6 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
     cement_entry = ReconciliationEntry.objects.create(
         period=period,
         item=cement,
-        category=category,
         opening_stock=Decimal("0.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -761,7 +908,6 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
         ReconciliationEntry.objects.create(
             period=period,
             item=aggregate,
-            category=category,
             opening_stock=Decimal("0.000"),
             receipts=Decimal("110.000"),
             closing_stock=Decimal("0.000"),

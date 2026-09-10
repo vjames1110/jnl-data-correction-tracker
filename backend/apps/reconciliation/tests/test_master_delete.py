@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from django.urls import reverse
@@ -13,8 +14,9 @@ from apps.organization.models import Company, Site
 from apps.reconciliation.models import (
     Item,
     ItemCategory,
+    ItemCategoryGrade,
     ItemStandard,
-    ReconciliationEntry,
+    ReconciliationOutputEntry,
     ReconciliationPeriod,
     ReconciliationType,
     SiteItemConfig,
@@ -238,7 +240,7 @@ def test_deleting_an_item_used_by_a_company_default_is_refused():
 
 
 @pytest.mark.django_db
-def test_deleting_a_category_used_by_a_saved_entry_is_refused(
+def test_deleting_a_category_used_by_a_production_output_is_refused(
     site,
 ):
     api_client = APIClient()
@@ -248,24 +250,18 @@ def test_deleting_a_category_used_by_a_saved_entry_is_refused(
         category_name="0QA Sample Category",
         is_production_output=True,
     )
-    item = Item.objects.create(
-        item_name="0QA Sample Item",
-        reconciliation_type=(
-            ReconciliationType.DIRECT_COUNT
-        ),
-        uom="MT",
+    ItemCategoryGrade.objects.create(
+        category=category, grade_label="M20"
     )
-    item.categories.add(category)
     period = ReconciliationPeriod.objects.create(
         site=site,
         period_month=date(2026, 4, 1),
     )
-    ReconciliationEntry.objects.create(
+    ReconciliationOutputEntry.objects.create(
         period=period,
-        item=item,
         category=category,
-        book_stock=10,
-        physical_count=10,
+        grade_label="M20",
+        output_quantity=Decimal("10.000"),
     )
 
     response = api_client.delete(

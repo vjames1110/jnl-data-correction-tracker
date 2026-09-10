@@ -275,9 +275,6 @@ def test_full_entry_lifecycle_and_submit(
         {
             "period": period_id,
             "item": str(norm_based_item.id),
-            "category": str(
-                production_category.id
-            ),
             "opening_stock": "10.000",
             "receipts": "30.000",
             "closing_stock": "8.000",

@@ -96,7 +96,6 @@ def dataset(site_a, site_b, cement):
     )
     period_a.entries.create(
         item=cement,
-        category=cement.categories.first(),
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("0.000"),
@@ -112,7 +111,6 @@ def dataset(site_a, site_b, cement):
     )
     period_b.entries.create(
         item=cement,
-        category=cement.categories.first(),
         opening_stock=Decimal("10.000"),
         receipts=Decimal("30.000"),
         closing_stock=Decimal("8.000"),

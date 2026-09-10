@@ -1161,9 +1161,8 @@ class ReconciliationEntryViewSet(
             "period",
             "period__site",
             "item",
-            "category",
         )
-        .prefetch_related("flags")
+        .prefetch_related("flags", "item__categories")
         .all()
     )
     serializer_class = (
