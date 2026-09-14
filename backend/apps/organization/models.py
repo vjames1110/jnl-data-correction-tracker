@@ -187,6 +187,35 @@ class Site(BusinessModel):
         max_length=50,
         blank=True,
     )
+    chainage_start_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor: chainage where this "
+            "project/site's works begin, in km."
+        ),
+    )
+    chainage_end_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor: chainage where this "
+            "project/site's works end, in km."
+        ),
+    )
+    client_or_section = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text=(
+            "Project Monitor: the client / railway "
+            "section this project reports to, e.g. "
+            "'NCR Prayagraj'."
+        ),
+    )
 
     class Meta:
         db_table = "organization_site"
@@ -252,6 +281,13 @@ class Site(BusinessModel):
                 self.erp_site_code
             )
 
+        if self.client_or_section:
+            self.client_or_section = (
+                normalize_whitespace(
+                    self.client_or_section
+                )
+            )
+
         if (
             self.start_date
             and self.end_date
@@ -261,6 +297,21 @@ class Site(BusinessModel):
                 {
                     "end_date": (
                         "End date cannot be before start date."
+                    )
+                }
+            )
+
+        if (
+            self.chainage_start_km is not None
+            and self.chainage_end_km is not None
+            and self.chainage_end_km
+            < self.chainage_start_km
+        ):
+            raise ValidationError(
+                {
+                    "chainage_end_km": (
+                        "Chainage end cannot be "
+                        "before chainage start."
                     )
                 }
             )

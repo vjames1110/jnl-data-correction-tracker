@@ -25,6 +25,8 @@ ADMIN_CAPABILITIES = {
     AdminCapability.MANAGE_VOUCHERS,
     AdminCapability.VIEW_RECONCILIATION,
     AdminCapability.MANAGE_RECONCILIATION,
+    AdminCapability.VIEW_PROJECT_MONITOR,
+    AdminCapability.MANAGE_PROJECT_MONITOR,
     AdminCapability.VIEW_CORRECTION_REQUESTS,
     AdminCapability.ASSIGN_CORRECTION_REQUESTS,
     AdminCapability.VIEW_REPORTS,
@@ -117,6 +119,30 @@ def build_admin_navigation(
             "required_capability": (
                 AdminCapability
                 .VIEW_RECONCILIATION
+                .value
+            ),
+        },
+        {
+            "key": "project-monitor",
+            "label": "Project Monitor",
+            "path": "/admin/project-monitor",
+            "icon": "milestone",
+            "group": "master",
+            "required_capability": (
+                AdminCapability
+                .VIEW_PROJECT_MONITOR
+                .value
+            ),
+        },
+        {
+            "key": "structure-types",
+            "label": "Structure Types",
+            "path": "/admin/project-monitor/structure-types",
+            "icon": "layers",
+            "group": "master",
+            "required_capability": (
+                AdminCapability
+                .MANAGE_PROJECT_MONITOR
                 .value
             ),
         },

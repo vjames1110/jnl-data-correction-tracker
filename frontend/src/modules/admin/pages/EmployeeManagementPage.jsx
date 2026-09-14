@@ -108,6 +108,10 @@ const fallbackOptions = {
       value: "STORE_HO",
       label: "Store HO",
     },
+    {
+      value: "PROJECT_MANAGER",
+      label: "Project Manager",
+    },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },

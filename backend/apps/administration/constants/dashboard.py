@@ -41,6 +41,11 @@ class AdminCapability(StrEnum):
     VIEW_RECONCILIATION = "view_reconciliation"
     MANAGE_RECONCILIATION = "manage_reconciliation"
 
+    VIEW_PROJECT_MONITOR = "view_project_monitor"
+    MANAGE_PROJECT_MONITOR = (
+        "manage_project_monitor"
+    )
+
     VIEW_CORRECTION_REQUESTS = (
         "view_correction_requests"
     )

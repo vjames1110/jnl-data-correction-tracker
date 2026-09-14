@@ -18,6 +18,10 @@ class UserRole(models.TextChoices):
     )
     EMPLOYEE = "EMPLOYEE", "Employee"
     STORE_HO = "STORE_HO", "Store HO"
+    PROJECT_MANAGER = (
+        "PROJECT_MANAGER",
+        "Project Manager",
+    )
 
 
 class AccountStatus(models.TextChoices):

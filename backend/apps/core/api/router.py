@@ -43,6 +43,12 @@ urlpatterns = [
         ),
     ),
     path(
+        "project-monitor/",
+        include(
+            "apps.project_monitor.api.urls"
+        ),
+    ),
+    path(
         "",
         include("apps.notifications.api.urls"),
     ),

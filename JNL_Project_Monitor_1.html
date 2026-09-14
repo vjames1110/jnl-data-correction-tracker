@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JNL Project Monitor</title>
+<style>
+  :root{--ink:#1f2937;--muted:#6b7280;--line:#d1d5db;--soft:#f3f4f6;--card:#fff;--accent:#0b5394;--accent2:#e8f0fa;--ok:#15803d;--okbg:#dcfce7;--warn:#b45309;--warnbg:#fef3c7;--bad:#b91c1c;--badbg:#fee2e2;--grey:#9ca3af}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:#eef1f5;padding:0 16px 60px}
+  h1{font-size:20px;margin:0}
+  h2{font-size:16px;margin:0;color:var(--accent)}
+  h3{font-size:14px;margin:14px 0 6px;color:#374151;text-transform:uppercase;letter-spacing:.04em}
+  header{position:sticky;top:0;z-index:5;background:var(--accent);color:#fff;margin:0 -16px 16px;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+  header label{font-size:12px;opacity:.9;display:flex;flex-direction:column;gap:2px}
+  header input{border:0;border-radius:4px;padding:4px 6px;font-size:13px;min-width:120px}
+  header .sp{flex:1}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:16px}
+  .card-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .sub{color:var(--muted);font-size:12px}
+  button{border:1px solid var(--line);background:#fff;border-radius:5px;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--ink)}
+  button:hover{background:var(--soft)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:#0a4a84}
+  button.small{padding:2px 7px;font-size:12px}
+  button.danger{color:var(--bad)}
+  input,select,textarea{border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff}
+  input[type=number]{width:80px}
+  input[type=date]{width:135px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px;margin:8px 0}
+  .grid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+  .row label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid var(--line);padding:5px 7px;vertical-align:top;text-align:left}
+  th{background:var(--accent2);color:#1e3a5f;font-weight:600;white-space:nowrap}
+  td.act{font-weight:600;min-width:170px}
+  td.dates{min-width:200px}
+  td.cmt{min-width:240px}
+  td.ctl{white-space:nowrap}
+  td.rem{min-width:180px;background:#fffdf5;outline:none}
+  td.rem:focus{background:#fff;box-shadow:inset 0 0 0 2px var(--accent)}
+  .hist{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+  .hist s{color:var(--bad);opacity:.8}
+  .hist .cur{font-weight:700;background:var(--warnbg);padding:0 5px;border-radius:3px}
+  .hist .cur.first{background:var(--accent2)}
+  .log{margin:0;padding:0;list-style:none;font-size:12px}
+  .log li{border-left:2px solid var(--line);padding-left:6px;margin-bottom:3px}
+  .log li b{color:var(--muted);font-weight:500;margin-right:4px}
+  .badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600}
+  .b-ns{background:var(--badbg);color:var(--bad)}.b-na{background:var(--soft);color:var(--muted)}.b-ip{background:var(--warnbg);color:var(--warn)}.b-done{background:var(--okbg);color:var(--ok)}.b-hold{background:var(--badbg);color:var(--bad)}
+  tr.done td{background:#f6fdf7}
+  tr.done td.act{text-decoration:line-through;color:var(--muted)}
+  .inl{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .inl input[type=text]{min-width:140px;flex:1}
+  .group{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
+  .group-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .group-h .sub{font-size:12px}
+  .prog{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;width:120px;display:inline-block;vertical-align:middle}
+  .prog i{display:block;height:100%;background:var(--ok)}
+  /* rolling diagram */
+  .rd{overflow-x:auto}
+  .rd-scale{position:relative;height:22px;margin-left:190px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}
+  .rd-scale span{position:absolute;transform:translateX(-50%);top:4px}
+  .rd-row{display:flex;align-items:stretch;min-height:44px;border-bottom:1px solid var(--soft)}
+  .rd-name{width:190px;flex:none;padding:6px 6px;font-weight:600;font-size:12px;display:flex;flex-direction:column;justify-content:center}
+  .rd-name .sub{font-weight:400}
+  .rd-track{position:relative;flex:1;background:repeating-linear-gradient(90deg,transparent 0 10%,#f7f8fa 10% 20%)}
+  .rd-row{min-height:54px}
+  .rd-name{width:230px}
+  .rd-scale{margin-left:230px}
+  .rd-name .nums{font-weight:400;font-size:11px;color:var(--muted);display:grid;grid-template-columns:auto auto auto;gap:0 8px}
+  .rd-name .nums b{color:var(--ink)}
+  .scp{position:absolute;top:6px;height:42px;background:#d1d5db;border-radius:3px;cursor:pointer;font-size:9px;color:#4b5563;padding:1px 3px}
+  .scp:hover{outline:2px solid var(--bad);z-index:3}
+  .blk{position:absolute;top:14px;height:26px;border-radius:3px;font-size:10px;line-height:1.15;padding:1px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;border:1px solid rgba(0,0,0,.2);color:#111;z-index:1}
+  .blk.s-ip{background:#fde68a}.blk.s-done{background:#4ade80}.blk.s-hold{background:#fca5a5}
+  .blk:hover{outline:2px solid var(--accent);z-index:2}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+  @media(max-width:1000px){.two{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafbfd}
+  .rd-name .nums{grid-template-columns:auto auto auto auto}
+  .tabs{display:flex;gap:4px;margin-bottom:8px}
+  .tab{border-radius:5px 5px 0 0;border-bottom:2px solid transparent}
+  .tab.active{background:var(--accent2);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .progOnly{transition:opacity .2s}
+  td.num{text-align:right;white-space:nowrap}
+  tr.tot td{font-weight:700;background:var(--accent2)}
+  #dayTable th,#dayTable td{white-space:nowrap}
+  #dayTable .stick{position:sticky;left:0;background:#fff;z-index:2;min-width:170px}
+  #dayTable th.stick{background:var(--accent2)}
+  #dayTable tr.tot td.stick{background:var(--accent2)}
+  #dayTable .stick2{background:#f8fafc}
+  #dayTable td.dc{background:#dcfce7}#dayTable td.ic{background:#fef3c7}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;margin:6px 0}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:4px}
+  .muted{color:var(--muted)}
+  .empty{color:var(--muted);font-style:italic;padding:8px}
+  .kpi{display:flex;flex-wrap:wrap;gap:8px}
+  .kpi div{background:var(--accent2);border-radius:6px;padding:6px 12px;font-size:12px}
+  .kpi b{display:block;font-size:18px;color:var(--accent)}
+  details.cfg{margin:6px 0}
+  details.cfg summary{cursor:pointer;color:var(--accent);font-size:13px}
+  details.cfg>summary{padding:6px 10px;background:var(--accent2);border-radius:6px;font-weight:600;list-style:none;display:inline-block}
+  details.cfg>summary::-webkit-details-marker{display:none}
+  details.cfg>summary::before{content:'▸ ';}
+  details.cfg[open]>summary::before{content:'▾ ';}
+  details.cfg[open]>summary{margin-bottom:8px}
+  .hidden{display:none!important}
+  .mx{margin-bottom:14px}
+  .mx h4{margin:8px 0 4px;font-size:13px;color:var(--accent)}
+  .mx table{font-size:12px}
+  .mx th{font-size:11px;white-space:normal;min-width:64px;vertical-align:bottom}
+  .mx td{text-align:center;cursor:pointer;font-weight:600;font-size:11px;padding:6px 4px;white-space:nowrap}
+  .mx td.lbl{text-align:left;cursor:default;background:#fafafa;white-space:nowrap}
+  .mx td.lbl .sub{font-weight:400}
+  .mx td.rem{text-align:left;font-weight:400;cursor:text}
+  .mx td.chips{white-space:normal;padding:4px 6px}
+  .chipgrp{display:inline-flex;align-items:center;gap:3px;margin:2px 10px 2px 0;flex-wrap:wrap}
+  .chipgrp em{font-style:normal;font-size:10px;color:var(--muted);margin-right:2px;text-transform:uppercase}
+  .chip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;border:1px solid rgba(0,0,0,.15);color:#111}
+  .chip small{font-weight:400;margin-left:3px;opacity:.75}
+  .chip.c-done{background:#92d050}.chip.c-ip{background:#ffff00}.chip.c-ns{background:#ff5a5a;color:#fff}.chip.c-hold{background:#f97316;color:#fff}.chip.c-na{background:#e5e7eb;color:#9ca3af}
+  tr.bl td.lbl:hover{background:var(--accent2)}
+  details.gk{border:1px solid var(--line);border-radius:8px;margin:8px 0;background:#fff}
+  details.gk>summary{cursor:pointer;padding:8px 12px;background:var(--accent2);border-radius:8px;list-style:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  details.gk[open]>summary{border-radius:8px 8px 0 0}
+  details.gk>summary::before{content:'▸';color:var(--accent)}
+  details.gk[open]>summary::before{content:'▾'}
+  details.gj{border-top:1px dashed var(--line);margin:0 10px}
+  details.gj>summary{cursor:pointer;padding:7px 4px;list-style:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  details.gj>summary::before{content:'▸';color:var(--muted)}
+  details.gj[open]>summary::before{content:'▾'}
+  details.gj>summary:hover{background:#f8fafc}
+  details.gk summary::-webkit-details-marker,details.gj summary::-webkit-details-marker{display:none}
+  .chips{display:inline-flex;gap:3px;flex-wrap:wrap}
+  .mat{margin-top:3px;font-size:10px;font-weight:600;border-radius:3px;padding:1px 4px;display:inline-block;background:#fff;border:1px solid rgba(0,0,0,.2);color:#374151}
+  .mat.m-ns{background:#fee2e2;color:#991b1b}.mat.m-po{background:#fef3c7;color:#92400e}.mat.m-part{background:#dbeafe;color:#1e40af}.mat.m-rcvd{background:#dcfce7;color:#166534}.mat.m-na{background:#f3f4f6;color:#6b7280}
+  .mx td.c-done{background:#92d050}.mx td.c-ip{background:#ffff00}.mx td.c-ns{background:#ff5a5a;color:#fff}.mx td.c-hold{background:#f97316;color:#fff}.mx td.c-na{background:#e5e7eb;color:#9ca3af}
+  .mx td:not(.lbl):hover{outline:2px solid var(--accent)}
+  .celled{position:fixed;z-index:20;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px;width:360px;max-width:95vw}
+  .ce-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  @media print{header{position:static;background:#fff;color:#000}button,.noprint{display:none!important}.card{break-inside:avoid;border:1px solid #999}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="hdrTitle">JNL Project Monitor</h1>
+    <div style="font-size:12px;opacity:.85">Single-sheet monitoring: structures · linear works · action items</div>
+  </div>
+  <label>Project name <input id="pName" placeholder="e.g. Chunar–Khairahi Doubling Pkg-I"></label>
+  <label>Section / Client <input id="pClient" placeholder="e.g. NCR Prayagraj"></label>
+  <label>Ch. start (km) <input id="pChStart" type="number" step="0.001" placeholder="0.000"></label>
+  <label>Ch. end (km) <input id="pChEnd" type="number" step="0.001" placeholder="25.000"></label>
+  <label>Review meeting date <input id="meetingDate" type="date"></label>
+  <span class="sp"></span>
+  <button class="noprint" onclick="exportJSON()">Export data</button>
+  <button class="noprint" onclick="document.getElementById('impFile').click()">Import data</button>
+  <input id="impFile" type="file" accept=".json" class="hidden" onchange="importJSON(this)">
+  <button class="noprint" onclick="window.print()">Print</button>
+</header>
+
+<div class="card noprint" style="border-left:4px solid var(--accent)">
+  <b>How to use:</b> set the meeting date at the top before a review. Every date you revise is stamped with that meeting date — the earlier date stays visible with a <s>strike</s> and the new date appears beside it with your comment. Data saves automatically in this browser; use <b>Export</b> to keep a file copy / share with site, and <b>Import</b> to load it elsewhere.
+</div>
+
+<!-- KPI -->
+<div class="card">
+  <div class="card-h"><h2>Overview</h2><span class="sub" id="overviewSub"></span></div>
+  <div class="kpi" id="kpi"></div>
+</div>
+
+<!-- STRUCTURES -->
+<div class="card">
+  <div class="card-h">
+    <h2>A. Structures — Minor Bridges, Major Bridges, RUBs, ROBs</h2>
+    <span class="sub">Each structure gets its own activity sheet, generated from its inputs</span>
+  </div>
+  <details class="cfg noprint" id="addStructure">
+    <summary>+ Add a structure</summary>
+    <div class="grid">
+      <label>Type
+        <select id="sType" onchange="renderStructForm()">
+          <option value="minor">Minor Bridge (box)</option>
+          <option value="major">Major Bridge</option>
+          <option value="rub">RUB</option>
+          <option value="rob">ROB</option>
+        </select>
+      </label>
+      <label>Structure ID / name <input id="sName" placeholder="e.g. Br. No. 214"></label>
+      <label>Chainage (km) <input id="sCh" type="number" step="0.001" placeholder="12.345"></label>
+    </div>
+    <div id="structForm" class="grid"></div>
+    <button class="primary" onclick="addStructure()">Generate sheet</button>
+  </details>
+  <div class="legend"><span><i style="background:#92d050"></i>Complete</span><span><i style="background:#ffff00"></i>In progress</span><span><i style="background:#ff5a5a"></i>Not taken up</span><span><i style="background:#f97316"></i>Hold / issue</span><span><i style="background:#e5e7eb"></i>N/A</span><span class="muted">Click any cell to update status, %, target date and comment.</span></div>
+  <div id="matrix"></div>
+  <details class="cfg" style="margin-top:12px"><summary>Detailed sheets — target dates, revisions &amp; comments (tap to open)</summary>
+  <div id="structures"></div></details>
+</div>
+<div id="cellEd" class="celled hidden">
+  <div class="ce-h"><b id="ceTitle"></b><button class="small" onclick="closeEditor()">×</button></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <label>Status <select id="ceStatus"><option value="ns">Not taken up</option><option value="ip">In progress</option><option value="done">Complete</option><option value="hold">Hold / issue</option><option value="na">N/A</option></select></label>
+    <label id="ceQtyL">% done <input id="ceQty" type="number" min="0" max="100" style="width:100%"></label>
+    <label id="ceDateL">Target date <input id="ceDate" type="date" style="width:100%"></label>
+    <label id="ceMatL" class="hidden">Material status <select id="ceMat"><option value="ns">Not ordered</option><option value="po">PO placed</option><option value="part">Partly received</option><option value="rcvd">Received at site</option><option value="na">Not applicable</option></select></label>
+    <label>Remark for this update <input id="ceCmt" type="text" style="width:100%"></label>
+  </div>
+  <div id="ceHist" class="sub" style="margin:4px 0"></div>
+  <div class="row" style="justify-content:flex-end"><button class="primary" onclick="saveEditor()">Save</button></div>
+</div>
+
+
+<!-- BUILDING WORKS -->
+<div class="card">
+  <div class="card-h">
+    <h2>B. Building works — stations, service buildings, quarters</h2>
+    <span class="sub">Grouped by site; one line per building with foundation, floor-wise and finishing status. Click a line to open floor-wise detail.</span>
+  </div>
+  <details class="cfg noprint" id="addBldg">
+    <summary>+ Add a building</summary>
+    <div class="grid">
+      <label>Site / station <input id="bSite" placeholder="e.g. Chunar station" list="bSiteList"><datalist id="bSiteList"></datalist></label>
+      <label>Building name <input id="bName" placeholder="e.g. Station building / RRI / Crew lobby / Type-II quarters"></label>
+      <label>Chainage (km) <input id="bCh" type="number" step="0.001"></label>
+      <label>Ground floor area (sqm) <input id="bGF" type="number" value="500" oninput="bldgTotal()"></label>
+      <label>No. of upper floors <input id="bUp" type="number" value="1" min="0" oninput="bldgTotal()"></label>
+      <label>Typical upper floor area (sqm) <input id="bUF" type="number" value="500" oninput="bldgTotal()"></label>
+      <label>Total built-up area (sqm) <input id="bTot" type="number" readonly style="background:var(--soft)"></label>
+      <label>Foundation <select id="bFound" onchange="bldgPileUI()"><option value="open">Open / isolated footings</option><option value="raft">Raft</option><option value="pile">Pile</option></select></label>
+      <label id="bPilesL" class="hidden">Piles (nos) <input id="bPiles" type="number" value="40"></label>
+      <label>Lift <select id="bLift"><option value="0">No</option><option value="1">Yes</option></select></label>
+      <label>Fire fighting <select id="bFire"><option value="0">No</option><option value="1">Yes</option></select></label>
+      <label>Compound wall / external development <select id="bExt"><option value="1">Yes</option><option value="0">No</option></select></label>
+    </div>
+    <button class="primary" onclick="addBuilding()">Generate sheet</button>
+  </details>
+  <div class="legend"><span><i style="background:#92d050"></i>Complete</span><span><i style="background:#ffff00"></i>In progress</span><span><i style="background:#ff5a5a"></i>Not taken up</span><span><i style="background:#f97316"></i>Hold / issue</span><span><i style="background:#e5e7eb"></i>N/A</span><span class="muted">·</span><span class="mat m-ns">Mat: Not ordered</span><span class="mat m-po">Mat: PO placed</span><span class="mat m-part">Mat: Partly received</span><span class="mat m-rcvd">Mat: Received at site</span><span class="muted">— material tag on flooring, doors/windows, electrical, plumbing, painting, lift, fire fighting</span></div>
+  <div id="bldgMatrix"></div>
+</div>
+
+<!-- GIRDERS / BEARINGS / EXPANSION JOINTS -->
+<div class="card">
+  <div class="card-h">
+    <h2>C. Girders, Bearings &amp; Expansion Joints — Major Bridges, ROBs, FOBs</h2>
+    <span class="sub">Each span tracked separately from drawing approval to launching. Open a type, then a bridge, to review its spans. FOBs carry girders only.</span>
+  </div>
+  <div class="legend"><span><i style="background:#92d050"></i>Complete</span><span><i style="background:#ffff00"></i>In progress (% shown)</span><span><i style="background:#ff5a5a"></i>Not taken up</span><span><i style="background:#f97316"></i>Hold / issue</span><span><i style="background:#e5e7eb"></i>N/A</span><span class="muted">Click any cell to set status, %, tentative date and remarks. Hover for the current target date and last remark.</span></div>
+  <details class="cfg noprint" id="addGirder">
+    <summary>+ Add bridge / spans for girder tracking</summary>
+    <div class="grid">
+      <label>Structure type <select id="gKind" onchange="gPickFill()"><option value="major">Major Bridge</option><option value="rob">ROB</option><option value="fob">FOB</option></select></label>
+      <label>Pick from structures entered in Section A <select id="gPick" onchange="gPickApply()"></select></label>
+      <label>Bridge No / name <input id="gBridge" placeholder="e.g. Br. 220"></label>
+      <label>Chainage (km) <input id="gCh" type="number" step="0.001"></label>
+      <label>Girder scope <select id="gScope"><option value="jnl">JNL (fabrication by vendor)</option><option value="rly">Railway supply — follow-up only</option></select></label>
+    </div>
+    <h3>Spans of this bridge</h3>
+    <div class="sub" style="margin-bottom:6px">Add one line per span. Pick an RDSO standard span to pre-fill drawing no and metric quantity (from the library below), or choose Non-standard and enter the drawing no and quantity.</div>
+    <div class="tablewrap"><table id="gSpanRows"><tr><th>Span</th><th>Standard / drawing</th><th>Drawing no</th><th>Span length (m)</th><th>Girder type</th><th>Qty (MT)</th><th class="gBE">Bearings (nos)</th><th class="gBE">Exp. joints (nos)</th><th></th></tr></table></div>
+    <div class="row" style="margin-top:6px"><button onclick="gAddSpanRow()">+ span line</button><button class="primary" onclick="addGirderJob()">Generate tracking sheet</button></div>
+  </details>
+  <details class="cfg noprint" id="gLib">
+    <summary>RDSO standard span library (edit once — drawing nos &amp; MT used to pre-fill spans)</summary>
+    <div class="sub" style="margin:6px 0">Fill in the RDSO drawing numbers and per-span steel quantities applicable to your loading standard (e.g. 25 t / DFC) — values entered here are remembered in this file.</div>
+    <div class="tablewrap"><table id="gLibTable"></table></div>
+    <div class="row" style="margin-top:6px"><label>Span length (m) <input id="libLen" type="number" step="0.1"></label><label>Girder type <input id="libType" type="text" placeholder="e.g. Composite / Plate / Open web"></label><label>RDSO drawing no <input id="libDrg" type="text"></label><label>Qty per span (MT) <input id="libMT" type="number" step="0.01"></label><button onclick="libAdd()">Add to library</button></div>
+  </details>
+  <div id="girderMatrix"></div>
+</div>
+<!-- LINEAR WORKS -->
+<div class="card">
+  <div class="card-h">
+    <h2>D. Linear works — Rolling diagram</h2>
+    <span class="sub">Earthwork &amp; blanketing (cum), P.Way linking (rm), trolley refuge (nos), drains, toe wall, slope protection, pitching (rm) — by chainage</span>
+  </div>
+  <div class="tabs noprint"><button class="tab active" id="tabDiag" onclick="linTab('diag')">Rolling diagram</button><button class="tab" id="tabDay" onclick="linTab('day')">Day-wise work done</button></div>
+
+  <div id="linDiag">
+    <div class="legend"><span><i style="background:#d1d5db"></i>Scope (not started)</span><span><i style="background:#fde68a"></i>Ongoing</span><span><i style="background:#4ade80"></i>Completed</span><span><i style="background:#fca5a5"></i>Hold / issue</span><span class="muted">Green overlays yellow: a stretch marked ongoing turns green only where a completed entry covers it. Click a patch to edit / delete.</span></div>
+    <div class="rd" id="rolling"></div>
+    <details class="cfg noprint" id="linEntry">
+      <summary>Data entry — scope &amp; daily progress (tap to open)</summary>
+    <div class="two">
+      <div class="panel">
+        <h3 style="margin-top:0">Step 1 · Define scope (grey band)</h3>
+        <div class="sub" style="margin-bottom:6px">Enter the chainage stretches where this activity is required (as many patches as needed — gaps are not in scope). For cum / nos items also enter the quantity for that stretch; for running-metre items the length is taken from the chainage.</div>
+        <div class="row">
+          <label>Item <select id="scItem" onchange="unitUI()"></select></label>
+          <label>From Ch. (km) <input id="scFrom" type="number" step="0.001" oninput="unitUI()"></label>
+          <label>To Ch. (km) <input id="scTo" type="number" step="0.001" oninput="unitUI()"></label>
+          <label>Side <select id="scSide"><option>Both</option><option>LHS</option><option>RHS</option></select></label>
+          <label id="scQtyL">Qty <input id="scQty" type="number" step="0.01"></label>
+          <label>Remarks <input id="scRem" type="text" placeholder="e.g. as per L-section"></label>
+          <button class="primary" onclick="addScope()">Add scope</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label>New activity row <input id="lbNewItem" type="text" placeholder="e.g. Cable trench"></label>
+          <label>Unit <select id="lbNewUnit"><option value="m">Running metre</option><option value="cum">Cubic metre</option><option value="nos">Numbers</option></select></label>
+          <button onclick="addLinearItem()">Add item</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">Step 2 · Daily progress entry</h3>
+        <div class="sub" style="margin-bottom:6px">Enter each day's work by chainage. Mark a stretch <b>Ongoing</b> when work starts there (yellow); later enter only the portion <b>Completed</b> (green) — it overlays the yellow and the balance stays ongoing.</div>
+        <div class="row">
+          <label>Item <select id="lbItem" onchange="unitUI()"></select></label>
+          <label>Date <input id="lbDate" type="date"></label>
+          <label>From Ch. (km) <input id="lbFrom" type="number" step="0.001" oninput="unitUI()"></label>
+          <label>To Ch. (km) <input id="lbTo" type="number" step="0.001" oninput="unitUI()"></label>
+          <label>Side <select id="lbSide"><option>Both</option><option>LHS</option><option>RHS</option></select></label>
+          <label id="lbQtyL">Qty <input id="lbQty" type="number" step="0.01"></label>
+          <label>Contractor / Agency <input id="lbCont" type="text" placeholder="e.g. M/s ABC"></label>
+          <label>Status <select id="lbStatus"><option value="ip">Ongoing (work started)</option><option value="done">Completed</option><option value="hold">Hold / issue</option></select></label>
+          <label>Remarks <input id="lbRem" type="text" style="min-width:200px"></label>
+          <button class="primary" onclick="addEntry()">Add entry</button>
+        </div>
+      </div>
+    </div>
+    </details>
+    <details class="cfg" id="linReg">
+      <summary>Registers — scope patches &amp; all progress entries (tap to open)</summary>
+      <h3>Scope register</h3>
+      <div class="tablewrap"><table id="scopeTable"></table></div>
+      <h3>Progress register (all entries)</h3>
+      <div class="tablewrap"><table id="blockTable"></table></div>
+    </details>
+  </div>
+
+  <div id="linDay" class="hidden">
+    <div class="row noprint" style="margin-bottom:8px">
+      <label>From date <input id="dayFrom" type="date" onchange="render()"></label>
+      <label>To date <input id="dayTo" type="date" onchange="render()"></label>
+      <span class="muted">Activities down, days across (latest on the left). Quantity completed that day in the activity's unit (m / cum / nos); ongoing quantities in brackets. Scroll right for earlier days.</span>
+    </div>
+    <div class="tablewrap"><table id="dayTable"></table></div>
+    <h3>Day-wise detail</h3>
+    <div class="tablewrap"><table id="dayDetail"></table></div>
+  </div>
+</div>
+
+<!-- ACTION ITEMS -->
+<div class="card">
+  <div class="card-h">
+    <h2>E. Action items — responsibility &amp; target dates</h2>
+    <span class="sub">Revised dates keep the earlier date struck through; completed items move to the section below</span>
+  </div>
+  <details class="cfg noprint"><summary>+ Add action item</summary>
+  <div class="row">
+    <label>Item <input id="aiItem" type="text" style="min-width:260px" placeholder="e.g. Submit GAD of Br. 214 for approval"></label>
+    <label>Responsibility <input id="aiResp" type="text" placeholder="Name / designation"></label>
+    <label>Tentative completion <input id="aiDate" type="date"></label>
+    <label>Remarks <input id="aiRem" type="text" style="min-width:240px" placeholder="background / dependency / reference"></label>
+    <button class="primary" onclick="addAction()">Add</button>
+  </div>
+  </details>
+  <h3>Open</h3>
+  <div class="tablewrap"><table id="actOpen"></table></div>
+  <h3>Completed</h3>
+  <div class="tablewrap"><table id="actDone"></table></div>
+</div>
+
+<!-- FUTURE -->
+<div class="card">
+  <div class="card-h"><h2>F. Future modules</h2></div>
+  <div class="muted">Foot Over Bridge (FOB) structures, P.Way material supply (sleepers / rails / fittings), Platforms &amp; passenger amenities, S&amp;T / OHE interfaces — to be added on the same pattern (input form → generated activity sheet).</div>
+</div>
+
+<script>
+/* ============ STATE ============ */
+const KEY='jnl_project_monitor_v1';
+let S = load() || {project:{name:'',client:'',chStart:0,chEnd:10,meeting:today()},structures:[],linear:{items:defaultLinearItems()},actions:[],girders:{lib:defaultLib(),jobs:[]},buildings:[],seq:1};
+const UNITS={m:'m',cum:'cum',nos:'nos'};
+function defaultLib(){return [[12.2,'Composite girder'],[18.3,'Composite girder'],[24.4,'Welded plate girder'],[30.5,'Welded plate girder'],[45.7,'Open web girder'],[61.0,'Open web girder'],[76.2,'Open web girder']].map(([l,t],i)=>({id:'lib'+(i+1),len:l,type:t,drg:'',mt:0}));}
+function defaultLinearItems(){return [['Earthwork (formation)','cum'],['Blanketing','cum'],['P.Way linking','m'],['Trolley refuge','nos'],['Side drain','m'],['Toe wall','m'],['Slope protection','m'],['Pitching locations','m']].map(([n,u],i)=>({id:'L'+(i+1),name:n,unit:u,scope:[],entries:[]}));}
+function unitOf(it){return it.unit||'m';}
+function qtyOf(x,it){return unitOf(it)==='m'?(x.to-x.from)*1000:(+x.qty||0);}
+function today(){return new Date().toISOString().slice(0,10);}
+function uid(){return 'x'+(S.seq++)+Date.now().toString(36);}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const j=localStorage.getItem(KEY);return j?JSON.parse(j):null;}catch(e){return null;}}
+function fmt(d){if(!d)return '—';const [y,m,dd]=d.split('-');return `${dd}-${m}-${y}`;}
+function meeting(){return document.getElementById('meetingDate').value||today();}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ============ ACTIVITY TEMPLATES ============ */
+function minorActivities(cfg){
+  const a=['Box raft','Box wall','Box slab'];
+  for(let i=1;i<=4;i++)a.push('R/W '+i);
+  a.push('Drop wall','Curtain wall','Bell mouth','Apron','Bell mouth filling','Pitching');
+  for(let i=1;i<=2;i++)a.push('Staircase '+i);
+  a.push('Ballast retainer','Coping','Painting');
+  const rows=a.map(mkRow);
+  rows.forEach(r=>{const m=r.name.match(/^R\/W (\d)/),s=r.name.match(/^Staircase (\d)/);if((m&&+m[1]>cfg.returns)||(s&&+s[1]>cfg.stairs)||(r.name==='Apron'&&!cfg.apron))r.status='na';});
+  return [{title:'Box structure',rows}];
+}
+function pileRow(n){return mkRow('Pile','length',n||0,'nos');}
+function abutActivities(pile,n){
+  const a=['Raft / Pile cap','Stem','Cap','Pedestal','Dirt wall / Ballast retainer','Bell mouth wall','Filling of bell mouth','Pitching','Staircase'].map(mkRow);
+  if(pile)a.unshift(pileRow(n));return a;
+}
+function pierActivities(pile,n){const a=['Raft / Pile cap','Stem','Cap','Pedestal'].map(mkRow);if(pile)a.unshift(pileRow(n));return a;}
+function majorActivities(cfg){
+  const g=[];
+  for(let i=1;i<=cfg.abuts;i++)g.push({title:`Abutment A${i}`,sub:`Height ${(cfg.abutH||[])[i-1]||'?'} m · ${cfg.abutFound==='pile'?((cfg.abutPiles||[])[i-1]||'?')+' piles':'Open foundation'}`,rows:abutActivities(cfg.abutFound==='pile',(cfg.abutPiles||[])[i-1])});
+  for(let i=1;i<=cfg.piers;i++)g.push({title:`Pier P${i}`,sub:`Height ${cfg.pierH[i-1]||'?'} m · ${cfg.pierFound==='pile'?((cfg.pierPiles||[])[i-1]||'?')+' piles':'Open foundation'}`,rows:pierActivities(cfg.pierFound==='pile',(cfg.pierPiles||[])[i-1])});
+  const sp=[];
+  for(let i=1;i<=cfg.spans;i++){
+    const r=[mkRow(`S${i} – Bearings`)];
+    if(cfg.girderScope==='jnl'){r.push(mkRow(`S${i} – Girder fabrication`),mkRow(`S${i} – Girder launching`));}
+    else r.push(mkRow(`S${i} – Girder fabrication & launching (by ${cfg.girderScope==='rly'?'Railway':'other agency'}) – follow-up`));
+    r.push(mkRow(`S${i} – Deck slab / Ballast wall`));
+    sp.push(...r);
+  }
+  g.push({title:'Superstructure (span-wise)',sub:`${cfg.spans} span(s) · Girder scope: ${cfg.girderScope==='jnl'?'JNL':cfg.girderScope==='rly'?'Railway':'Other agency'}`,rows:sp});
+  return g;
+}
+function robActivities(cfg){
+  const g=[];const n=cfg.subs;
+  for(let i=1;i<=n;i++){const isA=(i===1||i===n),lab=isA?`Abutment A${i===1?1:2}`:`Pier P${i-1}`;const rows=['Raft','Stem','Pier cap','Pedestal'].map(mkRow);if(cfg.found==='pile')rows.unshift(pileRow((cfg.piles||[])[i-1]));g.push({title:lab,sub:cfg.found==='pile'?`${(cfg.piles||[])[i-1]||'?'} piles`:'Open foundation',rows});}
+  for(let i=1;i<n;i++){const r=[mkRow(`Bearings`)];if(cfg.girderScope==='jnl')r.push(mkRow('Girder fabrication / casting'));r.push(mkRow('Girder launching'),mkRow('Deck slab'));g.push({title:`Girder G${i}`,sub:`between ${i===1?'A1':'P'+(i-1)} and ${i===n-1?'A2':'P'+i}${cfg.girderScope==='jnl'?'':' · fabrication by '+(cfg.girderScope==='rly'?'Railway':'other agency')}`,rows:r});}
+  ['LHS','RHS'].forEach(s=>{const rows=[mkRow('Retaining wall','length',cfg['rw'+s],'m'),mkRow('RE wall','length',cfg['re'+s],'sqm'),mkRow('Filling behind wall','length',cfg['fill'+s],'cum'),mkRow('Crash barrier','length',cfg['cb'+s],'m'),mkRow('Road laying','length',cfg['road'+s],'m')];
+    rows.forEach(r=>{if(!(r.total>0))r.status='na';});
+    const w=[cfg['rw'+s]>0?`retaining wall ${cfg['rw'+s]} m`:'',cfg['re'+s]>0?`RE wall ${cfg['re'+s]} sqm`:''].filter(Boolean).join(' + ')||'no wall';
+    g.push({title:`Approach ${s}`,sub:w,rows});});
+  return g;
+}
+function rubActivities(cfg){
+  const a=['Box raft','Box wall','Box slab'];
+  for(let i=1;i<=4;i++)a.push('R/W '+i);
+  const rows=a.map(mkRow);rows.forEach(r=>{const m=r.name.match(/^R\/W (\d)/);if(m&&+m[1]>cfg.returns)r.status='na';});
+  const box={title:'Box structure',rows};
+  const ap=[];
+  ['LHS','RHS'].forEach(side=>{
+    const r1=mkRow(`Approach road raft – ${side}`,'length',cfg['raft'+side]);if(!(cfg['raft'+side]>0))r1.status='na';
+    const r2=mkRow(`Approach road wall – ${side}`,'length',cfg['wall'+side]);if(!(cfg['wall'+side]>0))r2.status='na';
+    ap.push(r1,r2);
+  });
+  ap.push(mkRow('Height gauge (both ends)'),mkRow('Approach drain'),mkRow('Speed breaker'));
+  const sh=mkRow('Sheeting of approach road');if(!cfg.sheeting)sh.status='na';ap.push(sh);
+  return [box,{title:'Approach roads',sub:'Raft & wall monitored by length (m)',rows:ap}];
+}
+function mkDocs(){const g=mkRow('GAD approval'),s=mkRow('Structural drawing approval');g.doc=s.doc=true;return {gad:g,sd:s};}
+function mkRow(name,kind,total,unit){return {id:uid(),name,kind:kind||'act',total:total||0,unit:unit||'m',done:0,dates:[],status:'ns',comments:[],completedOn:''};}
+function ru(r){return r.unit||'m';}
+
+/* ============ STRUCTURE FORM ============ */
+function renderStructForm(){
+  const t=document.getElementById('sType').value,f=document.getElementById('structForm');
+  if(t==='minor'){f.innerHTML=`
+    <label>Box size – width (m) <input id="cW" type="number" step="0.1" value="3"></label>
+    <label>Box size – height (m) <input id="cH" type="number" step="0.1" value="3"></label>
+    <label>No. of cells <input id="cCells" type="number" value="1"></label>
+    <label>Barrel length (m) <input id="cBarrel" type="number" step="0.1" value="12"></label>
+    <label>Return walls <select id="cRet"><option value="2">2</option><option value="4" selected>4</option></select></label>
+    <label>Staircases <select id="cStair"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option></select></label>
+    <label>Apron <select id="cApron"><option value="1">Yes</option><option value="0">No</option></select></label>`;}
+  else if(t==='major'){f.innerHTML=`
+    <label>No. of spans <input id="cSpans" type="number" value="3" onchange="pierHeights()"></label>
+    <label>No. of abutments <input id="cAbuts" type="number" value="2"></label>
+    <label>Abutment A1 height (m) <input id="cAH1" type="number" step="0.1" value="6"></label>
+    <label>Abutment A2 height (m) <input id="cAH2" type="number" step="0.1" value="6"></label>
+    <label>No. of piers <input id="cPiers" type="number" value="2" onchange="pierHeights()"></label>
+    <label>Abutment foundation <select id="cAF" onchange="pierHeights()"><option value="open">Open</option><option value="pile">Pile</option></select></label>
+    <label>Pier foundation <select id="cPF" onchange="pierHeights()"><option value="open">Open</option><option value="pile">Pile</option></select></label>
+    <label style="grid-column:1/-1" id="abPilesL">Piles per abutment (nos) <div class="inl"><span>A1 <input class="ap" type="number" style="width:65px" value="8"></span><span>A2 <input class="ap" type="number" style="width:65px" value="8"></span></div></label>
+    <label>Girder fabrication & launching <select id="cGirder"><option value="jnl">JNL scope</option><option value="rly">Railway scope</option><option value="other">Other agency</option></select></label>
+    <label style="grid-column:1/-1">Pier heights (m) <div id="pierH" class="inl"></div></label>
+    <label style="grid-column:1/-1" id="pPilesL">Piles per pier (nos) <div id="pierP" class="inl"></div></label>`;pierHeights();}
+  else if(t==='rob'){f.innerHTML=`
+    <label>No. of abutments + piers <input id="cSubs" type="number" value="2" min="2" onchange="robPiles()"></label>
+    <label>Foundation <select id="cRF" onchange="robPiles()"><option value="open">Open</option><option value="pile">Pile</option></select></label>
+    <label style="grid-column:1/-1" id="rPilesL">Piles per substructure (nos) <div id="robP" class="inl"></div></label>
+    <label>Girder fabrication <select id="cRG"><option value="jnl">JNL scope</option><option value="rly">Railway scope</option><option value="other">Other agency</option></select></label>
+    <label>Retaining wall LHS (m) — 0 if nil <input id="cRWLHS" type="number" value="0"></label>
+    <label>RE wall LHS (sqm) — 0 if nil <input id="cRELHS" type="number" value="0"></label>
+    <label>Filling behind wall LHS (cum) <input id="cFillLHS" type="number" value="5000"></label>
+    <label>Crash barrier LHS (rm) <input id="cCbLHS" type="number" value="300"></label>
+    <label>Road laying LHS (rm) <input id="cRoadLHS" type="number" value="150"></label>
+    <label>Retaining wall RHS (m) — 0 if nil <input id="cRWRHS" type="number" value="0"></label>
+    <label>RE wall RHS (sqm) — 0 if nil <input id="cRERHS" type="number" value="0"></label>
+    <label>Filling behind wall RHS (cum) <input id="cFillRHS" type="number" value="5000"></label>
+    <label>Crash barrier RHS (rm) <input id="cCbRHS" type="number" value="300"></label>
+    <label>Road laying RHS (rm) <input id="cRoadRHS" type="number" value="150"></label>`;robPiles();}
+  else{f.innerHTML=`
+    <label>Box size – width (m) <input id="cW" type="number" step="0.1" value="6"></label>
+    <label>Box size – height (m) <input id="cH" type="number" step="0.1" value="4.5"></label>
+    <label>No. of cells <input id="cCells" type="number" value="1"></label>
+    <label>Barrel length (m) <input id="cBarrel" type="number" step="0.1" value="14"></label>
+    <label>Return walls <select id="cRet"><option value="2">2</option><option value="4" selected>4</option></select></label>
+    <label>Approach raft LHS (m) <input id="cRaftL" type="number" value="60"></label>
+    <label>Approach raft RHS (m) <input id="cRaftR" type="number" value="60"></label>
+    <label>Approach wall LHS (m) <input id="cWallL" type="number" value="120"></label>
+    <label>Approach wall RHS (m) <input id="cWallR" type="number" value="120"></label>
+    <label>Sheeting of approach road <select id="cSheet"><option value="1">Required</option><option value="0">Not required</option></select></label>`;}
+}
+function pierHeights(){
+  const n=+document.getElementById('cPiers').value||0,d=document.getElementById('pierH');
+  d.innerHTML=Array.from({length:n},(_,i)=>`<span>P${i+1} <input class="ph" type="number" step="0.1" style="width:65px" value="8"></span>`).join('');
+  const pp=document.getElementById('pierP');if(pp)pp.innerHTML=Array.from({length:n},(_,i)=>`<span>P${i+1} <input class="pp" type="number" style="width:65px" value="8"></span>`).join('');
+  const g=id=>document.getElementById(id);if(g('pPilesL'))g('pPilesL').classList.toggle('hidden',g('cPF').value!=='pile');if(g('abPilesL'))g('abPilesL').classList.toggle('hidden',g('cAF').value!=='pile');
+}
+function robPiles(){const n=+document.getElementById('cSubs').value||2,d=document.getElementById('robP');if(!d)return;d.innerHTML=Array.from({length:n},(_,i)=>`<span>${i===0?'A1':i===n-1?'A2':'P'+i} <input class="rp" type="number" style="width:65px" value="8"></span>`).join('');document.getElementById('rPilesL').classList.toggle('hidden',document.getElementById('cRF').value!=='pile');}
+function addStructure(){
+  const t=document.getElementById('sType').value,name=document.getElementById('sName').value.trim(),ch=document.getElementById('sCh').value;
+  if(!name){alert('Give the structure an ID / name');return;}
+  const v=id=>document.getElementById(id).value;
+  let cfg,groups,desc;
+  if(t==='minor'){cfg={w:+v('cW'),h:+v('cH'),cells:+v('cCells'),barrel:+v('cBarrel'),returns:+v('cRet'),stairs:+v('cStair'),apron:v('cApron')==='1'};groups=minorActivities(cfg);desc=`${cfg.cells}×${cfg.w}×${cfg.h} m box · barrel ${cfg.barrel} m · ${cfg.returns} return walls · ${cfg.stairs} staircase(s) · apron ${cfg.apron?'yes':'no'}`;}
+  else if(t==='major'){cfg={spans:+v('cSpans'),abuts:+v('cAbuts'),abutH:[+v('cAH1'),+v('cAH2')],piers:+v('cPiers'),abutFound:v('cAF'),pierFound:v('cPF'),girderScope:v('cGirder'),pierH:[...document.querySelectorAll('.ph')].map(x=>+x.value),abutPiles:[...document.querySelectorAll('.ap')].map(x=>+x.value),pierPiles:[...document.querySelectorAll('.pp')].map(x=>+x.value)};groups=majorActivities(cfg);desc=`${cfg.spans} spans · ${cfg.abuts} abutments (${cfg.abutFound}) · ${cfg.piers} piers (${cfg.pierFound}) · girders: ${cfg.girderScope==='jnl'?'JNL':cfg.girderScope==='rly'?'Railway':'Other'}`;}
+  else if(t==='rob'){cfg={subs:Math.max(2,+v('cSubs')),found:v('cRF'),piles:[...document.querySelectorAll('.rp')].map(x=>+x.value),girderScope:v('cRG'),rwLHS:+v('cRWLHS'),rwRHS:+v('cRWRHS'),reLHS:+v('cRELHS'),reRHS:+v('cRERHS'),fillLHS:+v('cFillLHS'),fillRHS:+v('cFillRHS'),cbLHS:+v('cCbLHS'),cbRHS:+v('cCbRHS'),roadLHS:+v('cRoadLHS'),roadRHS:+v('cRoadRHS')};groups=robActivities(cfg);desc=`${cfg.subs} substructures (${cfg.found}) · ${cfg.subs-1} girder(s) · approaches LHS: ${groups.find(g=>g.title==='Approach LHS').sub}; RHS: ${groups.find(g=>g.title==='Approach RHS').sub}`;}
+  else{cfg={w:+v('cW'),h:+v('cH'),cells:+v('cCells'),barrel:+v('cBarrel'),returns:+v('cRet'),raftLHS:+v('cRaftL'),raftRHS:+v('cRaftR'),wallLHS:+v('cWallL'),wallRHS:+v('cWallR'),sheeting:v('cSheet')==='1'};groups=rubActivities(cfg);desc=`${cfg.cells}×${cfg.w}×${cfg.h} m box · barrel ${cfg.barrel} m · ${cfg.returns} return walls · approach raft ${cfg.raftLHS||'nil'}/${cfg.raftRHS||'nil'} m · wall ${cfg.wallLHS||'nil'}/${cfg.wallRHS||'nil'} m`;}
+  S.structures.push({id:uid(),type:t,name,ch:ch?+ch:null,cfg,desc,groups,collapsed:true,docs:mkDocs()});
+  S.structures.sort((a,b)=>(a.ch??1e9)-(b.ch??1e9));
+  document.getElementById('sName').value='';document.getElementById('addStructure').open=false;
+  save();render();
+}
+function removeStructure(id){if(confirm('Delete this structure sheet and all its data?')){S.structures=S.structures.filter(s=>s.id!==id);save();render();}}
+function toggleStruct(id){const s=S.structures.find(x=>x.id===id);s.collapsed=!s.collapsed;save();render();}
+function addCustomRow(sid,gi){const n=prompt('Activity name');if(!n)return;S.structures.find(x=>x.id===sid).groups[gi].rows.push(mkRow(n));save();render();}
+function delRow(sid,gi,rid){const g=S.structures.find(x=>x.id===sid).groups[gi];if(confirm('Remove activity?')){g.rows=g.rows.filter(r=>r.id!==rid);save();render();}}
+
+/* ============ DATE / COMMENT UPDATE (shared by structures & actions) ============ */
+function applyUpdate(row,newDate,comment,status,doneQty){
+  const m=meeting(),notes=[];
+  const cur=row.dates.length?row.dates[row.dates.length-1].d:'';
+  if(newDate&&newDate!==cur){row.dates.push({d:newDate,on:m});notes.push(cur?`Date revised ${fmt(cur)} → ${fmt(newDate)}`:`Target set ${fmt(newDate)}`);}
+  if(status&&status!==row.status){row.status=status;if(status==='done')row.completedOn=m;notes.push('Status: '+statusName(status));}
+  if(doneQty!=null&&!isNaN(doneQty)&&doneQty!==row.done){row.done=doneQty;notes.push(row.kind==='length'?`Done ${doneQty} ${ru(row)}`:`${doneQty}% done`);}
+  if(comment)notes.push(comment);
+  if(notes.length)row.comments.push({on:m,text:notes.join(' · ')});
+}
+function statusName(s){return {ns:'Not taken up',ip:'In progress',done:'Complete',hold:'Hold / issue',na:'N/A'}[s]||s;}
+function badge(s){return `<span class="badge b-${s}">${statusName(s)}</span>`;}
+function histHTML(row){
+  if(!row.dates.length)return '<span class="muted">no date set</span>';
+  return '<div class="hist">'+row.dates.map((x,i,arr)=>i<arr.length-1?`<s title="set on ${fmt(x.on)}">${fmt(x.d)}</s>`:`<span class="cur ${arr.length===1?'first':''}" title="set on ${fmt(x.on)}">${fmt(x.d)}</span>`).join('')+'</div>';
+}
+function logHTML(row){
+  if(!row.comments.length)return '<span class="muted">—</span>';
+  return '<ul class="log">'+row.comments.slice(-4).map(c=>`<li><b>${fmt(c.on)}</b>${esc(c.text)}</li>`).join('')+(row.comments.length>4?`<li class="muted">…${row.comments.length-4} earlier</li>`:'')+'</ul>';
+}
+function updCtrl(fnName,args,row){
+  const id=row.id;
+  return `<div class="inl">
+    <input type="date" id="d_${id}" title="New / revised target date">
+    <select id="s_${id}"><option value="">status…</option><option value="ns">Not taken up</option><option value="ip">In progress</option><option value="done">Complete</option><option value="hold">Hold / issue</option><option value="na">N/A</option></select>
+    <input type="number" id="q_${id}" placeholder="${row.kind==='length'?'done ('+ru(row)+')':'% done'}" style="width:80px">
+    <input type="text" id="c_${id}" placeholder="comment for this meeting">
+    <button class="small primary" onclick="${fnName}(${args})">Update</button>
+  </div>`;
+}
+function readCtrl(id){
+  const g=x=>document.getElementById(x+'_'+id);
+  return {d:g('d').value,s:g('s').value,c:g('c').value.trim(),q:g('q')?(g('q').value===''?null:+g('q').value):null};
+}
+function updRow(sid,gi,rid){
+  const row=S.structures.find(x=>x.id===sid).groups[gi].rows.find(r=>r.id===rid);
+  const v=readCtrl(rid);if(!v.d&&!v.s&&!v.c&&v.q==null)return;
+  applyUpdate(row,v.d,v.c,v.s,v.q);save();render();
+}
+
+/* ============ RENDER STRUCTURES ============ */
+const TYPE={minor:'Minor Bridge',major:'Major Bridge',rub:'RUB',rob:'ROB'};
+function renderStructures(){
+  const el=document.getElementById('structures');
+  if(!S.structures.length){el.innerHTML='<div class="empty">No structures yet — add one above.</div>';return;}
+  el.innerHTML=S.structures.map(s=>{
+    const all=s.groups.flatMap(g=>g.rows).filter(r=>r.status!=='na'),dn=all.filter(r=>r.status==='done').length,pct=all.length?Math.round(dn/all.length*100):0;
+    return `<div class="card" style="margin-top:10px;background:#fbfcfe">
+      <div class="card-h">
+        <div><h2>${TYPE[s.type]} · ${esc(s.name)} <span class="sub">@ Ch. ${s.ch!=null?s.ch.toFixed(3)+' km':'—'}</span></h2><div class="sub">${esc(s.desc)}</div></div>
+        <div class="inl"><span class="prog" title="${pct}% activities complete"><i style="width:${pct}%"></i></span> <span class="sub">${dn}/${all.length} done</span>
+          <button class="small noprint" onclick="toggleStruct('${s.id}')">${s.collapsed?'Expand':'Collapse'}</button>
+          <button class="small danger noprint" onclick="removeStructure('${s.id}')">Delete</button></div>
+      </div>
+      ${s.collapsed?'':`<div class="group"><div class="group-h"><b>Drawings / approvals</b></div><div class="inl">${docCells(s).replace(/<td/g,'<span style="display:inline-block;padding:4px 10px;border-radius:4px;margin-right:6px"').replace(/<\/td>/g,'</span>')}</div></div>`+s.groups.map((g,gi)=>renderGroup(s,g,gi)).join('')}
+    </div>`;}).join('');
+}
+function renderGroup(s,g,gi){
+  const hasLen=g.rows.some(r=>r.kind==='length');
+  return `<div class="group">
+    <div class="group-h"><div><b>${esc(g.title)}</b> ${g.sub?`<span class="sub">· ${esc(g.sub)}</span>`:''}</div><button class="small noprint" onclick="addCustomRow('${s.id}',${gi})">+ activity</button></div>
+    <div class="tablewrap"><table>
+      <tr><th style="width:26px">#</th><th>Activity</th>${hasLen?'<th>Qty done / total</th>':''}<th>Target date (revisions struck)</th><th>Status</th><th>Comments (meeting-wise)</th><th class="noprint">Update in this meeting</th><th class="noprint"></th></tr>
+      ${g.rows.map((r,i)=>`<tr class="${r.status==='done'?'done':''}">
+        <td>${i+1}</td><td class="act">${esc(r.name)}</td>
+        ${hasLen?`<td>${r.kind==='length'?`${r.done} / ${r.total} ${ru(r)} <span class="prog" style="width:70px"><i style="width:${r.total?Math.min(100,r.done/r.total*100):0}%"></i></span>`:'—'}</td>`:''}
+        <td class="dates">${histHTML(r)}</td>
+        <td>${badge(r.status)}${r.kind!=='length'&&r.done?`<div class="sub">${r.done}%</div>`:''}${matBadge(r)}${r.status==='done'&&r.completedOn?`<div class="sub">on ${fmt(r.completedOn)}</div>`:''}</td>
+        <td class="cmt">${logHTML(r)}</td>
+        <td class="ctl noprint">${updCtrl('updRow',`'${s.id}',${gi},'${r.id}'`,r)}</td>
+        <td class="noprint"><button class="small danger" title="remove" onclick="delRow('${s.id}',${gi},'${r.id}')">×</button></td>
+      </tr>`).join('')}
+    </table></div></div>`;
+}
+
+
+/* ============ STATUS MATRIX ("box" view) ============ */
+function rowDate(r){return r.dates.length?r.dates[r.dates.length-1].d:'';}
+function cellText(r){
+  if(r.status==='na')return 'N/A';
+  if(r.doc){const d=rowDate(r)||r.completedOn;if(r.status==='done')return `Approved${d?'<div class="sub" style="font-weight:400">on '+fmt(d)+'</div>':''}`;const s={ip:'Submitted / under approval',ns:'Not submitted',hold:'Hold'}[r.status];return `${s}${d?'<div class="sub" style="font-weight:400">exp. '+fmt(d)+'</div>':''}`;}
+  if(r.kind==='length')return `${r.done}/${r.total} ${ru(r)}`;
+  const s={done:'Complete',ip:'In Progress',ns:'Not Taken Up',hold:'Hold'}[r.status];
+  return (r.done&&r.status!=='done'?`${s} ${r.done}%`:s)+matBadge(r);
+}
+function matBadge(r){if(!r.matTrack||r.status==='na')return '';return `<div class="mat m-${r.mat||'ns'}" title="Material: ${MAT[r.mat||'ns']}">Mat: ${MAT[r.mat||'ns']}</div>`;}
+function aggStatus(rows){const rs=rows.filter(r=>r.status!=='na');if(!rs.length)return 'na';if(rs.every(r=>r.status==='done'))return 'done';if(rs.some(r=>r.status==='hold'))return 'hold';if(rs.some(r=>r.status==='ns'))return 'ns';return 'ip';}
+function tdRow(s,gi,r,onclick){const cur=rowDate(r);return `<td class="c-${r.status}" title="${esc(r.name)}${cur?' · '+(r.doc?'date ':'target ')+fmt(cur):''}${r.comments.length?' · '+esc(r.comments[r.comments.length-1].text):''}" onclick="${onclick}">${cellText(r)}</td>`;}
+function docCells(s){return `${tdRow(s,-1,s.docs.gad,`openDocEditor(event,'${s.id}','gad')`)}${tdRow(s,-1,s.docs.sd,`openDocEditor(event,'${s.id}','sd')`)}`;}
+function openDocEditor(ev,sid,k){const s=findStruct(sid);openRowEditor(ev,s.docs[k],`${s.name} — ${s.docs[k].name}`);}
+const lblOf=s=>`${esc(s.name)}<div class="sub">Ch. ${s.ch!=null?s.ch.toFixed(3):'—'}</div>`;
+/* flat tables for minor / RUB: one line per bridge */
+function flatTables(list){
+  const tabs=[];const groupsN=Math.max(...list.map(s=>s.groups.length));
+  for(let gi=0;gi<groupsN;gi++){
+    const cols=[];list.forEach(s=>(s.groups[gi]?.rows||[]).forEach(r=>{if(!cols.includes(r.name))cols.push(r.name);}));
+    tabs.push({title:list[0].groups[gi]?.title||'',cols,rows:list.map(s=>({s,cells:Object.fromEntries((s.groups[gi]?.rows||[]).map(r=>[r.name,{s,gi,r}]))}))});
+  }
+  return tabs;
+}
+/* element tables for one major bridge / ROB (shown when expanded) */
+function elementTables(s){
+  const tabs=[];
+  if(s.type==='rob'){
+    const cat={sub:{title:'Substructure — abutment & pier wise',cols:['Pile','Raft','Stem','Pier cap','Pedestal'],rows:[]},gir:{title:'Girders',cols:[],rows:[]},app:{title:'Approaches (qty done / total)',cols:['Retaining wall','RE wall','Filling behind wall','Crash barrier','Road laying'],rows:[]}};
+    s.groups.forEach((g,gi)=>{const c=/^Girder/.test(g.title)?cat.gir:/^Approach/.test(g.title)?cat.app:cat.sub;g.rows.forEach(r=>{if(!c.cols.includes(r.name))c.cols.push(r.name);});c.rows.push({label:`<b>${esc(g.title)}</b>${g.sub?`<div class="sub">${esc(g.sub)}</div>`:''}`,cells:Object.fromEntries(g.rows.map(r=>[r.name,{s,gi,r}]))});});
+    return [cat.sub,cat.gir,cat.app];
+  }
+  const sub={title:'Substructure — abutment & pier wise',cols:['Pile','Raft / Pile cap','Stem','Cap','Pedestal'],rows:[]},sup={title:'Superstructure — span wise',cols:[],rows:[]};
+  s.groups.forEach((g,gi)=>{
+    if(g.title.startsWith('Superstructure')){
+      const spans={};g.rows.forEach(r=>{const m=r.name.match(/^(S\d+) – (.*)$/);if(!m)return;const key=m[2].replace(/ \(by .*?\)/,'');(spans[m[1]]=spans[m[1]]||{})[key]={s,gi,r};if(!sup.cols.includes(key))sup.cols.push(key);});
+      Object.entries(spans).forEach(([sp,cells])=>sup.rows.push({label:`<b>${sp}</b>`,cells}));
+    }else{
+      g.rows.forEach(r=>{if(!sub.cols.includes(r.name))sub.cols.push(r.name);});
+      sub.rows.push({label:`<b>${esc(g.title)}</b>${g.sub?`<div class="sub">${esc(g.sub)}</div>`:''}`,cells:Object.fromEntries(g.rows.map(r=>[r.name,{s,gi,r}]))});
+    }
+  });
+  return [sub,sup];
+}
+function tableHTML(tb,firstCol,withDocs){
+  let h=`<div class="tablewrap"><table><tr><th style="text-align:left">${firstCol}</th>${withDocs?'<th>GAD approval</th><th>Structural drawing</th>':''}${tb.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`;
+  tb.rows.forEach(rw=>{h+=`<tr><td class="lbl">${rw.label||lblOf(rw.s)}</td>${withDocs?docCells(rw.s):''}${tb.cols.map(c=>{const x=rw.cells[c];if(!x)return '<td class="c-na">—</td>';return tdRow(x.s,x.gi,x.r,`openEditor(event,'${x.s.id}',${x.gi},'${x.r.id}')`);}).join('')}</tr>`;});
+  return h+'</table></div>';
+}
+/* element chips: one line per major bridge / ROB */
+function elementChips(s){
+  const chip=(name,rows,gi)=>{const st=aggStatus(rows);const rs=rows.filter(r=>r.status!=='na');const dn=rs.filter(r=>r.status==='done').length;return `<span class="chip c-${st}" title="${esc(name)}: ${dn}/${rs.length} activities complete — ${statusName(st)}">${esc(name)}<small>${dn}/${rs.length}</small></span>`;};
+  const parts=[];
+  if(s.type==='major'){
+    const subs=s.groups.filter(g=>!g.title.startsWith('Superstructure')).map(g=>chip(g.title.replace(/^Abutment |^Pier /,''),g.rows));
+    const sup=s.groups.find(g=>g.title.startsWith('Superstructure'));const spans={};(sup?sup.rows:[]).forEach(r=>{const m=r.name.match(/^(S\d+) –/);if(m)(spans[m[1]]=spans[m[1]]||[]).push(r);});
+    parts.push(`<span class="chipgrp"><em>Sub</em>${subs.join('')}</span>`,`<span class="chipgrp"><em>Super</em>${Object.entries(spans).map(([k,rows])=>chip(k,rows)).join('')}</span>`);
+  }else{
+    const cat=t=>s.groups.filter(g=>t.test(g.title));
+    parts.push(`<span class="chipgrp"><em>Sub</em>${cat(/^(Abutment|Pier)/).map(g=>chip(g.title.replace(/^Abutment |^Pier /,''),g.rows)).join('')}</span>`,`<span class="chipgrp"><em>Girders</em>${cat(/^Girder/).map(g=>chip(g.title.replace('Girder ',''),g.rows)).join('')}</span>`,`<span class="chipgrp"><em>Approach</em>${cat(/^Approach/).map(g=>chip(g.title.replace('Approach ',''),g.rows)).join('')}</span>`);
+  }
+  return parts.join('');
+}
+function toggleMx(id){const s=S.structures.find(x=>x.id===id);s.mxOpen=!s.mxOpen;save();render();}
+function renderMatrix(){
+  const el=document.getElementById('matrix');let h='';
+  [['minor','Minor Bridges'],['major','Major Bridges'],['rub','RUBs'],['rob','ROBs']].forEach(([t,title])=>{
+    const list=S.structures.filter(s=>s.type===t);
+    const allR=list.flatMap(s=>s.groups.flatMap(g=>g.rows)).filter(r=>r.status!=='na'),dnR=allR.filter(r=>r.status==='done').length;
+    h+=`<details class="gk" ${openA[t]?'open':''} ontoggle="openA['${t}']=this.open"><summary><b>${title}</b> <span class="sub">${list.length} nos · ${dnR}/${allR.length} activities complete</span> <span class="chips">${list.map(s=>`<span class="chip c-${aggStatus(s.groups.flatMap(g=>g.rows))}" title="${esc(s.name)}">${esc(s.name)}</span>`).join('')}</span></summary><div class="mx" style="padding:6px 10px">`;
+    if(!list.length){h+='<div class="empty">None added yet.</div></div></details>';return;}
+    if(t==='minor'||t==='rub'){
+      const tabs=flatTables(list);
+      tabs.forEach((tb,i)=>{h+=`${tabs.length>1?`<div class="sub" style="margin:4px 0"><b>${esc(tb.title)}</b></div>`:''}`+tableHTML(tb,'Bridge No / Ch.',i===0);});
+    }else{
+      h+=`<div class="tablewrap"><table><tr><th style="text-align:left">Bridge No / Ch.</th><th>GAD approval</th><th>Structural drawing</th><th style="text-align:left">Elements — overall status (click a line to open / close details)</th><th>Progress</th></tr>`;
+      list.forEach(s=>{
+        const all=s.groups.flatMap(g=>g.rows).filter(r=>r.status!=='na'),dn=all.filter(r=>r.status==='done').length,pct=all.length?Math.round(dn/all.length*100):0;
+        h+=`<tr class="bl"><td class="lbl" onclick="toggleMx('${s.id}')" style="cursor:pointer">${s.mxOpen?'▾':'▸'} ${lblOf(s)}<div class="sub">${esc(s.desc)}</div></td>${docCells(s)}<td class="lbl chips" onclick="toggleMx('${s.id}')" style="cursor:pointer">${elementChips(s)}</td><td class="lbl"><span class="prog"><i style="width:${pct}%"></i></span><div class="sub">${dn}/${all.length} done</div></td></tr>`;
+        if(s.mxOpen){h+=`<tr><td colspan="5" style="background:#f8fafc;padding:8px 12px">`;elementTables(s).forEach(tb=>{if(!tb.rows.length)return;h+=`<div class="sub" style="margin:4px 0"><b>${esc(tb.title)}</b></div>`+tableHTML(tb,'Element',false);});h+='</td></tr>';}
+      });
+      h+='</table></div>';
+    }
+    h+='</div></details>';
+  });
+  el.innerHTML=h;
+}
+const openA={};
+let ceTarget=null;
+function findStruct(id){return S.structures.find(x=>x.id===id)||(S.buildings||[]).find(x=>x.id===id);}
+function openEditor(ev,sid,gi,rid){
+  const s=findStruct(sid),r=s.groups[gi].rows.find(x=>x.id===rid);
+  openRowEditor(ev,r,`${s.name} — ${s.groups[gi].title} — ${r.name}`);
+}
+function openRowEditor(ev,r,title){
+  ceTarget={row:r};
+  const ed=document.getElementById('cellEd');
+  document.getElementById('ceTitle').textContent=title;
+  document.getElementById('ceStatus').value=r.status;
+  document.getElementById('ceDateL').firstChild.textContent=r.doc?'Approval date (or expected) ':'Target date ';
+  document.getElementById('ceMatL').classList.toggle('hidden',!r.matTrack);if(r.matTrack)document.getElementById('ceMat').value=r.mat||'ns';
+  document.getElementById('ceQtyL').firstChild.textContent=r.kind==='length'?`Done (${ru(r)}) of ${r.total} `:'% done ';
+  document.getElementById('ceQty').value=r.done||'';
+  document.getElementById('ceDate').value=r.dates.length?r.dates[r.dates.length-1].d:'';
+  document.getElementById('ceCmt').value='';
+  document.getElementById('ceHist').innerHTML=(r.dates.length?'Target: '+histHTML(r):'')+(r.comments.length?`<div>Last: <i>${esc(r.comments[r.comments.length-1].text)}</i> (${fmt(r.comments[r.comments.length-1].on)})</div>`:'');
+  ed.classList.remove('hidden');
+  const W=ed.offsetWidth,H=ed.offsetHeight,x=Math.min(ev.clientX+8,window.innerWidth-W-8),y=Math.min(ev.clientY+8,window.innerHeight-H-8);
+  ed.style.left=Math.max(4,x)+'px';ed.style.top=Math.max(4,y)+'px';
+  document.getElementById('ceCmt').focus();
+}
+function closeEditor(){document.getElementById('cellEd').classList.add('hidden');ceTarget=null;}
+function saveEditor(){
+  if(!ceTarget)return;const r=ceTarget.row;
+  const q=document.getElementById('ceQty').value;
+  if(r.matTrack){const m=document.getElementById('ceMat').value;if(m!==(r.mat||'ns')){r.mat=m;r.comments.push({on:meeting(),text:'Material: '+MAT[m]});}}
+  applyUpdate(r,document.getElementById('ceDate').value,document.getElementById('ceCmt').value.trim(),document.getElementById('ceStatus').value,q===''?null:+q);
+  closeEditor();save();render();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeEditor();});
+
+
+
+/* ============ BUILDING WORKS ============ */
+const B_FOUND=['Excavation','Footing / foundation','Column up to plinth','Plinth beam','Plinth filling & PCC','DPC'];
+const B_FLOOR=['Columns','Beams & slab','Brickwork','Plastering','Flooring','Doors & windows','Electrical conduit & wiring','Plumbing & sanitary','Painting'];
+const B_MAT=['Flooring','Doors & windows','Electrical conduit & wiring','Plumbing & sanitary','Painting','Lift','Fire fighting','Electrical DB & fixtures'];
+const MAT={na:'—',ns:'Not ordered',po:'PO placed',part:'Partly received',rcvd:'Received at site'};
+const B_FIN=['Staircase','Roof waterproofing','Parapet & coping','External plaster & painting','Lift','Fire fighting','Electrical DB & fixtures','Water supply & sewer connection','Compound wall & external development','Handing over'];
+function bldgTotal(){const g=id=>+document.getElementById(id).value||0;document.getElementById('bTot').value=g('bGF')+g('bUp')*g('bUF');}
+function bldgPileUI(){document.getElementById('bPilesL').classList.toggle('hidden',document.getElementById('bFound').value!=='pile');}
+function floorName(i,up){return i===0?'Ground floor':i===1?'1st floor':i===2?'2nd floor':i===3?'3rd floor':i+'th floor';}
+function addBuilding(){
+  const v=id=>document.getElementById(id).value;const site=v('bSite').trim(),name=v('bName').trim();
+  if(!site||!name){alert('Enter site and building name');return;}
+  const cfg={gf:+v('bGF'),up:+v('bUp'),uf:+v('bUF'),found:v('bFound'),piles:+v('bPiles'),lift:v('bLift')==='1',fire:v('bFire')==='1',ext:v('bExt')==='1'};cfg.total=cfg.gf+cfg.up*cfg.uf;
+  const groups=[];
+  const f=B_FOUND.map(mkRow);if(cfg.found==='pile')f.unshift(mkRow('Pile','length',cfg.piles,'nos'));if(cfg.found==='raft')f.splice(1,1,mkRow('Raft'));
+  groups.push({title:'Foundation & plinth',sub:cfg.found==='pile'?cfg.piles+' piles':cfg.found==='raft'?'Raft foundation':'Open footings',rows:f});
+  for(let i=0;i<=cfg.up;i++)groups.push({title:floorName(i),sub:`${i===0?cfg.gf:cfg.uf} sqm`,rows:B_FLOOR.map(n=>{const r=mkRow(n);if(B_MAT.includes(n)){r.matTrack=true;r.mat='ns';}return r;})});
+  const fin=B_FIN.map(mkRow);fin.forEach(r=>{if(B_MAT.includes(r.name)){r.matTrack=true;r.mat='ns';}if((r.name==='Lift'&&!cfg.lift)||(r.name==='Fire fighting'&&!cfg.fire)||(/Compound wall/.test(r.name)&&!cfg.ext))r.status='na';});
+  groups.push({title:'Finishing & services',sub:'',rows:fin});
+  S.buildings.push({id:uid(),site,name,ch:v('bCh')?+v('bCh'):null,cfg,desc:`${cfg.gf} sqm GF + ${cfg.up} upper floor(s) × ${cfg.uf} sqm = ${cfg.total} sqm · ${groups[0].sub}`,groups,docs:mkDocs(),mxOpen:false});
+  S.buildings.sort((a,b)=>a.site.localeCompare(b.site)||(a.ch??1e9)-(b.ch??1e9));
+  ['bName','bCh'].forEach(i=>document.getElementById(i).value='');document.getElementById('addBldg').open=false;save();render();
+}
+function delBuilding(id){if(confirm('Delete this building sheet?')){S.buildings=S.buildings.filter(b=>b.id!==id);save();render();}}
+function toggleBx(id){const b=S.buildings.find(x=>x.id===id);b.mxOpen=!b.mxOpen;save();render();}
+const openB={};
+function bldgChips(b){return b.groups.map(g=>{const st=aggStatus(g.rows),rs=g.rows.filter(r=>r.status!=='na'),dn=rs.filter(r=>r.status==='done').length;const short=g.title.replace('Foundation & plinth','Fdn').replace('Ground floor','GF').replace(/^(\d+)(st|nd|rd|th) floor$/,'$1F').replace('Finishing & services','Finish');return `<span class="chip c-${st}" title="${esc(g.title)}: ${dn}/${rs.length} complete">${short}<small>${dn}/${rs.length}</small></span>`;}).join('');}
+function bldgTables(b){
+  const fd=b.groups[0],fin=b.groups[b.groups.length-1],floors=b.groups.slice(1,-1);
+  const t=[];
+  t.push({title:'Foundation & plinth',cols:fd.rows.map(r=>r.name),rows:[{label:`<b>Foundation</b><div class="sub">${esc(fd.sub)}</div>`,cells:Object.fromEntries(fd.rows.map(r=>[r.name,{s:b,gi:0,r}]))}]});
+  t.push({title:'Floor-wise',cols:B_FLOOR,rows:floors.map((g,i)=>({label:`<b>${esc(g.title)}</b><div class="sub">${esc(g.sub)}</div>`,cells:Object.fromEntries(g.rows.map(r=>[r.name,{s:b,gi:i+1,r}]))}))});
+  t.push({title:'Finishing & services',cols:fin.rows.map(r=>r.name),rows:[{label:'<b>Finishing</b>',cells:Object.fromEntries(fin.rows.map(r=>[r.name,{s:b,gi:b.groups.length-1,r}]))}]});
+  return t;
+}
+function renderBuildings(){
+  const el=document.getElementById('bldgMatrix');const list=S.buildings||[];
+  document.getElementById('bSiteList').innerHTML=[...new Set(list.map(b=>b.site))].map(s=>`<option value="${esc(s)}">`).join('');
+  if(!list.length){el.innerHTML='<div class="empty">No buildings added yet.</div>';return;}
+  let h='';
+  [...new Set(list.map(b=>b.site))].forEach(site=>{
+    const bs=list.filter(b=>b.site===site);const allR=bs.flatMap(b=>b.groups.flatMap(g=>g.rows)).filter(r=>r.status!=='na'),dnR=allR.filter(r=>r.status==='done').length;
+    h+=`<details class="gk" ${openB[site]?'open':''} ontoggle="openB['${esc(site)}']=this.open"><summary><b>${esc(site)}</b> <span class="sub">${bs.length} building(s) · ${bs.reduce((a,b)=>a+b.cfg.total,0)} sqm · ${dnR}/${allR.length} activities complete</span> <span class="chips">${bs.map(b=>`<span class="chip c-${aggStatus(b.groups.flatMap(g=>g.rows))}">${esc(b.name)}</span>`).join('')}</span></summary><div class="mx" style="padding:6px 10px">`;
+    h+=`<div class="tablewrap"><table><tr><th style="text-align:left">Building</th><th>Architectural / GAD approval</th><th>Structural drawing</th><th style="text-align:left">Foundation · floors · finishing (click line for detail)</th><th>Progress</th></tr>`;
+    bs.forEach(b=>{
+      const all=b.groups.flatMap(g=>g.rows).filter(r=>r.status!=='na'),dn=all.filter(r=>r.status==='done').length,pct=all.length?Math.round(dn/all.length*100):0;
+      h+=`<tr class="bl"><td class="lbl" onclick="toggleBx('${b.id}')" style="cursor:pointer">${b.mxOpen?'▾':'▸'} <b>${esc(b.name)}</b><div class="sub">${b.ch!=null?'Ch. '+b.ch.toFixed(3)+' · ':''}${esc(b.desc)}</div></td>${docCells(b)}<td class="lbl chips" onclick="toggleBx('${b.id}')" style="cursor:pointer">${bldgChips(b)}</td><td class="lbl"><span class="prog"><i style="width:${pct}%"></i></span><div class="sub">${dn}/${all.length} done</div><button class="small noprint danger" onclick="delBuilding('${b.id}')">Delete</button></td></tr>`;
+      if(b.mxOpen){h+=`<tr><td colspan="5" style="background:#f8fafc;padding:8px 12px">`;bldgTables(b).forEach(tb=>{h+=`<div class="sub" style="margin:4px 0"><b>${esc(tb.title)}</b></div>`+tableHTML(tb,tb.title==='Floor-wise'?'Floor':'Stage',false);});h+='</td></tr>';}
+    });
+    h+='</table></div></div></details>';
+  });
+  el.innerHTML=h;
+}
+
+/* ============ GIRDERS / BEARINGS / EXPANSION JOINTS ============ */
+const G_CHAIN=['Structural drawing approval','Vendor selection','PO issued','QAP submitted','QAP approved','Raw material procurement','Fabrication','Trial assembly','Bolt procurement','Painting','Metallising','Final inspection','Dispatch','Received at site','Launching status'];
+const G_PCT=['Raw material procurement','Fabrication'];
+const B_CHAIN=['Drawing approval','Vendor selection','PO issued','QAP approved','Manufacturing','Final inspection','Dispatch','Received at site','Launching status'];
+const B_PCT=['Manufacturing'];
+function gAddSpanRow(){
+  const t=document.getElementById('gSpanRows');const n=t.rows.length;
+  const opts='<option value="">Non-standard</option>'+S.girders.lib.map(l=>`<option value="${l.id}">RDSO ${l.len} m ${esc(l.type)}</option>`).join('');
+  const tr=t.insertRow(-1);tr.innerHTML=`<td><input type="text" value="S${n}" style="width:60px"></td><td><select onchange="gLibPick(this)">${opts}</select></td><td><input type="text" placeholder="drawing no" style="width:140px"></td><td><input type="number" step="0.1" style="width:80px"></td><td><input type="text" placeholder="type" style="width:140px"></td><td><input type="number" step="0.01" style="width:80px"></td><td class="gBE"><input type="number" value="4" style="width:60px"></td><td class="gBE"><input type="number" value="2" style="width:60px"></td><td><button class="small danger" onclick="this.closest('tr').remove()">×</button></td>`;
+  document.querySelectorAll('#gSpanRows td.gBE').forEach(e=>e.classList.toggle('hidden',document.getElementById('gKind').value==='fob'));
+}
+const G_KIND={major:'Major Bridges',rob:'ROBs',fob:'FOBs'};
+const openG={};
+function gPickFill(){
+  const k=document.getElementById('gKind').value,sel=document.getElementById('gPick');
+  const list=S.structures.filter(s=>s.type===k&&!S.girders.jobs.find(j=>j.structId===s.id));
+  sel.innerHTML='<option value="">— enter new —</option>'+list.map(s=>`<option value="${s.id}">${esc(s.name)} @ Ch. ${s.ch!=null?s.ch.toFixed(3):'—'}</option>`).join('');
+  document.querySelectorAll('.gBE').forEach(e=>e.classList.toggle('hidden',k==='fob'));
+  document.querySelectorAll('#gSpanRows td.gBE').forEach(e=>e.classList.toggle('hidden',k==='fob'));
+}
+function gPickApply(){const s=S.structures.find(x=>x.id===document.getElementById('gPick').value);if(!s)return;document.getElementById('gBridge').value=s.name;document.getElementById('gCh').value=s.ch??'';}
+function gLibPick(sel){const l=S.girders.lib.find(x=>x.id===sel.value);const tr=sel.closest('tr'),i=tr.querySelectorAll('input');if(!l)return;i[1].value=l.drg;i[2].value=l.len;i[3].value=l.type;i[4].value=l.mt||'';}
+function libAdd(){const v=id=>document.getElementById(id).value;if(!+v('libLen'))return;S.girders.lib.push({id:uid(),len:+v('libLen'),type:v('libType'),drg:v('libDrg'),mt:+v('libMT')||0});S.girders.lib.sort((a,b)=>a.len-b.len);['libLen','libType','libDrg','libMT'].forEach(i=>document.getElementById(i).value='');save();render();}
+function libSet(id,k,el){const l=S.girders.lib.find(x=>x.id===id);l[k]=k==='mt'||k==='len'?+el.innerText:el.innerText.trim();save();}
+function libDel(id){S.girders.lib=S.girders.lib.filter(x=>x.id!==id);save();render();}
+function renderLib(){
+  document.getElementById('gLibTable').innerHTML=`<tr><th>Span length (m)</th><th>Girder type</th><th>RDSO drawing no</th><th>Qty per span (MT)</th><th></th></tr>`+S.girders.lib.map(l=>`<tr><td class="rem" contenteditable onblur="libSet('${l.id}','len',this)">${l.len}</td><td class="rem" contenteditable onblur="libSet('${l.id}','type',this)">${esc(l.type)}</td><td class="rem" contenteditable onblur="libSet('${l.id}','drg',this)">${esc(l.drg)}</td><td class="rem" contenteditable onblur="libSet('${l.id}','mt',this)">${l.mt||''}</td><td><button class="small danger" onclick="libDel('${l.id}')">×</button></td></tr>`).join('');
+}
+function addGirderJob(){
+  const bridge=document.getElementById('gBridge').value.trim();if(!bridge){alert('Enter the bridge number');return;}
+  const rows=[...document.getElementById('gSpanRows').rows].slice(1);if(!rows.length){alert('Add at least one span line');return;}
+  const scope=document.getElementById('gScope').value,kind=document.getElementById('gKind').value,structId=document.getElementById('gPick').value||null;
+  const spans=rows.map(tr=>{const i=tr.querySelectorAll('input'),sel=tr.querySelector('select');
+    return {id:uid(),label:i[0].value.trim()||'S?',std:sel.value?'RDSO':'Non-std',drg:i[1].value.trim(),len:+i[2].value||0,type:i[3].value.trim(),mt:+i[4].value||0,vendor:'',po:'',
+      girder:G_CHAIN.map(mkRow),bearings:kind==='fob'?[]:B_CHAIN.map(mkRow),ej:kind==='fob'?[]:B_CHAIN.map(mkRow),nBrg:kind==='fob'?0:+i[5].value||0,nEj:kind==='fob'?0:+i[6].value||0};});
+  if(scope==='rly')spans.forEach(s=>s.girder.forEach(r=>{if(!['Dispatch','Final inspection','Received at site','Launching status'].includes(r.name))r.status='na';}));
+  S.girders.jobs.push({id:uid(),kind,structId,bridge,ch:+document.getElementById('gCh').value||null,scope,gad:mkRow('GAD approval'),spans,collapsed:true});openG[kind]=true;
+  S.girders.jobs.sort((a,b)=>(a.ch??1e9)-(b.ch??1e9));
+  document.getElementById('gBridge').value='';document.getElementById('gCh').value='';const t=document.getElementById('gSpanRows');while(t.rows.length>1)t.deleteRow(-1);document.getElementById('addGirder').open=false;
+  save();render();
+}
+function delGirderJob(id){if(confirm('Delete this bridge from girder tracking?')){S.girders.jobs=S.girders.jobs.filter(j=>j.id!==id);save();render();}}
+function gField(jid,sid,k,el){const sp=S.girders.jobs.find(j=>j.id===jid).spans.find(s=>s.id===sid);sp[k]=el.innerText.trim();save();}
+function gCell(r,title){const cur=r.dates.length?r.dates[r.dates.length-1].d:'';return `<td class="c-${r.status}" title="${esc(title)}${cur?' · target '+fmt(cur):''}${r.comments.length?' · '+esc(r.comments[r.comments.length-1].text):''}" onclick="openRowEditorG(event,'${r.id}','${esc(title)}')">${gText(r)}</td>`;}
+function gText(r){if(r.status==='na')return 'N/A';const s={done:'Complete',ip:'In Progress',ns:'Not Taken Up',hold:'Hold'}[r.status];const cur=r.dates.length?r.dates[r.dates.length-1].d:'';return `${r.done&&r.status!=='done'?s+' '+r.done+'%':s}${cur&&r.status!=='done'?`<div class="sub" style="font-weight:400">${fmt(cur)}</div>`:''}`;}
+const G_ROWS={};
+function openRowEditorG(ev,rid,title){openRowEditor(ev,G_ROWS[rid],title);}
+function spanChip(s){const rows=[...s.girder,...s.bearings,...s.ej];const st=aggStatus(rows);const rs=rows.filter(r=>r.status!=='na'),dn=rs.filter(r=>r.status==='done').length;const l=s.girder.find(r=>r.name==='Launching status');return `<span class="chip c-${st}" title="${esc(s.label)}: ${dn}/${rs.length} steps complete${l&&l.status==='done'?' · launched':''}">${esc(s.label)}<small>${dn}/${rs.length}</small></span>`;}
+function renderGirders(){
+  renderLib();gPickFill();
+  if(document.getElementById('gSpanRows').rows.length===1)gAddSpanRow();
+  const el=document.getElementById('girderMatrix');const jobs=S.girders.jobs;
+  if(!jobs.length){el.innerHTML='<div class="empty">No bridges added for girder tracking yet.</div>';return;}
+  let h='';
+  Object.entries(G_KIND).forEach(([k,title])=>{
+    const js=jobs.filter(j=>j.kind===k);
+    const spans=js.flatMap(j=>j.spans),launched=spans.filter(s=>(s.girder.find(r=>r.name==='Launching status')||{}).status==='done').length;
+    h+=`<details class="gk" ${openG[k]?'open':''} ontoggle="openG['${k}']=this.open"><summary><b>${title}</b> <span class="sub">${js.length} bridge(s) · ${spans.length} span(s) · ${spans.reduce((a,s)=>a+s.mt,0).toFixed(1)} MT · ${launched} launched</span> <span class="chips">${js.map(j=>`<span class="chip c-${aggStatus(j.spans.flatMap(s=>[...s.girder,...s.bearings,...s.ej]))}">${esc(j.bridge)}</span>`).join('')}</span></summary>`;
+    if(!js.length)h+='<div class="empty">None yet — add from the form above.</div>';
+    js.forEach(j=>{
+      const totMT=j.spans.reduce((a,s)=>a+s.mt,0);
+      j.spans.forEach(s=>[...s.girder,...s.bearings,...s.ej].forEach(r=>G_ROWS[r.id]=r));G_ROWS[j.gad.id]=j.gad;
+      h+=`<details class="gj" ${openG[j.id]?'open':''} ontoggle="openG['${j.id}']=this.open"><summary><b>${esc(j.bridge)}</b> <span class="sub">Ch. ${j.ch!=null?j.ch.toFixed(3):'—'} · ${j.spans.length} span(s) · ${totMT.toFixed(1)} MT · ${j.scope==='jnl'?'JNL scope':'Railway supply'} · GAD: ${statusName(j.gad.status)}</span> <span class="chips">${j.spans.map(spanChip).join('')}</span><button class="small noprint danger" style="float:right" onclick="event.preventDefault();delGirderJob('${j.id}')">Delete</button></summary>
+      <div class="mx" style="padding:6px 0 0 8px">
+      <div class="tablewrap"><table><tr><th>Bridge-level</th>${gCell(j.gad,j.bridge+' — GAD approval')}<td class="lbl" style="text-align:left"><span class="sub">GAD approval is common to all spans of the bridge</span></td></tr></table></div>
+      <div class="sub" style="margin:6px 0"><b>Girders — span wise</b></div>
+      <div class="tablewrap"><table><tr><th>Span</th><th>Drawing / qty</th><th>Vendor</th><th>PO no</th>${G_CHAIN.map(c=>`<th>${c}${G_PCT.includes(c)?' (%)':''}</th>`).join('')}</tr>`;
+      j.spans.forEach(s=>{h+=`<tr><td class="lbl"><b>${esc(s.label)}</b><div class="sub">${s.len} m ${esc(s.type)}</div></td><td class="lbl"><div>${s.std}: ${esc(s.drg)||'<span class="muted">drg no?</span>'}</div><div class="sub">${s.mt} MT</div></td><td class="rem" contenteditable onblur="gField('${j.id}','${s.id}','vendor',this)">${esc(s.vendor)}</td><td class="rem" contenteditable onblur="gField('${j.id}','${s.id}','po',this)">${esc(s.po)}</td>${s.girder.map(r=>gCell(r,`${j.bridge} ${s.label} — Girder — ${r.name}`)).join('')}</tr>`;});
+      h+=`</table></div>`;
+      if(j.kind!=='fob'){
+        h+=`<div class="sub" style="margin:6px 0"><b>Bearings &amp; expansion joints — span wise</b></div>
+        <div class="tablewrap"><table><tr><th>Span</th><th>Item</th>${B_CHAIN.map(c=>`<th>${c}${B_PCT.includes(c)?' (%)':''}</th>`).join('')}</tr>`;
+        j.spans.forEach(s=>{h+=`<tr><td class="lbl" rowspan="2"><b>${esc(s.label)}</b></td><td class="lbl">Bearings <span class="sub">(${s.nBrg} nos)</span></td>${s.bearings.map(r=>gCell(r,`${j.bridge} ${s.label} — Bearings — ${r.name}`)).join('')}</tr><tr><td class="lbl">Expansion joints <span class="sub">(${s.nEj} nos)</span></td>${s.ej.map(r=>gCell(r,`${j.bridge} ${s.label} — Expansion joints — ${r.name}`)).join('')}</tr>`;});
+        h+=`</table></div>`;
+      }
+      h+=`<details class="cfg"><summary>Date history &amp; remarks log — ${esc(j.bridge)}</summary><div class="tablewrap"><table><tr><th>Span</th><th>Item</th><th>Activity</th><th>Tentative date (revisions struck)</th><th>Status</th><th>Remarks (meeting-wise)</th></tr>`;
+      const line=(sp,item,r)=>`<tr class="${r.status==='done'?'done':''}"><td>${sp}</td><td>${item}</td><td class="act">${esc(r.name)}</td><td class="dates">${histHTML(r)}</td><td>${badge(r.status)}${r.done&&r.status!=='done'?` ${r.done}%`:''}</td><td class="cmt">${logHTML(r)}</td></tr>`;
+      h+=line('—','Bridge',j.gad);
+      j.spans.forEach(s=>{s.girder.forEach(r=>{if(r.status!=='na')h+=line(s.label,'Girder',r);});s.bearings.forEach(r=>h+=line(s.label,'Bearings',r));s.ej.forEach(r=>h+=line(s.label,'Exp. joint',r));});
+      h+='</table></div></details></div></details>';
+    });
+    h+='</details>';
+  });
+  el.innerHTML=h;
+}
+
+/* ============ ROLLING DIAGRAM ============ */
+function migrateBldg(){if(!S.buildings)S.buildings=[];S.buildings.forEach(b=>b.groups.forEach(g=>g.rows.forEach(r=>{if(B_MAT.includes(r.name)&&!r.matTrack){r.matTrack=true;r.mat=r.mat||'ns';}})));}
+function migrateStructs(){S.structures.forEach(s=>{if(!s.docs)s.docs=mkDocs();s.groups.forEach(g=>g.rows.forEach(r=>{if(r.name==='Pile'&&r.kind!=='length'){r.kind='length';r.unit='nos';r.total=r.total||0;}}));});}
+function migrateGirders(){if(!S.girders)S.girders={lib:defaultLib(),jobs:[]};S.girders.jobs.forEach(j=>{if(!j.kind)j.kind='major';j.spans.forEach(sp=>{[['girder',G_CHAIN],['bearings',B_CHAIN],['ej',B_CHAIN]].forEach(([k,ch])=>{if(j.kind==='fob'&&k!=='girder'){sp[k]=[];return;}ch.forEach(n=>{if(!sp[k].find(r=>r.name===n))sp[k].push(mkRow(n));});});});});}
+function migrateLinear(){S.linear.items=S.linear.items.filter(it=>!/^P\.Way supply/.test(it.name));S.linear.items.forEach(it=>{if(!it.unit)it.unit=/earthwork|blanketing/i.test(it.name)?'cum':/trolley/i.test(it.name)?'nos':'m';it.scope=it.scope||[];it.entries=it.entries||[];if(it.blocks){it.blocks.forEach(b=>{if(b.status==='ns')it.scope.push({id:uid(),from:b.from,to:b.to,side:b.side,rem:b.rem});else it.entries.push({id:uid(),date:b.on||today(),from:b.from,to:b.to,side:b.side,cont:b.cont,status:b.status,rem:b.rem});});delete it.blocks;}});}
+function addLinearItem(){const n=document.getElementById('lbNewItem').value.trim();if(!n)return;S.linear.items.push({id:uid(),name:n,unit:document.getElementById('lbNewUnit').value,scope:[],entries:[]});document.getElementById('lbNewItem').value='';save();render();}
+let linView='diag';
+function linTab(v){linView=v;document.getElementById('linDiag').classList.toggle('hidden',v!=='diag');document.getElementById('linDay').classList.toggle('hidden',v!=='day');document.getElementById('tabDiag').classList.toggle('active',v==='diag');document.getElementById('tabDay').classList.toggle('active',v==='day');}
+function unitUI(){
+  [['scItem','scFrom','scTo','scQty','scQtyL'],['lbItem','lbFrom','lbTo','lbQty','lbQtyL']].forEach(([sel,f,t,q,l])=>{
+    const it=S.linear.items.find(i=>i.id===document.getElementById(sel).value);if(!it)return;const u=unitOf(it);
+    const qi=document.getElementById(q),lab=document.getElementById(l);
+    lab.firstChild.textContent=u==='m'?'Length (m) ':u==='cum'?'Quantity (cum) ':'Quantity (nos) ';
+    if(u==='m'){const a=+document.getElementById(f).value,b=+document.getElementById(t).value;qi.value=(b>a)?((b-a)*1000).toFixed(0):'';qi.disabled=true;}else qi.disabled=false;
+  });
+}
+function inScope(it,from,to){const sc=union(it.scope);if(!sc.length)return true;return len(clip([[from,to]],sc))>=(to-from)-1e-9;}
+function addScope(){
+  const v=id=>document.getElementById(id).value;
+  const it=S.linear.items.find(i=>i.id===v('scItem'));const from=+v('scFrom'),to=+v('scTo');
+  const u=it?unitOf(it):'m';
+  if(!it||v('scFrom')===''||isNaN(from)||isNaN(to)||(u==='m'?to<=from:to<from)){alert('Enter valid from/to chainage');return;}
+  const qty=u==='m'?(to-from)*1000:+v('scQty');if(u!=='m'&&!(qty>0)){alert('Enter the scope quantity in '+UNITS[u]);return;}
+  it.scope.push({id:uid(),from,to,side:v('scSide'),qty,rem:v('scRem')});it.scope.sort((a,b)=>a.from-b.from);
+  ['scFrom','scTo','scQty','scRem'].forEach(i=>document.getElementById(i).value='');save();render();
+}
+function addEntry(){
+  const v=id=>document.getElementById(id).value;
+  const it=S.linear.items.find(i=>i.id===v('lbItem'));const from=+v('lbFrom'),to=+v('lbTo');
+  const u=it?unitOf(it):'m';
+  if(!it||v('lbFrom')===''||isNaN(from)||isNaN(to)||(u==='m'?to<=from:to<from)){alert('Enter valid from/to chainage');return;}
+  const qty=u==='m'?(to-from)*1000:+v('lbQty');if(u!=='m'&&!(qty>0)){alert('Enter the quantity in '+UNITS[u]);return;}
+  if(!it.scope.length){if(!confirm('No scope defined yet for '+it.name+'. Add the entry anyway? (Define scope in Step 1 so Done/Pending can be worked out.)'))return;}
+  else if(!inScope(it,from,to)){if(!confirm('This stretch falls partly outside the defined scope of '+it.name+'. Only the in-scope portion will count towards Done. Continue?'))return;}
+  it.entries.push({id:uid(),date:v('lbDate')||meeting(),from,to,qty,side:v('lbSide'),cont:v('lbCont'),status:v('lbStatus'),rem:v('lbRem'),on:meeting()});it.entries.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.from-b.from);
+  ['lbFrom','lbTo','lbQty','lbRem'].forEach(i=>document.getElementById(i).value='');
+  save();render();
+}
+function delScope(iid,sid){const it=S.linear.items.find(i=>i.id===iid);const s=it.scope.find(x=>x.id===sid);if(confirm(`Remove scope patch ${s.from.toFixed(3)}–${s.to.toFixed(3)} km?`)){it.scope=it.scope.filter(x=>x.id!==sid);save();render();}}
+function editEntry(iid,eid){
+  const it=S.linear.items.find(i=>i.id===iid),b=it.entries.find(x=>x.id===eid);
+  const st=prompt(`${it.name}: ${b.from.toFixed(3)}–${b.to.toFixed(3)} km, ${fmt(b.date)} (${b.cont||'—'})\nStatus: done / ip / hold   (type "delete" to remove)`,b.status);
+  if(st==null)return;
+  if(st==='delete'){it.entries=it.entries.filter(x=>x.id!==eid);}
+  else{if(['ip','done','hold'].includes(st))b.status=st;if(unitOf(it)!=='m'){const q=prompt('Quantity ('+UNITS[unitOf(it)]+')',b.qty||'');if(q!=null&&+q>0)b.qty=+q;}const c=prompt('Contractor / agency',b.cont||'');if(c!=null)b.cont=c;const r=prompt('Remarks',b.rem||'');if(r!=null)b.rem=r;b.on=meeting();}
+  save();render();
+}
+/* interval maths (km) */
+function union(iv){const s=iv.filter(x=>x.to>x.from).map(x=>[x.from,x.to]).sort((a,b)=>a[0]-b[0]);const out=[];for(const [f,t] of s){if(out.length&&f<=out[out.length-1][1])out[out.length-1][1]=Math.max(out[out.length-1][1],t);else out.push([f,t]);}return out;}
+function len(u){return u.reduce((a,[f,t])=>a+(t-f),0);}
+function clip(u,sc){const out=[];for(const [f,t] of u)for(const [a,b] of sc){const x=Math.max(f,a),y=Math.min(t,b);if(y>x)out.push([x,y]);}return out;}
+function itemStats(it,upto){
+  const ent=it.entries.filter(e=>!upto||e.date<=upto);
+  if(unitOf(it)!=='m'){const scope=it.scope.reduce((a,s)=>a+(+s.qty||0),0),done=ent.filter(e=>e.status==='done').reduce((a,e)=>a+(+e.qty||0),0),ongoing=ent.filter(e=>e.status==='ip').reduce((a,e)=>a+(+e.qty||0),0);return {scope,done,ongoing,pending:Math.max(0,scope-done)};}
+  const sc=union(it.scope);const scope=len(sc);
+  const done=union(ent.filter(e=>e.status==='done'));
+  const doneClip=scope?clip(done,sc):done;
+  const ip=clip(union(ent.filter(e=>e.status==='ip')),scope?sc:[[-1e9,1e9]]);
+  const ipOnly=ip.flatMap(([f,t])=>{let segs=[[f,t]];for(const [a,b] of doneClip)segs=segs.flatMap(([x,y])=>{const r=[];if(a>x)r.push([x,Math.min(y,a)]);if(b<y)r.push([Math.max(x,b),y]);return r.filter(([p,q])=>q>p);});return segs;});
+  return {scope:scope*1000,done:len(doneClip)*1000,ongoing:len(ipOnly)*1000,pending:Math.max(0,scope-len(doneClip))*1000};
+}
+function renderRolling(){
+  const c0=+S.project.chStart||0,c1=+S.project.chEnd||(c0+10),span=Math.max(c1-c0,0.001);
+  ['lbItem','scItem'].forEach(id=>{const sel=document.getElementById(id);const keep=sel.value;sel.innerHTML=S.linear.items.map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('');if(keep)sel.value=keep;});
+  if(!document.getElementById('lbDate').value)document.getElementById('lbDate').value=today();unitUI();
+  const ticks=[];for(let k=0;k<=10;k++){const ch=c0+span*k/10;ticks.push(`<span style="left:${k*10}%">${ch.toFixed(1)}</span>`);}
+  const pos=(f,t)=>{const l=Math.max(0,(f-c0)/span*100),w=Math.max(0.3,(Math.min(t,c1)-Math.max(f,c0))/span*100);return `left:${l}%;width:${w}%`;};
+  let h=`<div style="min-width:1000px"><div class="rd-scale">${ticks.join('')}</div>`;
+  h+=S.linear.items.map(it=>{
+    const st=itemStats(it);
+    const order={ip:0,hold:1,done:2};
+    return `<div class="rd-row"><div class="rd-name">${esc(it.name)} <span class="sub">(${UNITS[unitOf(it)]})</span><div class="nums"><span>Scope<br><b>${st.scope.toFixed(0)}</b></span><span>Done<br><b style="color:var(--ok)">${st.done.toFixed(0)}</b></span><span>Ongoing<br><b style="color:var(--warn)">${st.ongoing.toFixed(0)}</b></span><span>Pending<br><b style="color:var(--bad)">${st.pending.toFixed(0)}</b></span></div></div><div class="rd-track">${
+      it.scope.map(s=>`<div class="scp" style="${pos(s.from,s.to)}" title="Scope ${s.from.toFixed(3)}–${s.to.toFixed(3)} km (${qtyOf(s,it).toFixed(0)} ${UNITS[unitOf(it)]}) · ${esc(s.side)}${s.rem?' · '+esc(s.rem):''} — click to remove" onclick="delScope('${it.id}','${s.id}')">${qtyOf(s,it).toFixed(0)} ${UNITS[unitOf(it)]}</div>`).join('')+
+      [...it.entries].sort((a,b)=>order[a.status]-order[b.status]).map(b=>`<div class="blk s-${b.status}" style="${pos(b.from,b.to)}" title="${esc(it.name)} · ${fmt(b.date)} · ${b.from.toFixed(3)}–${b.to.toFixed(3)} km (${qtyOf(b,it).toFixed(0)} ${UNITS[unitOf(it)]}) · ${esc(b.side)} · ${esc(b.cont)||'no agency'} · ${statusName(b.status)}${b.rem?' · '+esc(b.rem):''}" onclick="editEntry('${it.id}','${b.id}')"><b>${qtyOf(b,it).toFixed(0)} ${UNITS[unitOf(it)]}</b> ${esc(b.cont)||''}</div>`).join('')
+    }</div></div>`;}).join('');
+  h+='</div>';document.getElementById('rolling').innerHTML=h;
+  const sc=S.linear.items.flatMap(it=>it.scope.map(s=>({it,s})));
+  document.getElementById('scopeTable').innerHTML=`<tr><th>Item</th><th>From (km)</th><th>To (km)</th><th>Scope qty</th><th>Side</th><th>Remarks</th><th class="noprint"></th></tr>`+(sc.length?sc.map(({it,s})=>`<tr><td>${esc(it.name)}</td><td>${s.from.toFixed(3)}</td><td>${s.to.toFixed(3)}</td><td class="num">${qtyOf(s,it).toFixed(0)} ${UNITS[unitOf(it)]}</td><td>${esc(s.side)}</td><td>${esc(s.rem)}</td><td class="noprint"><button class="small danger" onclick="delScope('${it.id}','${s.id}')">Remove</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No scope defined yet — use Step 1.</td></tr>');
+  const rows=S.linear.items.flatMap(it=>it.entries.map(b=>({it,b}))).sort((x,y)=>x.b.date<y.b.date?1:x.b.date>y.b.date?-1:0);
+  document.getElementById('blockTable').innerHTML=`<tr><th>Date</th><th>Item</th><th>From (km)</th><th>To (km)</th><th>Qty</th><th>Side</th><th>Contractor</th><th>Status</th><th>Remarks</th><th class="noprint"></th></tr>`+
+    (rows.length?rows.map(({it,b})=>`<tr><td>${fmt(b.date)}</td><td>${esc(it.name)}</td><td>${b.from.toFixed(3)}</td><td>${b.to.toFixed(3)}</td><td class="num">${qtyOf(b,it).toFixed(0)} ${UNITS[unitOf(it)]}</td><td>${esc(b.side)}</td><td>${esc(b.cont)}</td><td>${badge(b.status)}</td><td>${esc(b.rem)}</td><td class="noprint"><button class="small" onclick="editEntry('${it.id}','${b.id}')">Edit</button></td></tr>`).join(''):'<tr><td colspan="10" class="empty">No progress entries yet.</td></tr>');
+  renderDayWise();
+}
+function renderDayWise(){
+  const f=document.getElementById('dayFrom').value,t=document.getElementById('dayTo').value;
+  const items=S.linear.items;
+  const inRange=e=>(!f||e.date>=f)&&(!t||e.date<=t);
+  const all=items.flatMap(it=>it.entries.filter(inRange).map(e=>({it,e})));
+  const dates=[...new Set(all.map(x=>x.e.date))].sort().reverse();   // latest first (left)
+  const sum=(it,d,st)=>it.entries.filter(e=>e.date===d&&e.status===st&&inRange(e)).reduce((a,e)=>a+qtyOf(e,it),0);
+  const stats=items.map(it=>itemStats(it,t||null));
+  let h=`<tr><th class="stick">Activity</th><th class="stick2">Unit</th><th class="stick2">Scope</th><th class="stick2">Done</th><th class="stick2">Pending</th><th class="stick2">%</th><th class="stick2">Period total</th>${dates.map(d=>`<th>${fmt(d)}</th>`).join('')}</tr>`;
+  items.forEach((it,i)=>{
+    const per=it.entries.filter(e=>e.status==='done'&&inRange(e)).reduce((a,e)=>a+qtyOf(e,it),0);
+    h+=`<tr><td class="act stick">${esc(it.name)}</td><td class="stick2">${UNITS[unitOf(it)]}</td><td class="num stick2">${stats[i].scope.toFixed(0)}</td><td class="num stick2" style="color:var(--ok)">${stats[i].done.toFixed(0)}</td><td class="num stick2" style="color:var(--bad)">${stats[i].pending.toFixed(0)}</td><td class="num stick2">${stats[i].scope?(stats[i].done/stats[i].scope*100).toFixed(1)+'%':'—'}</td><td class="num stick2"><b>${per.toFixed(0)}</b></td>${
+      dates.map(d=>{const dn=sum(it,d,'done'),ip=sum(it,d,'ip');const es=it.entries.filter(e=>e.date===d);return `<td class="num ${dn?'dc':ip?'ic':''}" title="${es.map(e=>`${e.from.toFixed(3)}–${e.to.toFixed(3)} ${qtyOf(e,it).toFixed(0)} ${UNITS[unitOf(it)]} ${e.cont||''} ${statusName(e.status)}${e.rem?' · '+e.rem:''}`).join('\n')}">${dn?dn.toFixed(0):''}${ip?` <span class="muted">(${ip.toFixed(0)})</span>`:''}</td>`;}).join('')}</tr>`;
+  });
+  const mi=items.map((it,i)=>[it,stats[i]]).filter(([it])=>unitOf(it)==='m');
+  const tot=d=>all.filter(x=>x.e.date===d&&x.e.status==='done'&&unitOf(x.it)==='m').reduce((a,x)=>a+qtyOf(x.e,x.it),0);
+  h+=`<tr class="tot"><td class="stick">Total of running-metre items</td><td class="stick2">m</td><td class="num stick2">${mi.reduce((a,[,c])=>a+c.scope,0).toFixed(0)}</td><td class="num stick2">${mi.reduce((a,[,c])=>a+c.done,0).toFixed(0)}</td><td class="num stick2">${mi.reduce((a,[,c])=>a+c.pending,0).toFixed(0)}</td><td class="stick2"></td><td class="num stick2">${all.filter(x=>x.e.status==='done'&&unitOf(x.it)==='m').reduce((a,x)=>a+qtyOf(x.e,x.it),0).toFixed(0)}</td>${dates.map(d=>`<td class="num">${tot(d).toFixed(0)}</td>`).join('')}</tr>`;
+  if(!dates.length)h+=`<tr><td colspan="7" class="empty">No daily entries in this period.</td></tr>`;
+  document.getElementById('dayTable').innerHTML=h;
+  const det=[...all].sort((x,y)=>x.e.date<y.e.date?1:x.e.date>y.e.date?-1:0);
+  document.getElementById('dayDetail').innerHTML=`<tr><th>Date</th><th>Item</th><th>From–To (km)</th><th>Qty</th><th>Contractor</th><th>Status</th><th>Remarks</th></tr>`+(det.length?det.map(({it,e})=>`<tr><td>${fmt(e.date)}</td><td>${esc(it.name)}</td><td>${e.from.toFixed(3)}–${e.to.toFixed(3)} ${esc(e.side)}</td><td class="num">${qtyOf(e,it).toFixed(0)} ${UNITS[unitOf(it)]}</td><td>${esc(e.cont)}</td><td>${badge(e.status)}</td><td>${esc(e.rem)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">—</td></tr>');
+}
+
+/* ============ ACTION ITEMS ============ */
+function addAction(){
+  const item=document.getElementById('aiItem').value.trim(),resp=document.getElementById('aiResp').value.trim(),d=document.getElementById('aiDate').value;
+  if(!item){alert('Enter the item');return;}
+  const r=mkRow(item);r.resp=resp;r.rem=document.getElementById('aiRem').value.trim();if(d)r.dates.push({d,on:meeting(),note:'Target set'});
+  S.actions.push(r);['aiItem','aiResp','aiDate','aiRem'].forEach(i=>document.getElementById(i).value='');save();render();
+}
+function updAction(id){const r=S.actions.find(a=>a.id===id);const v=readCtrl(id);if(!v.d&&!v.s&&!v.c)return;applyUpdate(r,v.d,v.c,v.s,null);save();render();}
+function setRem(id,el){const r=S.actions.find(a=>a.id===id);const v=el.innerText.trim();if(v!==(r.rem||'')){r.rem=v;save();}}
+const remCell=r=>`<td class="rem" contenteditable="true" spellcheck="false" onblur="setRem('${r.id}',this)" title="Click to edit remarks">${esc(r.rem||'')}</td>`;
+function reopenAction(id){const r=S.actions.find(a=>a.id===id);r.status='ip';r.comments.push({on:meeting(),text:'Re-opened'});save();render();}
+function delAction(id){if(confirm('Delete this item?')){S.actions=S.actions.filter(a=>a.id!==id);save();render();}}
+function renderActions(){
+  const open=S.actions.filter(a=>a.status!=='done'),done=S.actions.filter(a=>a.status==='done');
+  const tdy=today();
+  document.getElementById('actOpen').innerHTML=`<tr><th>#</th><th>Item</th><th>Responsibility</th><th>Tentative completion (revisions struck)</th><th>Status</th><th>Comments (meeting-wise)</th><th>Remarks</th><th class="noprint">Update</th><th class="noprint"></th></tr>`+
+    (open.length?open.map((r,i)=>{const cur=r.dates.length?r.dates[r.dates.length-1].d:'';const late=cur&&cur<tdy;
+      return `<tr><td>${i+1}</td><td class="act">${esc(r.name)}</td><td>${esc(r.resp||'')}</td><td class="dates">${histHTML(r)}${late?'<div class="badge b-hold" style="margin-top:3px">overdue</div>':''}</td><td>${badge(r.status)}</td><td class="cmt">${logHTML(r)}</td>${remCell(r)}<td class="ctl noprint">${updCtrl('updAction',`'${r.id}'`,r)}</td><td class="noprint"><button class="small danger" onclick="delAction('${r.id}')">×</button></td></tr>`;}).join(''):'<tr><td colspan="9" class="empty">No open items.</td></tr>');
+  document.getElementById('actDone').innerHTML=`<tr><th>#</th><th>Item</th><th>Responsibility</th><th>Date history</th><th>Completed on</th><th>Comments</th><th>Remarks</th><th class="noprint"></th></tr>`+
+    (done.length?done.map((r,i)=>`<tr class="done"><td>${i+1}</td><td class="act">${esc(r.name)}</td><td>${esc(r.resp||'')}</td><td class="dates">${histHTML(r)}</td><td>${fmt(r.completedOn)}</td><td class="cmt">${logHTML(r)}</td>${remCell(r)}<td class="noprint"><button class="small" onclick="reopenAction('${r.id}')">Re-open</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty">Nothing completed yet.</td></tr>');
+}
+
+/* ============ OVERVIEW ============ */
+function renderKPI(){
+  const acts=S.structures.flatMap(s=>s.groups.flatMap(g=>g.rows)).filter(r=>r.status!=='na');
+  const cnt=t=>S.structures.filter(s=>s.type===t).length;
+  const open=S.actions.filter(a=>a.status!=='done'),tdy=today(),od=open.filter(a=>a.dates.length&&a.dates[a.dates.length-1].d<tdy).length;
+  const lin=S.linear.items.filter(it=>unitOf(it)==='m').reduce((a,it)=>{const s=itemStats(it);a.t+=s.scope;a.d+=s.done;return a;},{t:0,d:0});
+  document.getElementById('kpi').innerHTML=[
+    ['Minor bridges',cnt('minor')],['Major bridges',cnt('major')],['RUBs',cnt('rub')],['ROBs',cnt('rob')],
+    ['Structure activities done',`${acts.filter(r=>r.status==='done').length} / ${acts.length}`],
+    ['Activities on hold',acts.filter(r=>r.status==='hold').length],
+    ['Linear works (rm items) done / scope',`${lin.d.toFixed(0)} / ${lin.t.toFixed(0)}`],
+    ['Buildings',(S.buildings||[]).length],['Built-up area (sqm)',(S.buildings||[]).reduce((a,b)=>a+b.cfg.total,0)],
+    ['Girder spans tracked',S.girders?S.girders.jobs.reduce((a,j)=>a+j.spans.length,0):0],['Spans launched',S.girders?S.girders.jobs.reduce((a,j)=>a+j.spans.filter(s=>(s.girder.find(r=>r.name==='Launching status')||{}).status==='done').length,0):0],
+    ['Open action items',open.length],['Overdue action items',od]
+  ].map(([k,v])=>`<div>${k}<b>${v}</b></div>`).join('');
+  document.getElementById('overviewSub').textContent=`Review meeting: ${fmt(meeting())}`;
+  document.getElementById('hdrTitle').textContent=S.project.name?`${S.project.name} — Project Monitor`:'JNL Project Monitor';
+}
+
+/* ============ EXPORT / IMPORT ============ */
+function exportJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download=`${(S.project.name||'project').replace(/[^\w-]+/g,'_')}_monitor_${today()}.json`;a.click();}
+function importJSON(inp){const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.structures||!d.linear)throw 0;S=d;migrateLinear();migrateGirders();migrateStructs();migrateBldg();save();bindProject();render();}catch(e){alert('Not a valid monitor export file');}};rd.readAsText(f);inp.value='';}
+
+/* ============ INIT ============ */
+function bindProject(){
+  const p=S.project;
+  [['pName','name'],['pClient','client'],['pChStart','chStart'],['pChEnd','chEnd'],['meetingDate','meeting']].forEach(([id,k])=>{const el=document.getElementById(id);el.value=p[k]??'';el.oninput=()=>{p[k]=el.type==='number'?+el.value:el.value;save();render();};});
+}
+function render(){renderKPI();renderMatrix();renderStructures();renderBuildings();renderGirders();renderRolling();renderActions();}
+migrateLinear();migrateGirders();migrateStructs();migrateBldg();bindProject();renderStructForm();render();
+</script>
+</body>
+</html>

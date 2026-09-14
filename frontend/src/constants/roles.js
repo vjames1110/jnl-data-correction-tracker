@@ -6,6 +6,7 @@ export const USER_ROLES = Object.freeze({
   RESPONSIBLE_PERSON: "RESPONSIBLE_PERSON",
   EMPLOYEE: "EMPLOYEE",
   STORE_HO: "STORE_HO",
+  PROJECT_MANAGER: "PROJECT_MANAGER",
 });
 
 export const ADMIN_ROLES = Object.freeze([
@@ -41,10 +42,48 @@ export function isStoreRole(role) {
   ].includes(role);
 }
 
+export function isProjectManagerRole(role) {
+  return [
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+  ].includes(role);
+}
+
 export function reconciliationOverviewPath(role) {
   return role === USER_ROLES.STORE_HO
     ? "/store/settings"
     : "/admin/reconciliation";
+}
+
+export function projectMonitorOverviewPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/dashboard";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor";
+  }
+  return "/admin/project-monitor";
+}
+
+export function projectMonitorStructuresPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/structures";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/structures";
+  }
+  return "/admin/project-monitor/structures";
+}
+
+export function projectMonitorBuildingsPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/buildings";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/buildings";
+  }
+  return "/admin/project-monitor/buildings";
 }
 
 export function portalBasePath(role) {
@@ -62,6 +101,10 @@ export function portalBasePath(role) {
 
   if (role === USER_ROLES.STORE_HO) {
     return "/store";
+  }
+
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager";
   }
 
   return "/user";

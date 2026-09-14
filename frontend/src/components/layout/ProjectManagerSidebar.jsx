@@ -1,13 +1,7 @@
 import clsx from "clsx";
 import {
-  BarChart3,
   ChevronLeft,
-  ClipboardCheck,
-  Download,
   LayoutDashboard,
-  Milestone,
-  Package,
-  PackageCheck,
 } from "lucide-react";
 
 import logoMark from "../../assets/logo/JNL-LOGO-BG-REMOVED.png";
@@ -16,68 +10,25 @@ import { SidebarNavGroups } from "./SidebarNavGroups";
 
 const NAV_GROUPS = [
   { key: "transaction", label: "Transaction" },
-  { key: "reports", label: "Reports" },
 ];
 
 const navItems = [
   {
     key: "dashboard",
     label: "Dashboard",
-    path: "/director/dashboard",
+    path: "/project-manager/dashboard",
     icon: LayoutDashboard,
-  },
-  {
-    key: "approvals",
-    label: "Approval Inbox",
-    path: "/director/approvals",
-    icon: ClipboardCheck,
-    group: "transaction",
-  },
-  {
-    key: "reconciliation-approvals",
-    label: "Reconciliation Approvals",
-    path: "/director/reconciliation-approvals",
-    icon: PackageCheck,
-    group: "transaction",
-  },
-  {
-    key: "analytics",
-    label: "Analytics",
-    path: "/director/analytics",
-    icon: BarChart3,
-    group: "reports",
-  },
-  {
-    key: "reconciliation",
-    label: "Store Reconciliation",
-    path: "/director/reconciliation",
-    icon: Package,
-    group: "reports",
-  },
-  {
-    key: "project-monitor",
-    label: "Project Monitor",
-    path: "/director/project-monitor",
-    icon: Milestone,
-    group: "reports",
-  },
-  {
-    key: "export",
-    label: "Export",
-    path: "/director/export",
-    icon: Download,
-    group: "reports",
   },
 ];
 
-export function DirectorSidebar({
+export function ProjectManagerSidebar({
   collapsed,
   onCollapse,
 }) {
   return (
     <aside
       className={clsx(
-        "user-sidebar director-sidebar",
+        "user-sidebar project-manager-sidebar",
         collapsed &&
           "user-sidebar--collapsed",
       )}
@@ -92,8 +43,8 @@ export function DirectorSidebar({
 
         {!collapsed ? (
           <div>
-            <strong>Approvals</strong>
-            <span>Director Portal</span>
+            <strong>Project Monitor</strong>
+            <span>Project Manager Portal</span>
           </div>
         ) : null}
       </div>
@@ -101,13 +52,13 @@ export function DirectorSidebar({
       <nav className="user-sidebar__nav">
         {!collapsed ? (
           <span className="user-sidebar__label">
-            Approval Desk
+            Project Monitor
           </span>
         ) : null}
 
         <SidebarNavGroups
           prefix="user-sidebar"
-          storageKey="director-sidebar-groups"
+          storageKey="project-manager-sidebar-groups"
           collapsed={collapsed}
           groups={NAV_GROUPS}
           items={navItems}

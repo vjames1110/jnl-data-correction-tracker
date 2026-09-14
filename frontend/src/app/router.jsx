@@ -5,6 +5,7 @@ import {
 import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { DirectorLayout } from "../layouts/DirectorLayout";
+import { ProjectManagerLayout } from "../layouts/ProjectManagerLayout";
 import { ResponsibleLayout } from "../layouts/ResponsibleLayout";
 import { StoreLayout } from "../layouts/StoreLayout";
 import { UserLayout } from "../layouts/UserLayout";
@@ -36,6 +37,10 @@ import { StoreToleranceSettingsPage } from "../modules/admin/pages/StoreToleranc
 import { ChangePasswordPage } from "../modules/auth/pages/ChangePasswordPage";
 import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { NotificationsPage } from "../modules/notifications/pages/NotificationsPage";
+import { ProjectOverviewPage } from "../modules/project_monitor/pages/ProjectOverviewPage";
+import { StructuresPage } from "../modules/project_monitor/pages/StructuresPage";
+import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
+import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
 import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorApprovalDetailPage";
 import { DirectorApprovalInboxPage } from "../modules/director/pages/DirectorApprovalInboxPage";
@@ -63,6 +68,7 @@ import { AdminRoute } from "../routes/AdminRoute";
 import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
+import { ProjectManagerRoute } from "../routes/ProjectManagerRoute";
 import { ResponsibleRoute } from "../routes/ResponsibleRoute";
 import { StoreHoRoute } from "../routes/StoreHoRoute";
 import { StoreRoute } from "../routes/StoreRoute";
@@ -245,6 +251,34 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        element: <ProjectManagerRoute />,
+        children: [
+          {
+            element: <ProjectManagerLayout />,
+            children: [
+              {
+                path: "/project-manager/dashboard",
+                element: (
+                  <ProjectOverviewPage />
+                ),
+              },
+              {
+                path: "/project-manager/structures",
+                element: (
+                  <StructuresPage />
+                ),
+              },
+              {
+                path: "/project-manager/buildings",
+                element: (
+                  <BuildingsPage />
+                ),
+              },
+            ],
+          },
+        ],
+      },
+      {
         element: <DirectorRoute />,
         children: [
           {
@@ -291,6 +325,24 @@ export const router = createBrowserRouter([
               {
                 path: "/director/reconciliation-entry",
                 element: <StoreEntryPage />,
+              },
+              {
+                path: "/director/project-monitor",
+                element: (
+                  <ProjectOverviewPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/structures",
+                element: (
+                  <StructuresPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/buildings",
+                element: (
+                  <BuildingsPage />
+                ),
               },
               {
                 path: "/director/export",
@@ -406,6 +458,30 @@ export const router = createBrowserRouter([
                 path: "/admin/reconciliation",
                 element:
                   <StoreReconciliationDashboardPage />,
+              },
+              {
+                path: "/admin/project-monitor",
+                element: (
+                  <ProjectOverviewPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/structures",
+                element: (
+                  <StructuresPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/buildings",
+                element: (
+                  <BuildingsPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/structure-types",
+                element: (
+                  <StructureTypeManagementPage />
+                ),
               },
               {
                 path: "/admin/reconciliation/categories",

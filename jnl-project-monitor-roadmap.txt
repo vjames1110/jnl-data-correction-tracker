@@ -1,0 +1,270 @@
+JNL PROJECT MONITOR - DEVELOPMENT ROADMAP
+==========================================
+Standalone roadmap for building the Project Monitor as a new module inside
+the existing approval management system (Django + React + Neon Postgres).
+This is independent of the already-built Store Reconciliation module.
+
+
+1. WHAT THIS IS
+================
+
+The Project Monitor is a physical-progress tracking tool for railway
+construction projects, used in periodic review meetings. Unlike Store
+Reconciliation (which tracks material stock variance), this tracks
+EXECUTION PROGRESS across five work types:
+
+  A. Structures       - Minor Bridges, Major Bridges, RUBs, ROBs
+  B. Building works    - stations, service buildings, staff quarters
+  C. Girders, Bearings & Expansion Joints - structural steel lifecycle
+  D. Linear works       - earthwork, P.Way linking, drains, pitching
+                          (tracked continuously along chainage, not as
+                          discrete activities)
+  E. Action items       - meeting-minutes style task tracker
+
+The existing prototype is a single HTML file, one project per browser/file,
+no backend, no multi-project view. Your director wants all projects visible
+project-wise, with a dashboard, downloadable site-wise reports, responsive
+graphs, and a link into the existing approval management dashboard.
+
+
+2. HOW IT WORKS - THE CORE MECHANIC
+====================================
+
+Every trackable thing in the prototype - a bridge activity, a building
+floor, a girder fabrication step, even a standalone action item - is the
+SAME underlying object:
+
+  { name, status, done-quantity/percent, target-date-history[], comments[] }
+
+One shared set of functions creates and updates all of them, regardless of
+which section they live in. This is the single most important design
+decision to preserve: DO NOT build five separate tracking systems. Build
+one generic "Activity" engine and reuse it across Structures, Buildings,
+Girders, and Action items.
+
+The second core mechanic is MEETING-STAMPED REVISION HISTORY. A "review
+meeting date" is set at the top of the tool. Every time a target date is
+changed, the old date is kept (shown struck through) and the new one is
+added, each tagged with which meeting it was set at. Comments accumulate
+the same way, as a dated log rather than a single overwritten note. This
+is a digitized version of a standard MOM (minutes of meeting) progress
+register and should be preserved exactly - it's what makes the audit
+trail meaningful to a director reviewing progress meeting over meeting.
+
+Linear works (Section D) is the one genuinely different piece: it is not
+discrete activities, it is CONTINUOUS CHAINAGE INTERVALS. Scope is defined
+as chainage patches (e.g. "earthwork required 4.200-9.800 km"), and daily
+progress is logged as patches marked Ongoing or Completed, visualized as a
+horizontal bar per activity across the chainage range. This needs its own
+interval-based data model (scope patches, progress entries, interval
+union/clip math) - do not try to force it into the generic Activity
+engine, that would be over-engineering in the wrong direction.
+
+
+3. WHAT EACH SECTION ACTUALLY GENERATES
+==========================================
+
+Structures, Buildings, and Girders are not manually typed activity lists -
+they are GENERATED from a small parametric config:
+
+  - A minor bridge: box size, number of cells, barrel length, number of
+    return walls/staircases, whether it has an apron -> generates the full
+    box-structure activity list, correctly marking inapplicable rows N/A.
+  - A major bridge: span count, abutment/pier count and heights, foundation
+    type (open/pile) with pile counts, girder scope (JNL vs Railway supply)
+    -> generates per-substructure and per-span activity chains, correctly
+    skipping girder-fabrication activities when girders are Railway-supplied.
+  - A building: built-up area, floor count, foundation type, lift/fire-
+    fighting/compound-wall flags -> generates foundation -> floor-wise ->
+    finishing activities, with a material-status tag (Not ordered -> PO
+    placed -> Partly received -> Received) layered on relevant items.
+  - A girder/bearing/expansion-joint job: an 11-15 step fabrication-to-
+    launching chain per span, with an editable "RDSO standard span library"
+    that pre-fills drawing numbers and steel tonnage for standard spans.
+
+This generation logic should be ported to the backend as functions, not
+duplicated per frontend form - it is the main "intelligence" of the tool
+and should live in one place.
+
+
+4. THE PROJECT <-> SITE MAPPING DECISION
+===========================================
+
+This is the one decision to confirm before writing any models, because it
+determines FK direction throughout the schema. Three options:
+
+  Option A - Project IS Site (1:1): if your existing "Site" already means
+  "a specific construction project/package," extend Site directly rather
+  than creating a new parent entity.
+
+  Option B - one Site, many Projects: if a Site is a broader base (e.g. a
+  regional office) that runs multiple projects over time.
+
+  Option C - one Project, many Sites (RECOMMENDED): a project/package spans
+  a chainage range that typically includes multiple stores/stockyards along
+  the route - which is exactly what "Site" represents in the already-built
+  Store Reconciliation module. Under this option, Project becomes the new
+  parent entity, and Site gets a FK to Project.
+
+RECOMMENDATION: proceed with Option C as the working assumption, but
+confirm it in the first days of Phase 1 by checking what an existing Site
+record actually represents in your codebase, and whether any current Site
+already has multiple "projects" running on it or vice versa. If it turns
+out to be Option A, the build gets simpler - you extend Site instead of
+adding a new parent table - but every other model below (Structure,
+Building, LinearItem) is written assuming Project is its own entity, which
+still works fine even if Project and Site end up 1:1.
+
+
+5. RECOMMENDED DATA MODEL (NEW TABLES)
+=========================================
+
+  Project
+    - name, chainage_start, chainage_end, client/section
+    - FK to Site(s) under Option C, or IS the Site record under Option A
+
+  Activity  (the shared engine - used by Structures, Buildings, Girders,
+             Action Items)
+    - name, kind (task / length-based), unit, total_qty, done_qty/percent
+    - status (not-started / in-progress / complete / hold / n-a)
+    - material_status (nullable - only used where material tracking applies)
+    - generic FK (parent_type, parent_id) or a set of nullable FKs to
+      Structure / Building / GirderSpan / standalone (for Action Items)
+
+  ActivityDateEntry
+    - FK to Activity, date, meeting_date_set_at
+
+  ActivityComment
+    - FK to Activity, meeting_date, text
+
+  Structure
+    - FK to Project, type (minor/major/rub/rob), name, chainage, config
+      (JSON - the parametric inputs), generated Activity groups
+
+  Building
+    - FK to Project, site/station name, building name, chainage, config
+      (JSON), generated Activity groups
+
+  GirderJob / GirderSpan
+    - FK to Project (and optionally to a Structure), bridge name, chainage,
+      scope (JNL / Railway), spans[] each with its own Activity chains for
+      girder fabrication, bearings, expansion joints
+
+  LinearItem
+    - FK to Project, name, unit (m / cum / nos)
+
+  ScopePatch
+    - FK to LinearItem, from_chainage, to_chainage, side, quantity, remarks
+
+  ProgressEntry
+    - FK to LinearItem, date, from_chainage, to_chainage, quantity, side,
+      contractor, status, remarks, meeting_date
+
+  ActionItem
+    - essentially a standalone use of the Activity/ActivityDateEntry/
+      ActivityComment trio, plus a responsibility field
+
+
+6. PHASED ROADMAP
+====================
+
+Build this as a NEW app inside the existing Django + React project - do
+not start a new project. Reuse the existing Site/User models, admin
+dashboard styling, and approval workflow, the same way the Store
+Reconciliation module does.
+
+PHASE 0 - Confirm the Project<->Site mapping (2-3 days)
+  - Read the existing Site model and confirm which of the three options
+    (Section 4) is real
+  - Confirm with your director: does a "project" always match what your
+    system currently calls a "site," or can it span several?
+  - Decide whether cost/value correlation (% complete vs % paid) is in
+    scope now or a future phase - the current tool tracks physical
+    progress only, no rupee figures at all
+
+PHASE 1 - Core data model and generic Activity engine (2-3 weeks)
+  - Project model (per the Phase 0 decision)
+  - Activity, ActivityDateEntry, ActivityComment models and their shared
+    update logic (mirroring applyUpdate/histHTML/badge from the prototype)
+  - Admin registration, migrations
+  - Port ONE structure-generation template (start with Minor Bridge, the
+    simplest) end to end, to validate the pattern before doing the rest
+
+PHASE 2 - Structures and Buildings (3 weeks)
+  - Remaining structure-generation templates (Major Bridge, RUB, ROB)
+  - Building-generation template
+  - DRF API for creating/updating structures, buildings, and their
+    activities
+  - React screens: parametric add-structure/add-building forms, matrix
+    view (collapsible groups with status chips), detailed sheet view
+    (full date history + comment log per activity)
+  - Reuse the existing admin dashboard's navigation and auth
+
+PHASE 3 - Girders, Bearings & Expansion Joints, and Action Items (2-3 weeks)
+  - GirderJob/GirderSpan models and the fabrication-to-launching chain
+  - RDSO standard span library (small editable lookup table)
+  - Action Items as a standalone use of the Activity engine
+  - This phase is comparatively light since it reuses Phase 1's engine
+
+PHASE 4 - Linear works / rolling diagram (3 weeks - most technically risky)
+  - LinearItem, ScopePatch, ProgressEntry models
+  - Port the interval-union/interval-clip math server-side, WITH UNIT
+    TESTS - this is real interval geometry and the highest-risk piece to
+    get subtly wrong
+  - Rolling diagram visual (chainage bar per activity: grey scope, yellow
+    ongoing, green completed, red hold)
+  - Day-wise pivot table view (activities down, dates across)
+
+PHASE 5 - Multi-project dashboard and reports (2-3 weeks)
+  - This is the feature that does not exist at all in the prototype today:
+    a dashboard listing ALL projects, not one file per project
+  - Project-wise and site-wise rollups: overall % complete, activities-by-
+    status breakdown, overdue action items, chainage progress
+  - Responsive charts using a real charting library (Chart.js/Recharts),
+    not the static inline-SVG bars from the prototype, for summary views -
+    keep the rolling-diagram visual itself for the detailed chainage view,
+    it is genuinely the right tool for that specific job
+  - Downloadable per-project report (PDF/print, reusing the existing
+    print-CSS approach from the prototype) and an optional combined
+    multi-project pack, same pattern as the Store Reconciliation module's
+    combined report
+
+PHASE 6 - Approval integration (1-2 weeks)
+  - Hook project status/report submission into the existing approval
+    workflow, reusing whatever "approvable object" mechanism the Store
+    Reconciliation module already established - do not build a second,
+    parallel approval pattern
+
+
+7. KEY RISKS AND THINGS TO FLAG EARLY
+========================================
+
+  - The Project<->Site mapping (Section 4) affects every other model -
+    resolve it in Phase 0, not mid-build
+  - The linear-works interval math (Phase 4) is the single highest-risk
+    piece technically - budget real testing time for it, do not treat it
+    as "just another CRUD module"
+  - No cost/value tracking exists in this tool today - if your director
+    wants physical-progress-vs-payment correlation later, that is new
+    scope, not something that falls out of this data automatically
+  - The generic Activity engine (Phase 1) is the foundation for four of
+    five sections - get its shape right before building Structures,
+    Buildings, Girders, or Action Items on top of it, since a change to
+    it later touches all four
+
+
+8. WHAT TO KEEP FROM THE PROTOTYPE AS-IS
+===========================================
+
+  - The meeting-stamped revision history pattern (struck-through old
+    dates, dated comment log) - this is the tool's core value to a
+    reviewing director and should not be simplified away
+  - The parametric structure/building generation - it is well-designed
+    and saves significant manual data entry
+  - The material-status tagging layered on top of physical-progress status
+    for building MEP/finishing items
+  - The RDSO standard span library concept
+  - The print-ready statement format, for audit handoff
+
+
+END OF ROADMAP
