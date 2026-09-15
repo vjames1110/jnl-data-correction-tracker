@@ -470,3 +470,131 @@
   flex: 1;
   min-width: 160px;
 }
+
+/* ---- task-wise project report (Reports tab) ---- */
+.pm-report {
+  background: var(--color-white);
+  color: var(--color-neutral-900);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-6);
+}
+
+.pm-report__header {
+  margin-bottom: var(--space-4);
+}
+
+.pm-report__title {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pm-report__subtitle {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.pm-report__generated {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--color-neutral-600);
+}
+
+.pm-report__details {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 0 0 var(--space-4);
+}
+
+.pm-report__details td {
+  border: 1px solid var(--color-neutral-300);
+  padding: 5px 10px;
+}
+
+.pm-report__details td:first-child {
+  background: var(--color-neutral-100);
+  font-weight: 600;
+  width: 180px;
+}
+
+.pm-report__section {
+  break-before: page;
+}
+
+.pm-report__section:first-of-type {
+  break-before: auto;
+}
+
+.pm-report__section h2 {
+  margin: var(--space-4) 0 var(--space-3);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-900);
+  border-bottom: 2px solid var(--color-neutral-900);
+  padding-bottom: 6px;
+}
+
+.pm-report__block {
+  margin-bottom: var(--space-4);
+  break-inside: avoid;
+}
+
+.pm-report__block h3 {
+  margin: 0 0 3px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.pm-report__block-progress {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+table.pm-report__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+table.pm-report__table th,
+table.pm-report__table td {
+  border: 1px solid var(--color-neutral-300);
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.pm-report__table th {
+  background: var(--color-neutral-100);
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.pm-report__col-task {
+  min-width: 160px;
+  font-weight: 500;
+}
+
+.pm-report__col-remark {
+  min-width: 200px;
+}
+
+.pm-report__empty {
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   projectMonitorBuildingsPath,
   projectMonitorOverviewPath,
+  projectMonitorReportsPath,
   projectMonitorStructuresPath,
 } from "../../../constants/roles";
 
@@ -27,6 +28,11 @@ export function ProjectMonitorTabs({ role, active }) {
       key: "buildings",
       label: "Buildings",
       path: projectMonitorBuildingsPath(role),
+    },
+    {
+      key: "reports",
+      label: "Reports",
+      path: projectMonitorReportsPath(role),
     },
   ];
 

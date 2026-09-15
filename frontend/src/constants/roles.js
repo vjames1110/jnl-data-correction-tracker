@@ -86,6 +86,16 @@ export function projectMonitorBuildingsPath(role) {
   return "/admin/project-monitor/buildings";
 }
 
+export function projectMonitorReportsPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/reports";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/reports";
+  }
+  return "/admin/project-monitor/reports";
+}
+
 export function portalBasePath(role) {
   if (isAdminRole(role)) {
     return "/admin";

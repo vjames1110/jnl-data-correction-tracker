@@ -40,6 +40,7 @@ import { NotificationsPage } from "../modules/notifications/pages/NotificationsP
 import { ProjectOverviewPage } from "../modules/project_monitor/pages/ProjectOverviewPage";
 import { StructuresPage } from "../modules/project_monitor/pages/StructuresPage";
 import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
+import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
 import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
 import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorApprovalDetailPage";
@@ -274,6 +275,12 @@ export const router = createBrowserRouter([
                   <BuildingsPage />
                 ),
               },
+              {
+                path: "/project-manager/reports",
+                element: (
+                  <ProjectMonitorReportPage />
+                ),
+              },
             ],
           },
         ],
@@ -342,6 +349,12 @@ export const router = createBrowserRouter([
                 path: "/director/project-monitor/buildings",
                 element: (
                   <BuildingsPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/reports",
+                element: (
+                  <ProjectMonitorReportPage />
                 ),
               },
               {
@@ -475,6 +488,12 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/buildings",
                 element: (
                   <BuildingsPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/reports",
+                element: (
+                  <ProjectMonitorReportPage />
                 ),
               },
               {
