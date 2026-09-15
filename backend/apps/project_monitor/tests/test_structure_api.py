@@ -352,3 +352,58 @@ def test_overview_reflects_real_structure_counts(
     assert by_type.get("MAJOR", 0) == 0
     assert counts["activities_total"] > 0
     assert counts["activities_done"] == 0
+
+
+@pytest.mark.django_db
+def test_marking_a_row_as_a_hindrance(
+    api_client, site, minor_type_id
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    create_response = api_client.post(
+        f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
+        _minor_bridge_payload(minor_type_id),
+        format="json",
+    )
+    box_raft_id = create_response.data["data"][
+        "groups"
+    ][1]["rows"][0]["id"]
+
+    response = api_client.patch(
+        reverse(
+            "project-monitor-api:activity-update",
+            args=[box_raft_id],
+        ),
+        {
+            "meeting_date": str(
+                date(2026, 1, 5)
+            ),
+            "is_hindrance": True,
+            "hindrance_expected_removal_date": str(
+                date(2026, 2, 1)
+            ),
+            "hindrance_remarks": (
+                "Blocked pending Railway NOC"
+            ),
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_200_OK
+    )
+    data = response.data["data"]
+    assert data["is_hindrance"] is True
+    assert (
+        data["hindrance_expected_removal_date"]
+        == "2026-02-01"
+    )
+    assert (
+        data["hindrance_remarks"]
+        == "Blocked pending Railway NOC"
+    )
+    assert any(
+        "Marked as hindrance" in c["text"]
+        for c in data["comments"]
+    )

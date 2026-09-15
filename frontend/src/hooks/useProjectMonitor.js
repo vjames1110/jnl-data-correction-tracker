@@ -251,3 +251,47 @@ export function useDeleteBuilding(siteId) {
       invalidateBuildings(queryClient, siteId),
   });
 }
+
+export function useReviewActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ activityId, payload }) =>
+      projectMonitorService.reviewActivity(
+        activityId,
+        payload,
+      ),
+    onSuccess: () => {
+      invalidateStructures(queryClient, siteId);
+      invalidateBuildings(queryClient, siteId);
+    },
+  });
+}
+
+export function useReviewStructure(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ structureId, payload }) =>
+      projectMonitorService.reviewStructure(
+        structureId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateStructures(queryClient, siteId),
+  });
+}
+
+export function useReviewBuilding(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ buildingId, payload }) =>
+      projectMonitorService.reviewBuilding(
+        buildingId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateBuildings(queryClient, siteId),
+  });
+}

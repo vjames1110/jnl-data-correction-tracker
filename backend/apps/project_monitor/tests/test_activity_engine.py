@@ -227,3 +227,69 @@ def test_material_status_update_logs_its_own_comment(
     comment = flooring.comments.get()
     assert comment.text == "Material: PO Placed"
     assert comment.created_by == actor
+
+
+@pytest.mark.django_db
+def test_apply_update_marks_and_clears_hindrance(
+    activity,
+):
+    apply_update(
+        activity,
+        meeting_date=date(2026, 1, 5),
+        is_hindrance=True,
+        hindrance_expected_removal_date=date(
+            2026, 2, 1
+        ),
+        hindrance_remarks=(
+            "Awaiting Railway block clearance"
+        ),
+    )
+
+    activity.refresh_from_db()
+    assert activity.is_hindrance
+    assert (
+        activity.hindrance_expected_removal_date
+        == date(2026, 2, 1)
+    )
+    assert (
+        activity.hindrance_remarks
+        == "Awaiting Railway block clearance"
+    )
+    text = activity.comments.get().text
+    assert (
+        "Marked as hindrance (Railways/Authority)"
+        in text
+    )
+    assert (
+        "Hindrance expected removal: 01-02-2026"
+        in text
+    )
+    assert (
+        "Hindrance remark: Awaiting Railway "
+        "block clearance"
+        in text
+    )
+
+    apply_update(
+        activity,
+        meeting_date=date(2026, 3, 1),
+        is_hindrance=False,
+        hindrance_actual_removal_date=date(
+            2026, 2, 28
+        ),
+    )
+
+    activity.refresh_from_db()
+    assert not activity.is_hindrance
+    assert (
+        activity.hindrance_actual_removal_date
+        == date(2026, 2, 28)
+    )
+    latest = activity.comments.order_by(
+        "-id"
+    ).first()
+    assert "Hindrance cleared" in latest.text
+    assert (
+        "Hindrance removed on: 28-02-2026"
+        in latest.text
+    )

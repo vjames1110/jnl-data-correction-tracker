@@ -23,6 +23,7 @@ from apps.project_monitor.api.serializers import (
     BuildingSerializer,
     ProjectSiteDetailsUpdateSerializer,
     ProjectSiteSerializer,
+    ReviewInputSerializer,
     StructureCreateSerializer,
     StructureSerializer,
     StructureTypeSerializer,
@@ -40,6 +41,10 @@ from apps.project_monitor.services.activity_engine import (
 )
 from apps.project_monitor.services.building_generator import (
     create_building,
+)
+from apps.project_monitor.services.review import (
+    apply_review,
+    review_activities,
 )
 from apps.project_monitor.services.structure_generator import (
     create_structure,
@@ -348,6 +353,59 @@ class StructureDetailAPIView(APIView):
         )
 
 
+class StructureReviewAPIView(APIView):
+    """
+    The consolidated "review this whole sheet" action - marks every
+    Activity row on the Structure as reviewed at once, all with the
+    same reviewer/timestamp/remark, per the confirmed "review all in
+    one structure/building at a time" design.
+    """
+
+    permission_classes = [
+        HasProjectMonitorReportingAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            structure = Structure.objects.get(
+                pk=pk
+            )
+        except (
+            Structure.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Structure not found."
+            ) from exc
+
+        serializer = ReviewInputSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        review_activities(
+            structure.activities.all(),
+            remarks=serializer.validated_data[
+                "remarks"
+            ],
+            actor=request.user,
+        )
+
+        structure = Structure.objects.select_related(
+            "structure_type"
+        ).prefetch_related(
+            _activities_prefetch()
+        ).get(pk=structure.pk)
+
+        return success_response(
+            message=(
+                "Structure reviewed successfully."
+            ),
+            data=StructureSerializer(structure).data,
+        )
+
+
 class BuildingListCreateAPIView(APIView):
     """
     List every Building on a Site with its full activity groups
@@ -465,6 +523,53 @@ class BuildingDetailAPIView(APIView):
         )
 
 
+class BuildingReviewAPIView(APIView):
+    """
+    The consolidated "review this whole sheet" action for a
+    Building - see ``StructureReviewAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorReportingAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            building = Building.objects.get(pk=pk)
+        except (
+            Building.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Building not found."
+            ) from exc
+
+        serializer = ReviewInputSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        review_activities(
+            building.activities.all(),
+            remarks=serializer.validated_data[
+                "remarks"
+            ],
+            actor=request.user,
+        )
+
+        building = Building.objects.prefetch_related(
+            _activities_prefetch()
+        ).get(pk=building.pk)
+
+        return success_response(
+            message=(
+                "Building reviewed successfully."
+            ),
+            data=BuildingSerializer(building).data,
+        )
+
+
 class ActivityUpdateAPIView(APIView):
     """
     Apply one "meeting update" action to a single Activity row -
@@ -507,6 +612,18 @@ class ActivityUpdateAPIView(APIView):
             status=data.get("status"),
             done_qty=data.get("done_qty"),
             comment=data.get("comment", ""),
+            is_hindrance=data.get(
+                "is_hindrance"
+            ),
+            hindrance_expected_removal_date=data.get(
+                "hindrance_expected_removal_date"
+            ),
+            hindrance_actual_removal_date=data.get(
+                "hindrance_actual_removal_date"
+            ),
+            hindrance_remarks=data.get(
+                "hindrance_remarks"
+            ),
             actor=request.user,
         )
 
@@ -529,6 +646,57 @@ class ActivityUpdateAPIView(APIView):
         return success_response(
             message=(
                 "Activity updated successfully."
+            ),
+            data=ActivitySerializer(activity).data,
+        )
+
+
+class ActivityReviewAPIView(APIView):
+    """
+    Mark one Activity row as reviewed - a lightweight Director/PM
+    sign-off (who + when + an optional remark), entirely separate
+    from editing. Re-reviewing simply overwrites the previous
+    sign-off. Open to Director-and-below (the same role set that can
+    already see this data), not just entry-role users - reviewing
+    isn't gated by who can edit.
+    """
+
+    permission_classes = [
+        HasProjectMonitorReportingAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            activity = Activity.objects.get(pk=pk)
+        except (
+            Activity.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Activity not found."
+            ) from exc
+
+        serializer = ReviewInputSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        apply_review(
+            activity,
+            remarks=serializer.validated_data[
+                "remarks"
+            ],
+            actor=request.user,
+        )
+
+        activity = Activity.objects.prefetch_related(
+            "date_entries", "comments"
+        ).get(pk=activity.pk)
+
+        return success_response(
+            message=(
+                "Activity reviewed successfully."
             ),
             data=ActivitySerializer(activity).data,
         )

@@ -33,6 +33,28 @@ export function ActivityUpdateForm({
     useState(
       activity.material_status || "NOT_ORDERED",
     );
+  const [isHindrance, setIsHindrance] = useState(
+    Boolean(activity.is_hindrance),
+  );
+  const [
+    hindranceExpectedDate,
+    setHindranceExpectedDate,
+  ] = useState(
+    activity.hindrance_expected_removal_date ||
+      "",
+  );
+  const [
+    hindranceActualDate,
+    setHindranceActualDate,
+  ] = useState(
+    activity.hindrance_actual_removal_date || "",
+  );
+  const [
+    hindranceRemarks,
+    setHindranceRemarks,
+  ] = useState(
+    activity.hindrance_remarks || "",
+  );
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -43,6 +65,12 @@ export function ActivityUpdateForm({
       done_qty:
         doneQty === "" ? null : doneQty,
       comment,
+      is_hindrance: isHindrance,
+      hindrance_expected_removal_date:
+        hindranceExpectedDate || null,
+      hindrance_actual_removal_date:
+        hindranceActualDate || null,
+      hindrance_remarks: hindranceRemarks,
       ...(activity.material_tracked
         ? { material_status: materialStatus }
         : {}),
@@ -142,6 +170,70 @@ export function ActivityUpdateForm({
             ))}
           </select>
         </label>
+      ) : null}
+      <label className="toggle-field pm-drawer-form__full">
+        <input
+          type="checkbox"
+          checked={isHindrance}
+          onChange={(event) =>
+            setIsHindrance(
+              event.target.checked,
+            )
+          }
+        />
+        <span>
+          Blocked by Railways/Authority
+          (hindrance)
+        </span>
+      </label>
+      {isHindrance ? (
+        <div className="pm-hindrance-fields pm-drawer-form__full">
+          <div className="pm-drawer-form">
+            <label className="filter-control">
+              <span>
+                Expected removal date
+              </span>
+              <input
+                type="date"
+                value={
+                  hindranceExpectedDate
+                }
+                onChange={(event) =>
+                  setHindranceExpectedDate(
+                    event.target.value,
+                  )
+                }
+              />
+            </label>
+            <label className="filter-control">
+              <span>
+                Actual/final removal date
+              </span>
+              <input
+                type="date"
+                value={hindranceActualDate}
+                onChange={(event) =>
+                  setHindranceActualDate(
+                    event.target.value,
+                  )
+                }
+              />
+            </label>
+            <label className="filter-control pm-drawer-form__full">
+              <span>Hindrance remarks</span>
+              <input
+                type="text"
+                value={hindranceRemarks}
+                onChange={(event) =>
+                  setHindranceRemarks(
+                    event.target.value,
+                  )
+                }
+                placeholder="e.g. Awaiting Railway block clearance"
+              />
+            </label>
+          </div>
+        </div>
       ) : null}
       <label className="filter-control pm-drawer-form__full">
         <span>Remark for this meeting</span>

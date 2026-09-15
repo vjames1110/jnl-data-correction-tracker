@@ -12,6 +12,8 @@ import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
   useCreateStructure,
   useDeleteStructure,
+  useReviewActivity,
+  useReviewStructure,
   useStructures,
   useStructureTypes,
   useUpdateActivity,
@@ -53,6 +55,12 @@ export function StructuresPage() {
     selectedSite,
   );
   const updateActivity = useUpdateActivity(
+    selectedSite,
+  );
+  const reviewActivity = useReviewActivity(
+    selectedSite,
+  );
+  const reviewStructure = useReviewStructure(
     selectedSite,
   );
 
@@ -272,7 +280,6 @@ export function StructuresPage() {
               } activities complete`
             : ""
         }
-        backLabel="structure"
         activeActivityId={activeActivityId}
         onSelectActivity={setActiveActivityId}
         canEdit={canEdit}
@@ -287,6 +294,24 @@ export function StructuresPage() {
           })
         }
         updateStatus={updateActivity}
+        onReviewActivity={(activityId, remarks) =>
+          reviewActivity.mutate({
+            activityId,
+            payload: { remarks },
+          })
+        }
+        reviewActivityStatus={reviewActivity}
+        onReviewAll={(remarks, options) =>
+          reviewStructure.mutate(
+            {
+              structureId:
+                selectedStructure?.id,
+              payload: { remarks },
+            },
+            options,
+          )
+        }
+        reviewAllStatus={reviewStructure}
       />
     </div>
   );

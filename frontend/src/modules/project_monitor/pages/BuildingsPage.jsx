@@ -13,6 +13,8 @@ import {
   useBuildings,
   useCreateBuilding,
   useDeleteBuilding,
+  useReviewActivity,
+  useReviewBuilding,
   useUpdateActivity,
 } from "../../../hooks/useProjectMonitor";
 import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
@@ -52,6 +54,12 @@ export function BuildingsPage() {
     selectedSite,
   );
   const updateActivity = useUpdateActivity(
+    selectedSite,
+  );
+  const reviewActivity = useReviewActivity(
+    selectedSite,
+  );
+  const reviewBuilding = useReviewBuilding(
     selectedSite,
   );
 
@@ -259,7 +267,6 @@ export function BuildingsPage() {
               } activities complete`
             : ""
         }
-        backLabel="building"
         activeActivityId={activeActivityId}
         onSelectActivity={setActiveActivityId}
         canEdit={canEdit}
@@ -274,6 +281,23 @@ export function BuildingsPage() {
           })
         }
         updateStatus={updateActivity}
+        onReviewActivity={(activityId, remarks) =>
+          reviewActivity.mutate({
+            activityId,
+            payload: { remarks },
+          })
+        }
+        reviewActivityStatus={reviewActivity}
+        onReviewAll={(remarks, options) =>
+          reviewBuilding.mutate(
+            {
+              buildingId: selectedBuilding?.id,
+              payload: { remarks },
+            },
+            options,
+          )
+        }
+        reviewAllStatus={reviewBuilding}
       />
     </div>
   );

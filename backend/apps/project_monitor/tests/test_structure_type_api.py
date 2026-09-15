@@ -9,6 +9,7 @@ from apps.authentication.tests.factories import (
     ProjectManagerUserFactory,
     UserFactory,
 )
+
 from apps.organization.models import Company, Site
 from apps.project_monitor.models import (
     Structure,

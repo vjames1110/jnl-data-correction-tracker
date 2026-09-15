@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.contenttypes.fields import (
     GenericForeignKey,
     GenericRelation,
@@ -168,6 +169,50 @@ class Activity(
     )
     completed_on = models.DateField(
         null=True,
+        blank=True,
+    )
+    is_hindrance = models.BooleanField(
+        default=False,
+        help_text=(
+            "This activity (or the structure/"
+            "building it belongs to) is "
+            "currently blocked by Railways/"
+            "Authority."
+        ),
+    )
+    hindrance_expected_removal_date = (
+        models.DateField(
+            null=True,
+            blank=True,
+        )
+    )
+    hindrance_actual_removal_date = (
+        models.DateField(
+            null=True,
+            blank=True,
+        )
+    )
+    hindrance_remarks = models.TextField(
+        blank=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+        help_text=(
+            "Director or Project Manager sign-off "
+            "on this row - a lightweight review "
+            "record, not an edit gate. Re-reviewing "
+            "overwrites the previous sign-off."
+        ),
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    review_remarks = models.TextField(
         blank=True,
     )
 

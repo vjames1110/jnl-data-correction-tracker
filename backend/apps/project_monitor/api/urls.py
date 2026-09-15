@@ -1,12 +1,15 @@
 from django.urls import path
 
 from apps.project_monitor.api.views import (
+    ActivityReviewAPIView,
     ActivityUpdateAPIView,
     BuildingDetailAPIView,
     BuildingListCreateAPIView,
+    BuildingReviewAPIView,
     ProjectOverviewAPIView,
     StructureDetailAPIView,
     StructureListCreateAPIView,
+    StructureReviewAPIView,
     StructureTypeDetailAPIView,
     StructureTypeListCreateAPIView,
 )
@@ -41,6 +44,11 @@ urlpatterns = [
         name="structure-detail",
     ),
     path(
+        "structures/<uuid:pk>/review/",
+        StructureReviewAPIView.as_view(),
+        name="structure-review",
+    ),
+    path(
         "buildings/",
         BuildingListCreateAPIView.as_view(),
         name="building-list",
@@ -51,8 +59,18 @@ urlpatterns = [
         name="building-detail",
     ),
     path(
+        "buildings/<uuid:pk>/review/",
+        BuildingReviewAPIView.as_view(),
+        name="building-review",
+    ),
+    path(
         "activities/<uuid:pk>/",
         ActivityUpdateAPIView.as_view(),
         name="activity-update",
+    ),
+    path(
+        "activities/<uuid:pk>/review/",
+        ActivityReviewAPIView.as_view(),
+        name="activity-review",
     ),
 ]

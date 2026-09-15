@@ -136,6 +136,11 @@ class ActivitySerializer(serializers.ModelSerializer):
         many=True,
         read_only=True,
     )
+    reviewed_by_name = serializers.CharField(
+        source="reviewed_by.full_name",
+        read_only=True,
+        default="",
+    )
 
     class Meta:
         model = Activity
@@ -155,6 +160,13 @@ class ActivitySerializer(serializers.ModelSerializer):
             "current_target_date",
             "date_history",
             "comments",
+            "is_hindrance",
+            "hindrance_expected_removal_date",
+            "hindrance_actual_removal_date",
+            "hindrance_remarks",
+            "reviewed_by_name",
+            "reviewed_at",
+            "review_remarks",
         ]
         read_only_fields = fields
 
@@ -474,4 +486,37 @@ class ActivityUpdateSerializer(serializers.Serializer):
         choices=MaterialStatus.choices,
         required=False,
         allow_null=True,
+    )
+    is_hindrance = serializers.BooleanField(
+        required=False,
+    )
+    hindrance_expected_removal_date = (
+        serializers.DateField(
+            required=False,
+            allow_null=True,
+        )
+    )
+    hindrance_actual_removal_date = (
+        serializers.DateField(
+            required=False,
+            allow_null=True,
+        )
+    )
+    hindrance_remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+
+class ReviewInputSerializer(serializers.Serializer):
+    """
+    Input for both the per-activity review endpoint and the
+    "review every activity on this sheet" consolidated endpoint -
+    an optional remark is all either one takes.
+    """
+
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
     )

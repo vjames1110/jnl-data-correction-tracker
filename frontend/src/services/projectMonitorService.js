@@ -133,4 +133,31 @@ export const projectMonitorService = {
       `/project-monitor/buildings/${buildingId}/`,
     );
   },
+
+  async reviewActivity(activityId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/activities/${activityId}/review/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async reviewStructure(structureId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/structures/${structureId}/review/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async reviewBuilding(buildingId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/buildings/${buildingId}/review/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
 };

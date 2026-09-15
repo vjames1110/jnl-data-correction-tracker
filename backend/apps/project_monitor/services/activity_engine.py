@@ -55,6 +55,10 @@ def apply_update(
     status: str | None = None,
     done_qty=None,
     comment: str = "",
+    is_hindrance: bool | None = None,
+    hindrance_expected_removal_date=None,
+    hindrance_actual_removal_date=None,
+    hindrance_remarks: str | None = None,
     actor=None,
 ) -> Activity:
     """
@@ -102,6 +106,62 @@ def apply_update(
         else:
             notes.append(
                 f"{_fmt_qty(done_qty)}% done"
+            )
+
+    if (
+        is_hindrance is not None
+        and is_hindrance != activity.is_hindrance
+    ):
+        activity.is_hindrance = is_hindrance
+        notes.append(
+            "Marked as hindrance (Railways/"
+            "Authority)"
+            if is_hindrance
+            else "Hindrance cleared"
+        )
+
+    if (
+        hindrance_expected_removal_date
+        is not None
+        and hindrance_expected_removal_date
+        != activity.hindrance_expected_removal_date
+    ):
+        activity.hindrance_expected_removal_date = (
+            hindrance_expected_removal_date
+        )
+        notes.append(
+            "Hindrance expected removal: "
+            f"{_fmt(hindrance_expected_removal_date)}"
+        )
+
+    if (
+        hindrance_actual_removal_date
+        is not None
+        and hindrance_actual_removal_date
+        != activity.hindrance_actual_removal_date
+    ):
+        activity.hindrance_actual_removal_date = (
+            hindrance_actual_removal_date
+        )
+        notes.append(
+            "Hindrance removed on: "
+            f"{_fmt(hindrance_actual_removal_date)}"
+        )
+
+    if hindrance_remarks is not None:
+        hindrance_remarks = (
+            hindrance_remarks.strip()
+        )
+        if (
+            hindrance_remarks
+            and hindrance_remarks
+            != activity.hindrance_remarks
+        ):
+            activity.hindrance_remarks = (
+                hindrance_remarks
+            )
+            notes.append(
+                f"Hindrance remark: {hindrance_remarks}"
             )
 
     comment = (comment or "").strip()
