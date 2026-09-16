@@ -187,6 +187,7 @@ class SiteSerializer(CleanModelSerializer):
             "chainage_start_km",
             "chainage_end_km",
             "client_or_section",
+            "project_value",
             "is_active",
             "created_at",
             "updated_at",

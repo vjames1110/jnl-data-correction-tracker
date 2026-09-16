@@ -86,6 +86,16 @@ export function projectMonitorBuildingsPath(role) {
   return "/admin/project-monitor/buildings";
 }
 
+export function projectMonitorGirdersPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/girders";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/girders";
+  }
+  return "/admin/project-monitor/girders";
+}
+
 export function projectMonitorReportsPath(role) {
   if (role === USER_ROLES.PROJECT_MANAGER) {
     return "/project-manager/reports";

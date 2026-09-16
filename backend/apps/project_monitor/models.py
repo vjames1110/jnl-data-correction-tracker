@@ -369,6 +369,74 @@ class StructureTypeDefinition(
         return super().save(*args, **kwargs)
 
 
+class RdsoSpanLibraryEntry(
+    BusinessModel,
+    UserTrackingModel,
+):
+    """
+    Admin-editable master of standard RDSO girder spans - seeded
+    with the prototype's default library (span length + girder type
+    only; drawing no/qty-per-span are left blank/zero for an Admin
+    to fill in once per the project's actual loading standard).
+    Picking one of these on a girder span pre-fills its drawing no/
+    length/type/quantity; a span can also be entered non-standard
+    with none of these values pre-filled.
+    """
+
+    span_length_m = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+    )
+    girder_type = models.CharField(
+        max_length=100,
+    )
+    drawing_no = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    qty_per_span_mt = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        default=0,
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+    )
+
+    class Meta:
+        db_table = (
+            "project_monitor_rdso_span_library_entry"
+        )
+        ordering = [
+            "display_order",
+            "span_length_m",
+        ]
+        verbose_name = "RDSO Span Library Entry"
+        verbose_name_plural = (
+            "RDSO Span Library Entries"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.span_length_m} m - "
+            f"{self.girder_type}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if self.girder_type:
+            self.girder_type = (
+                normalize_whitespace(
+                    self.girder_type
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class Structure(
     UUIDPrimaryKeyModel,
     TimeStampedModel,
@@ -546,6 +614,203 @@ class Building(
         return super().save(*args, **kwargs)
 
 
+class GirderStructureKind(models.TextChoices):
+    """
+    Independent of ``StructureTypeDefinition`` - the prototype's
+    girder tracker uses these three literal kinds regardless of
+    what structure-type masters an Admin has defined, and FOB may
+    not even exist as a seeded/defined ``StructureTypeDefinition``
+    row. A ``GirderJob`` may optionally link to a real ``Structure``
+    (see ``GirderJob.structure``), but this field is what actually
+    drives the FOB carries-girders-only rule.
+    """
+
+    MAJOR = "MAJOR", "Major Bridge"
+    ROB = "ROB", "ROB"
+    FOB = "FOB", "FOB"
+
+
+class GirderScope(models.TextChoices):
+    JNL = "JNL", "JNL (fabrication by vendor)"
+    RAILWAY = (
+        "RAILWAY",
+        "Railway supply - follow-up only",
+    )
+
+
+class GirderJob(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One bridge's girder/bearings/expansion-joints tracking - one
+    bridge-level GAD-approval ``Activity`` (via the generic
+    ``activities`` relation, same engine as everything else) plus a
+    repeatable set of ``GirderSpan`` rows, each carrying its own
+    girder-fabrication chain and (unless this is a FOB) a Bearings
+    chain and an Expansion Joints chain. Optionally linked to an
+    existing ``Structure`` (so a Major Bridge/ROB already tracked in
+    Structures doesn't need its bridge name/chainage re-entered).
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="girder_jobs",
+    )
+    structure = models.ForeignKey(
+        Structure,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="girder_jobs",
+    )
+    structure_kind = models.CharField(
+        max_length=10,
+        choices=GirderStructureKind.choices,
+    )
+    bridge_name = models.CharField(
+        max_length=150,
+    )
+    chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    girder_scope = models.CharField(
+        max_length=10,
+        choices=GirderScope.choices,
+    )
+
+    activities = GenericRelation(
+        Activity,
+        content_type_field="content_type",
+        object_id_field="object_id",
+    )
+
+    class Meta:
+        db_table = "project_monitor_girder_job"
+        ordering = [
+            models.F("chainage_km").asc(
+                nulls_last=True,
+            ),
+            "created_at",
+        ]
+        verbose_name = "Girder Job"
+        verbose_name_plural = "Girder Jobs"
+
+    def __str__(self) -> str:
+        return self.bridge_name
+
+    def clean(self):
+        super().clean()
+
+        if self.bridge_name:
+            self.bridge_name = (
+                normalize_whitespace(
+                    self.bridge_name
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class GirderSpan(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One span on a ``GirderJob`` - either picked from the
+    ``RdsoSpanLibraryEntry`` master (``is_standard=True``, pre-filled
+    drawing no/length/type/quantity from the library entry at the
+    time it was picked - display/audit only, never re-applied) or
+    entered non-standard. Carries its own generated girder-
+    fabrication ``Activity`` chain and, unless the parent job is a
+    FOB, its own Bearings and Expansion Joints chains too - all via
+    the same generic ``activities`` relation as every other section.
+    """
+
+    job = models.ForeignKey(
+        GirderJob,
+        on_delete=models.CASCADE,
+        related_name="spans",
+    )
+    label = models.CharField(max_length=50)
+    is_standard = models.BooleanField(
+        default=False,
+    )
+    drawing_no = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    span_length_m = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    girder_type = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    qty_mt = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        default=0,
+    )
+    vendor = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    po_number = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    bearings_count = models.PositiveIntegerField(
+        default=4,
+    )
+    expansion_joints_count = (
+        models.PositiveIntegerField(
+            default=2,
+        )
+    )
+    row_order = models.PositiveIntegerField(
+        default=0,
+    )
+
+    activities = GenericRelation(
+        Activity,
+        content_type_field="content_type",
+        object_id_field="object_id",
+    )
+
+    class Meta:
+        db_table = "project_monitor_girder_span"
+        ordering = ["row_order"]
+        verbose_name = "Girder Span"
+        verbose_name_plural = "Girder Spans"
+
+    def __str__(self) -> str:
+        return f"{self.job.bridge_name} - {self.label}"
+
+    def clean(self):
+        super().clean()
+
+        if self.label:
+            self.label = normalize_whitespace(
+                self.label
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class ActivityDateEntry(TimeStampedModel):
     """
     Append-only target-date history. The prototype keeps every prior
@@ -624,6 +889,64 @@ class ActivityComment(
         if self.text:
             self.text = normalize_whitespace(
                 self.text
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ProjectExtension(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One recorded extension of a project's completion date -
+    ``new_end_date`` plus why, so the project's real completion
+    schedule is an auditable history (E1, E2, E3...) rather than a
+    silently-overwritten single date. Lives here rather than as a
+    field on ``Site`` because it's project-tracking behaviour (a
+    dated, reasoned record), not a core site attribute - same
+    convention as ``Structure``/``Building``/``GirderJob`` FKing to
+    ``Site`` from within this app.
+
+    The "effective end date" a project is actually tracked against
+    is computed, not stored: the latest ``new_end_date`` across a
+    site's extensions if any exist, else ``Site.end_date`` - see
+    ``ProjectSiteSerializer.get_effective_end_date``.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="extensions",
+    )
+    new_end_date = models.DateField()
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        db_table = (
+            "project_monitor_project_extension"
+        )
+        ordering = ["created_at"]
+        verbose_name = "Project Extension"
+        verbose_name_plural = (
+            "Project Extensions"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site.site_code} - extended "
+            f"to {self.new_end_date}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if self.reason:
+            self.reason = normalize_whitespace(
+                self.reason
             )
 
     def save(self, *args, **kwargs):

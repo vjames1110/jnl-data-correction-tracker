@@ -16,13 +16,37 @@ import { isProjectManagerRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
+  useCreateProjectExtension,
+  useDeleteProjectExtension,
   useProjectOverview,
   useUpdateProjectSiteDetails,
 } from "../../../hooks/useProjectMonitor";
 import { KpiCard } from "../../admin/components/KpiCard";
+import { ProjectCountdownBadge } from "../components/ProjectCountdownBadge";
+import { ProjectExtensionsList } from "../components/ProjectExtensionsList";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
+import { formatDate } from "../utils/status";
+
+const INR_FORMATTER = new Intl.NumberFormat(
+  "en-IN",
+  {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  },
+);
+
+function formatCurrency(value) {
+  if (value === null || value === undefined) {
+    return "Not set";
+  }
+  return `₹${INR_FORMATTER.format(Number(value))}`;
+}
 
 const BLANK_DETAILS_FORM = {
+  project_name: "",
+  start_date: "",
+  end_date: "",
+  project_value: "",
   chainage_start_km: "",
   chainage_end_km: "",
   client_or_section: "",
@@ -36,6 +60,11 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
 
   const startEditing = () => {
     setForm({
+      project_name: site.project_name ?? "",
+      start_date: site.start_date ?? "",
+      end_date: site.end_date ?? "",
+      project_value:
+        site.project_value ?? "",
       chainage_start_km:
         site.chainage_start_km ?? "",
       chainage_end_km:
@@ -57,6 +86,11 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
     await updateSiteDetails.mutateAsync({
       siteId: site.id,
       payload: {
+        project_name: form.project_name || "",
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        project_value:
+          form.project_value || null,
         chainage_start_km:
           form.chainage_start_km || null,
         chainage_end_km:
@@ -89,6 +123,62 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
           className="site-toolbar"
           onSubmit={handleSave}
         >
+          <label className="filter-control">
+            <span>Project name</span>
+            <input
+              type="text"
+              placeholder="e.g. Chunar Doubling"
+              value={form.project_name}
+              onChange={(event) =>
+                setField(
+                  "project_name",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
+          <label className="filter-control">
+            <span>Start date</span>
+            <input
+              type="date"
+              value={form.start_date}
+              onChange={(event) =>
+                setField(
+                  "start_date",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
+          <label className="filter-control">
+            <span>End date</span>
+            <input
+              type="date"
+              value={form.end_date}
+              onChange={(event) =>
+                setField(
+                  "end_date",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
+          <label className="filter-control">
+            <span>Project value (₹)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.project_value}
+              onChange={(event) =>
+                setField(
+                  "project_value",
+                  event.target.value,
+                )
+              }
+              placeholder="e.g. 125000000"
+            />
+          </label>
           <label className="filter-control">
             <span>Chainage start (km)</span>
             <input
@@ -164,8 +254,34 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
           ) : null}
         </form>
       ) : (
-        <dl className="details-list">
-          <div>
+        <dl className="pm-detail-cards">
+          <div className="pm-detail-card">
+            <dt>Project</dt>
+            <dd>
+              {site.project_name || "-"}
+            </dd>
+          </div>
+          <div className="pm-detail-card">
+            <dt>Project value</dt>
+            <dd>
+              {formatCurrency(
+                site.project_value,
+              )}
+            </dd>
+          </div>
+          <div className="pm-detail-card">
+            <dt>Start date</dt>
+            <dd>
+              {formatDate(site.start_date)}
+            </dd>
+          </div>
+          <div className="pm-detail-card">
+            <dt>End date</dt>
+            <dd>
+              {formatDate(site.end_date)}
+            </dd>
+          </div>
+          <div className="pm-detail-card">
             <dt>Chainage</dt>
             <dd>
               {site.chainage_start_km != null &&
@@ -174,27 +290,21 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
                 : "Not set"}
             </dd>
           </div>
-          <div>
+          <div className="pm-detail-card">
             <dt>Client / Section</dt>
             <dd>
               {site.client_or_section ||
                 "Not set"}
             </dd>
           </div>
-          <div>
-            <dt>Project</dt>
-            <dd>
-              {site.project_name || "-"}
-            </dd>
-          </div>
-          <div>
+          <div className="pm-detail-card">
             <dt>Director</dt>
             <dd>
               {site.site_director_name ||
                 "Not assigned"}
             </dd>
           </div>
-          <div>
+          <div className="pm-detail-card">
             <dt>Site PM</dt>
             <dd>
               {site.site_hod_name ||
@@ -203,6 +313,14 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
           </div>
         </dl>
       )}
+
+      <ProjectCountdownBadge
+        daysRemaining={site.days_remaining}
+        countdownStatus={site.countdown_status}
+        effectiveEndDate={
+          site.effective_end_date
+        }
+      />
     </SurfaceCard>
   );
 }
@@ -221,6 +339,10 @@ export function ProjectOverviewPage() {
   const canEdit = isProjectManagerRole(
     user?.role,
   );
+  const createExtension =
+    useCreateProjectExtension(selectedSite);
+  const deleteExtension =
+    useDeleteProjectExtension(selectedSite);
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -302,6 +424,25 @@ export function ProjectOverviewPage() {
             canEdit={canEdit}
             onSaved={overviewQuery.refetch}
           />
+
+          <SurfaceCard className="print-hidden">
+            <ProjectExtensionsList
+              extensions={
+                overviewQuery.data.site
+                  .extensions
+              }
+              canEdit={canEdit}
+              onAddExtension={
+                createExtension.mutate
+              }
+              addExtensionStatus={
+                createExtension
+              }
+              onDeleteExtension={
+                deleteExtension.mutate
+              }
+            />
+          </SurfaceCard>
 
           <section className="kpi-grid kpi-grid--compact">
             <KpiCard

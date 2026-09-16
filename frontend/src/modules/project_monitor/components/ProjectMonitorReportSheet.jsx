@@ -56,6 +56,31 @@ function latestUpdateText(activity) {
   return comments[comments.length - 1].text;
 }
 
+const INR_FORMATTER = new Intl.NumberFormat(
+  "en-IN",
+  {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  },
+);
+
+function formatCurrency(value) {
+  if (value === null || value === undefined) {
+    return "Not set";
+  }
+  return `₹${INR_FORMATTER.format(Number(value))}`;
+}
+
+function countdownText(site) {
+  if (site.days_remaining == null) {
+    return "End date not set";
+  }
+  if (site.days_remaining < 0) {
+    return `Overdue by ${Math.abs(site.days_remaining)} day(s)`;
+  }
+  return `${site.days_remaining} day(s) remaining`;
+}
+
 function ActivityTable({ groups }) {
   const rows = groups.flatMap((group) =>
     group.rows.map((row) => ({
@@ -143,6 +168,45 @@ export function ProjectMonitorReportSheet({
             </td>
           </tr>
           <tr>
+            <td>Project value</td>
+            <td>
+              {formatCurrency(
+                site.project_value,
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>Start date</td>
+            <td>
+              {formatDate(site.start_date)}
+            </td>
+          </tr>
+          <tr>
+            <td>End date</td>
+            <td>
+              {formatDate(site.end_date)}
+            </td>
+          </tr>
+          {site.effective_end_date &&
+          site.effective_end_date !==
+            site.end_date ? (
+            <tr>
+              <td>
+                Effective end date (after
+                extensions)
+              </td>
+              <td>
+                {formatDate(
+                  site.effective_end_date,
+                )}
+              </td>
+            </tr>
+          ) : null}
+          <tr>
+            <td>Time remaining</td>
+            <td>{countdownText(site)}</td>
+          </tr>
+          <tr>
             <td>Client / Section</td>
             <td>
               {site.client_or_section || "-"}
@@ -173,6 +237,40 @@ export function ProjectMonitorReportSheet({
           </tr>
         </tbody>
       </table>
+
+      {(site.extensions || []).length > 0 ? (
+        <table className="pm-report__table pm-report__extensions">
+          <thead>
+            <tr>
+              <th></th>
+              <th>New end date</th>
+              <th>Reason</th>
+              <th>Recorded by</th>
+            </tr>
+          </thead>
+          <tbody>
+            {site.extensions.map(
+              (extension, index) => (
+                <tr key={extension.id}>
+                  <td>E{index + 1}</td>
+                  <td>
+                    {formatDate(
+                      extension.new_end_date,
+                    )}
+                  </td>
+                  <td>
+                    {extension.reason || "-"}
+                  </td>
+                  <td>
+                    {extension.created_by_name ||
+                      "-"}
+                  </td>
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      ) : null}
 
       <section className="pm-report__section">
         <h2>Structures</h2>

@@ -5,6 +5,10 @@ from apps.project_monitor.models import (
     ActivityComment,
     ActivityDateEntry,
     Building,
+    GirderJob,
+    GirderSpan,
+    ProjectExtension,
+    RdsoSpanLibraryEntry,
     Structure,
     StructureTypeDefinition,
 )
@@ -107,3 +111,63 @@ class BuildingAdmin(admin.ModelAdmin):
         "station_label",
         "description",
     ]
+
+
+@admin.register(RdsoSpanLibraryEntry)
+class RdsoSpanLibraryEntryAdmin(
+    admin.ModelAdmin
+):
+    list_display = [
+        "span_length_m",
+        "girder_type",
+        "drawing_no",
+        "qty_per_span_mt",
+        "is_active",
+        "display_order",
+    ]
+    list_filter = ["is_active"]
+    search_fields = ["girder_type", "drawing_no"]
+
+
+class GirderSpanInline(admin.TabularInline):
+    model = GirderSpan
+    extra = 0
+    fields = [
+        "label",
+        "is_standard",
+        "span_length_m",
+        "girder_type",
+        "vendor",
+        "po_number",
+    ]
+
+
+@admin.register(GirderJob)
+class GirderJobAdmin(admin.ModelAdmin):
+    list_display = [
+        "bridge_name",
+        "structure_kind",
+        "girder_scope",
+        "site",
+        "chainage_km",
+        "created_at",
+    ]
+    list_filter = [
+        "structure_kind",
+        "girder_scope",
+        "site",
+    ]
+    search_fields = ["bridge_name"]
+    inlines = [GirderSpanInline]
+
+
+@admin.register(ProjectExtension)
+class ProjectExtensionAdmin(admin.ModelAdmin):
+    list_display = [
+        "site",
+        "new_end_date",
+        "created_by",
+        "created_at",
+    ]
+    list_filter = ["site"]
+    search_fields = ["reason"]

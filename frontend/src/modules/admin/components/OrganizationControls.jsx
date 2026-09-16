@@ -1,4 +1,7 @@
 import { X } from "lucide-react";
+import { useRef } from "react";
+
+import { useOutsideClick } from "../../../hooks/useOutsideClick";
 
 export function StatusChip({ active }) {
   return (
@@ -19,9 +22,20 @@ export function ManagementPanel({
   eyebrow,
   title,
   onClose,
+  closeOnOutsideClick = false,
 }) {
+  const panelRef = useRef(null);
+  useOutsideClick(
+    panelRef,
+    closeOnOutsideClick,
+    onClose,
+  );
+
   return (
-    <div className="management-panel">
+    <div
+      className="management-panel"
+      ref={panelRef}
+    >
       <div className="management-panel__header">
         <div>
           <span className="page-eyebrow">

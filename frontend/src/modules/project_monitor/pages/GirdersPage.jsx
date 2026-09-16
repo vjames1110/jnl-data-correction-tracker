@@ -10,28 +10,36 @@ import { isProjectManagerRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
-  useCreateStructure,
-  useDeleteStructure,
+  useCreateGirderJob,
+  useDeleteGirderJob,
+  useGirderJobs,
+  useRdsoSpanLibrary,
   useReviewActivity,
-  useReviewStructure,
+  useReviewGirderJob,
   useStructures,
-  useStructureTypes,
   useUpdateActivity,
+  useUpdateGirderSpan,
 } from "../../../hooks/useProjectMonitor";
-import { AddStructureForm } from "../components/AddStructureForm";
-import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
-import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
+import { AddGirderJobForm } from "../components/AddGirderJobForm";
+import { GirderJobDrawer } from "../components/GirderJobDrawer";
 import { ItemGroupSection } from "../components/ItemGroupSection";
+import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
-export function StructuresPage() {
+const STRUCTURE_KIND_LABELS = {
+  MAJOR: "Major Bridge",
+  ROB: "ROB",
+  FOB: "FOB",
+};
+
+export function GirdersPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] =
     useSearchParams();
   const [selectedSite, setSelectedSite] = useState(
     () => searchParams.get("site") || "",
   );
-  const [selectedStructureId, setSelectedStructureId] =
+  const [selectedJobId, setSelectedJobId] =
     useState(null);
   const [activeActivityId, setActiveActivityId] =
     useState(null);
@@ -39,19 +47,21 @@ export function StructuresPage() {
     useState(false);
 
   const sitesQuery = useSitesDropdown();
-  const structureTypesQuery =
-    useStructureTypes();
+  const girderJobsQuery = useGirderJobs(
+    selectedSite,
+  );
   const structuresQuery = useStructures(
     selectedSite,
   );
+  const spanLibraryQuery = useRdsoSpanLibrary();
   const canEdit = isProjectManagerRole(
     user?.role,
   );
 
-  const createStructure = useCreateStructure(
+  const createGirderJob = useCreateGirderJob(
     selectedSite,
   );
-  const deleteStructure = useDeleteStructure(
+  const deleteGirderJob = useDeleteGirderJob(
     selectedSite,
   );
   const updateActivity = useUpdateActivity(
@@ -60,24 +70,27 @@ export function StructuresPage() {
   const reviewActivity = useReviewActivity(
     selectedSite,
   );
-  const reviewStructure = useReviewStructure(
+  const reviewGirderJob = useReviewGirderJob(
+    selectedSite,
+  );
+  const updateGirderSpan = useUpdateGirderSpan(
     selectedSite,
   );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
-    setSelectedStructureId(null);
+    setSelectedJobId(null);
     setActiveActivityId(null);
     setSearchParams(
       value ? { site: value } : {},
     );
   };
 
-  const handleCreateStructure = (
+  const handleCreateGirderJob = (
     payload,
     options,
   ) => {
-    createStructure.mutate(payload, {
+    createGirderJob.mutate(payload, {
       ...options,
       onSuccess: (...args) => {
         options?.onSuccess?.(...args);
@@ -86,41 +99,50 @@ export function StructuresPage() {
     });
   };
 
-  const structuresByType = useMemo(() => {
+  const jobsByKind = useMemo(() => {
     const map = new Map();
-    (structuresQuery.data || []).forEach(
-      (structure) => {
-        const key = structure.structure_type;
+    (girderJobsQuery.data || []).forEach(
+      (job) => {
+        const key = job.structure_kind;
         if (!map.has(key)) {
           map.set(key, []);
         }
-        map.get(key).push(structure);
+        map.get(key).push(job);
       },
     );
     return map;
-  }, [structuresQuery.data]);
+  }, [girderJobsQuery.data]);
 
-  const selectedStructure = useMemo(
+  const existingStructureIds = useMemo(
     () =>
-      (structuresQuery.data || []).find(
-        (structure) =>
-          structure.id === selectedStructureId,
-      ) || null,
-    [structuresQuery.data, selectedStructureId],
+      new Set(
+        (girderJobsQuery.data || [])
+          .map((job) => job.structure)
+          .filter(Boolean),
+      ),
+    [girderJobsQuery.data],
   );
 
-  const handleDelete = (structureId) => {
+  const selectedJob = useMemo(
+    () =>
+      (girderJobsQuery.data || []).find(
+        (job) => job.id === selectedJobId,
+      ) || null,
+    [girderJobsQuery.data, selectedJobId],
+  );
+
+  const handleDelete = (jobId) => {
     if (
       !window.confirm(
-        "Delete this structure sheet and all its data?",
+        "Delete this girder job and all its data?",
       )
     ) {
       return;
     }
-    deleteStructure.mutate(structureId, {
+    deleteGirderJob.mutate(jobId, {
       onSuccess: () => {
-        if (selectedStructureId === structureId) {
-          setSelectedStructureId(null);
+        if (selectedJobId === jobId) {
+          setSelectedJobId(null);
           setActiveActivityId(null);
         }
       },
@@ -128,11 +150,13 @@ export function StructuresPage() {
   };
 
   const isLoading =
+    girderJobsQuery.isLoading ||
     structuresQuery.isLoading ||
-    structureTypesQuery.isLoading;
+    spanLibraryQuery.isLoading;
   const isError =
+    girderJobsQuery.isError ||
     structuresQuery.isError ||
-    structureTypesQuery.isError;
+    spanLibraryQuery.isError;
 
   return (
     <div className="organization-page">
@@ -141,13 +165,12 @@ export function StructuresPage() {
           <span className="page-eyebrow">
             Project Monitor
           </span>
-          <h1>Structures</h1>
+          <h1>Girders, Bearings & Expansion Joints</h1>
           <p>
-            Minor Bridges, Major Bridges, RUBs,
-            ROBs and any other structure type
-            defined in the master - each
-            generates its own activity sheet
-            from its inputs.
+            Span-by-span girder fabrication-to-
+            launching tracking for Major Bridges,
+            ROBs and FOBs, plus each span's
+            Bearings and Expansion Joints chains.
           </p>
         </div>
 
@@ -186,8 +209,7 @@ export function StructuresPage() {
                 setIsAddFormOpen(true)
               }
             >
-              <Plus size={16} /> Add
-              structure
+              <Plus size={16} /> Add girder job
             </button>
           ) : null}
         </div>
@@ -195,32 +217,38 @@ export function StructuresPage() {
 
       <ProjectMonitorTabs
         role={user?.role}
-        active="structures"
+        active="girders"
       />
 
       {isAddFormOpen ? (
         <ManagementPanel
-          eyebrow="Structures"
-          title="Add a structure"
+          eyebrow="Girders"
+          title="Add a girder job"
           onClose={() =>
             setIsAddFormOpen(false)
           }
           closeOnOutsideClick
         >
-          <AddStructureForm
-            structureTypes={
-              structureTypesQuery.data || []
+          <AddGirderJobForm
+            structures={
+              structuresQuery.data || []
             }
-            onCreate={handleCreateStructure}
+            existingStructureIds={
+              existingStructureIds
+            }
+            spanLibrary={
+              spanLibraryQuery.data || []
+            }
+            onCreate={handleCreateGirderJob}
             onCancel={() =>
               setIsAddFormOpen(false)
             }
             isPending={
-              createStructure.isPending
+              createGirderJob.isPending
             }
             error={
-              createStructure.isError
-                ? createStructure.error
+              createGirderJob.isError
+                ? createGirderJob.error
                 : null
             }
           />
@@ -230,67 +258,77 @@ export function StructuresPage() {
       {!selectedSite ? (
         <EmptyState
           title="Pick a project to get started"
-          message="Choose a project/site above to see its structures."
+          message="Choose a project/site above to see its girder jobs."
         />
       ) : isLoading ? (
-        <AppLoader label="Loading structures..." />
+        <AppLoader label="Loading girder jobs..." />
       ) : isError ? (
         <ErrorState
-          title="Structures unavailable"
+          title="Girder jobs unavailable"
           message={
+            girderJobsQuery.error?.message ||
             structuresQuery.error?.message ||
-            structureTypesQuery.error?.message
+            spanLibraryQuery.error?.message
           }
           onRetry={() => {
+            girderJobsQuery.refetch();
             structuresQuery.refetch();
-            structureTypesQuery.refetch();
+            spanLibraryQuery.refetch();
           }}
         />
       ) : (
-        <>
-          <SurfaceCard>
-            {(
-              structureTypesQuery.data || []
-            ).map((definition) => (
-              <ItemGroupSection
-                key={definition.id}
-                label={definition.name}
-                items={
-                  structuresByType.get(
-                    definition.id,
-                  ) || []
-                }
-                onView={(id) => {
-                  setSelectedStructureId(id);
-                  setActiveActivityId(null);
-                }}
-                onDelete={handleDelete}
-                canEdit={canEdit}
-                deleteTitle="Delete this structure sheet and all its data"
-              />
-            ))}
-          </SurfaceCard>
-        </>
+        <SurfaceCard>
+          {Object.entries(
+            STRUCTURE_KIND_LABELS,
+          ).map(([kind, label]) => (
+            <ItemGroupSection
+              key={kind}
+              label={label}
+              items={(
+                jobsByKind.get(kind) || []
+              ).map((job) => ({
+                id: job.id,
+                name: job.bridge_name,
+                chainage_km: job.chainage_km,
+                description: `${job.girder_scope_display} · ${job.spans.length} span(s)`,
+                overall_progress:
+                  job.overall_progress,
+              }))}
+              onView={(id) => {
+                setSelectedJobId(id);
+                setActiveActivityId(null);
+              }}
+              onDelete={handleDelete}
+              canEdit={canEdit}
+              deleteTitle="Delete this girder job and all its data"
+            />
+          ))}
+        </SurfaceCard>
       )}
 
-      <ActivitySheetDrawer
-        item={selectedStructure}
+      <GirderJobDrawer
+        job={selectedJob}
         eyebrow={
-          selectedStructure?.structure_type_name
+          selectedJob
+            ? STRUCTURE_KIND_LABELS[
+                selectedJob.structure_kind
+              ]
+            : ""
         }
         metaLine={
-          selectedStructure
+          selectedJob
             ? `${
-                selectedStructure.chainage_km !=
-                null
-                  ? `Ch. ${selectedStructure.chainage_km} km`
+                selectedJob.chainage_km != null
+                  ? `Ch. ${selectedJob.chainage_km} km`
                   : "Chainage not set"
               } · ${
-                selectedStructure
-                  .overall_progress.done
+                selectedJob.girder_scope_display
+              } · ${
+                selectedJob.overall_progress
+                  .done
               }/${
-                selectedStructure
-                  .overall_progress.total
+                selectedJob.overall_progress
+                  .total
               } activities complete`
             : ""
         }
@@ -298,7 +336,7 @@ export function StructuresPage() {
         onSelectActivity={setActiveActivityId}
         canEdit={canEdit}
         onClose={() => {
-          setSelectedStructureId(null);
+          setSelectedJobId(null);
           setActiveActivityId(null);
         }}
         onSubmitUpdate={(activityId, payload) =>
@@ -316,16 +354,26 @@ export function StructuresPage() {
         }
         reviewActivityStatus={reviewActivity}
         onReviewAll={(remarks, options) =>
-          reviewStructure.mutate(
+          reviewGirderJob.mutate(
             {
-              structureId:
-                selectedStructure?.id,
+              jobId: selectedJob?.id,
               payload: { remarks },
             },
             options,
           )
         }
-        reviewAllStatus={reviewStructure}
+        reviewAllStatus={reviewGirderJob}
+        onUpdateSpan={(
+          spanId,
+          payload,
+          options,
+        ) =>
+          updateGirderSpan.mutate(
+            { spanId, payload },
+            options,
+          )
+        }
+        updateSpanStatus={updateGirderSpan}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.organization.api.serializers import (
@@ -10,13 +11,54 @@ from apps.project_monitor.models import (
     ActivityDateEntry,
     ActivityStatus,
     Building,
+    GirderJob,
+    GirderScope,
+    GirderSpan,
+    GirderStructureKind,
     MaterialStatus,
+    ProjectExtension,
+    RdsoSpanLibraryEntry,
     Structure,
     StructureTypeDefinition,
 )
 from apps.project_monitor.services.structure_generator import (
     validate_definition_schema,
 )
+
+COUNTDOWN_GREEN_THRESHOLD_DAYS = 30
+COUNTDOWN_ORANGE_THRESHOLD_DAYS = 15
+
+
+class ProjectExtensionSerializer(
+    serializers.ModelSerializer
+):
+    created_by_name = serializers.CharField(
+        source="created_by.full_name",
+        read_only=True,
+        default="",
+    )
+
+    class Meta:
+        model = ProjectExtension
+        fields = [
+            "id",
+            "new_end_date",
+            "reason",
+            "created_by_name",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ProjectExtensionCreateSerializer(
+    serializers.Serializer
+):
+    new_end_date = serializers.DateField()
+    reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
 
 class ProjectSiteSerializer(serializers.ModelSerializer):
@@ -37,6 +79,18 @@ class ProjectSiteSerializer(serializers.ModelSerializer):
         read_only=True,
         default="",
     )
+    extensions = ProjectExtensionSerializer(
+        many=True, read_only=True
+    )
+    effective_end_date = (
+        serializers.SerializerMethodField()
+    )
+    days_remaining = (
+        serializers.SerializerMethodField()
+    )
+    countdown_status = (
+        serializers.SerializerMethodField()
+    )
 
     class Meta:
         model = Site
@@ -48,14 +102,60 @@ class ProjectSiteSerializer(serializers.ModelSerializer):
             "client_or_section",
             "chainage_start_km",
             "chainage_end_km",
+            "project_value",
             "start_date",
             "end_date",
+            "extensions",
+            "effective_end_date",
+            "days_remaining",
+            "countdown_status",
             "site_director",
             "site_director_name",
             "site_hod",
             "site_hod_name",
         ]
         read_only_fields = fields
+
+    def _effective_end_date(self, obj):
+        extension_dates = [
+            extension.new_end_date
+            for extension in obj.extensions.all()
+        ]
+        if extension_dates:
+            return max(extension_dates)
+        return obj.end_date
+
+    def get_effective_end_date(self, obj):
+        return self._effective_end_date(obj)
+
+    def get_days_remaining(self, obj):
+        effective_end_date = (
+            self._effective_end_date(obj)
+        )
+        if effective_end_date is None:
+            return None
+        return (
+            effective_end_date
+            - timezone.localdate()
+        ).days
+
+    def get_countdown_status(self, obj):
+        days_remaining = self.get_days_remaining(
+            obj
+        )
+        if days_remaining is None:
+            return None
+        if (
+            days_remaining
+            > COUNTDOWN_GREEN_THRESHOLD_DAYS
+        ):
+            return "GREEN"
+        if (
+            days_remaining
+            >= COUNTDOWN_ORANGE_THRESHOLD_DAYS
+        ):
+            return "ORANGE"
+        return "RED"
 
 
 class ProjectSiteDetailsUpdateSerializer(
@@ -74,6 +174,10 @@ class ProjectSiteDetailsUpdateSerializer(
     class Meta:
         model = Site
         fields = [
+            "project_name",
+            "start_date",
+            "end_date",
+            "project_value",
             "chainage_start_km",
             "chainage_end_km",
             "client_or_section",
@@ -519,4 +623,282 @@ class ReviewInputSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
         default="",
+    )
+
+
+class RdsoSpanLibraryEntrySerializer(
+    serializers.ModelSerializer
+):
+    """
+    Admin-editable master of standard RDSO spans - read access is
+    open to anyone with portal/reporting access (needed to populate
+    the "Add girder job" span picker), writes are Admin-only,
+    exactly mirroring ``StructureTypeSerializer``/
+    ``HasProjectMonitorMasterAccess``.
+    """
+
+    class Meta:
+        model = RdsoSpanLibraryEntry
+        fields = [
+            "id",
+            "span_length_m",
+            "girder_type",
+            "drawing_no",
+            "qty_per_span_mt",
+            "display_order",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class GirderSpanSerializer(
+    ActivityGroupedSerializerMixin,
+    serializers.ModelSerializer,
+):
+    """
+    One span's full detail - its three generated chains (Girder
+    fabrication always; Bearings/Expansion Joints unless the parent
+    job is a FOB) re-assembled into the same ``groups`` shape as
+    everything else via the shared mixin.
+    """
+
+    groups = serializers.SerializerMethodField()
+    overall_progress = (
+        serializers.SerializerMethodField()
+    )
+
+    class Meta:
+        model = GirderSpan
+        fields = [
+            "id",
+            "label",
+            "is_standard",
+            "drawing_no",
+            "span_length_m",
+            "girder_type",
+            "qty_mt",
+            "vendor",
+            "po_number",
+            "bearings_count",
+            "expansion_joints_count",
+            "row_order",
+            "groups",
+            "overall_progress",
+        ]
+        read_only_fields = fields
+
+
+class GirderJobSerializer(
+    ActivityGroupedSerializerMixin,
+    serializers.ModelSerializer,
+):
+    """
+    One bridge's girder tracking - its own bridge-level GAD row
+    (re-assembled into ``groups`` the same way a Structure's own
+    Approvals group is) plus every one of its spans, each with its
+    own full chain detail. ``overall_progress`` is overridden (not
+    the mixin's default) to roll every span's activities into the
+    bridge's own total, not just the GAD row.
+    """
+
+    groups = serializers.SerializerMethodField()
+    overall_progress = (
+        serializers.SerializerMethodField()
+    )
+    spans = GirderSpanSerializer(
+        many=True, read_only=True
+    )
+    structure_kind_display = (
+        serializers.CharField(
+            source="get_structure_kind_display",
+            read_only=True,
+        )
+    )
+    girder_scope_display = serializers.CharField(
+        source="get_girder_scope_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = GirderJob
+        fields = [
+            "id",
+            "site",
+            "structure",
+            "structure_kind",
+            "structure_kind_display",
+            "bridge_name",
+            "chainage_km",
+            "girder_scope",
+            "girder_scope_display",
+            "created_at",
+            "updated_at",
+            "groups",
+            "spans",
+            "overall_progress",
+        ]
+        read_only_fields = fields
+
+    def get_overall_progress(self, obj):
+        activities = [
+            a
+            for a in obj.activities.all()
+            if a.status
+            != ActivityStatus.NOT_APPLICABLE
+        ]
+        for span in obj.spans.all():
+            activities += [
+                a
+                for a in span.activities.all()
+                if a.status
+                != ActivityStatus.NOT_APPLICABLE
+            ]
+        done = sum(
+            1
+            for a in activities
+            if a.status
+            == ActivityStatus.COMPLETE
+        )
+        return {
+            "done": done,
+            "total": len(activities),
+        }
+
+
+class GirderSpanInputSerializer(
+    serializers.Serializer
+):
+    label = serializers.CharField(
+        max_length=50
+    )
+    is_standard = serializers.BooleanField(
+        required=False, default=False
+    )
+    drawing_no = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    span_length_m = serializers.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    girder_type = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    qty_mt = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        required=False,
+        default=0,
+    )
+    vendor = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    po_number = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    bearings_count = serializers.IntegerField(
+        required=False,
+        default=4,
+        min_value=0,
+    )
+    expansion_joints_count = (
+        serializers.IntegerField(
+            required=False,
+            default=2,
+            min_value=0,
+        )
+    )
+
+    def validate_label(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "Give the span a label."
+            )
+        return value
+
+
+class GirderJobCreateSerializer(
+    serializers.Serializer
+):
+    structure = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=Structure.objects.all(),
+            required=False,
+            allow_null=True,
+        )
+    )
+    structure_kind = serializers.ChoiceField(
+        choices=GirderStructureKind.choices,
+    )
+    bridge_name = serializers.CharField(
+        max_length=150
+    )
+    chainage_km = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    girder_scope = serializers.ChoiceField(
+        choices=GirderScope.choices,
+    )
+    spans = GirderSpanInputSerializer(
+        many=True
+    )
+
+    def validate_bridge_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "Give the bridge a name / number."
+            )
+        return value
+
+    def validate_spans(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Add at least one span."
+            )
+        return value
+
+
+class GirderSpanUpdateSerializer(
+    serializers.Serializer
+):
+    """
+    The handful of span fields that stay freely editable after
+    creation - vendor/PO/drawing no - matching the prototype's own
+    "Vendor/PO fields are freely editable per span" behaviour.
+    Progress itself is tracked on the span's Activity rows via the
+    normal ``activity-update`` endpoint, not here.
+    """
+
+    vendor = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+    po_number = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+    drawing_no = serializers.CharField(
+        required=False,
+        allow_blank=True,
     )

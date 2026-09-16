@@ -216,6 +216,16 @@ class Site(BusinessModel):
             "'NCR Prayagraj'."
         ),
     )
+    project_value = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor: the awarded contract "
+            "value for this project, in ₹."
+        ),
+    )
 
     class Meta:
         db_table = "organization_site"

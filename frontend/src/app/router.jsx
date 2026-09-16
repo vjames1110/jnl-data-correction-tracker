@@ -40,6 +40,7 @@ import { NotificationsPage } from "../modules/notifications/pages/NotificationsP
 import { ProjectOverviewPage } from "../modules/project_monitor/pages/ProjectOverviewPage";
 import { StructuresPage } from "../modules/project_monitor/pages/StructuresPage";
 import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
+import { GirdersPage } from "../modules/project_monitor/pages/GirdersPage";
 import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
 import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
@@ -276,6 +277,12 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/project-manager/girders",
+                element: (
+                  <GirdersPage />
+                ),
+              },
+              {
                 path: "/project-manager/reports",
                 element: (
                   <ProjectMonitorReportPage />
@@ -349,6 +356,12 @@ export const router = createBrowserRouter([
                 path: "/director/project-monitor/buildings",
                 element: (
                   <BuildingsPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/girders",
+                element: (
+                  <GirdersPage />
                 ),
               },
               {
@@ -488,6 +501,12 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/buildings",
                 element: (
                   <BuildingsPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/girders",
+                element: (
+                  <GirdersPage />
                 ),
               },
               {

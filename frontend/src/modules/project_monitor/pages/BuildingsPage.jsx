@@ -72,6 +72,19 @@ export function BuildingsPage() {
     );
   };
 
+  const handleCreateBuilding = (
+    payload,
+    options,
+  ) => {
+    createBuilding.mutate(payload, {
+      ...options,
+      onSuccess: (...args) => {
+        options?.onSuccess?.(...args);
+        setIsAddFormOpen(false);
+      },
+    });
+  };
+
   const buildingsByStation = useMemo(() => {
     const map = new Map();
     (buildingsQuery.data || []).forEach(
@@ -185,9 +198,10 @@ export function BuildingsPage() {
           onClose={() =>
             setIsAddFormOpen(false)
           }
+          closeOnOutsideClick
         >
           <AddBuildingForm
-            onCreate={createBuilding.mutate}
+            onCreate={handleCreateBuilding}
             onCancel={() =>
               setIsAddFormOpen(false)
             }

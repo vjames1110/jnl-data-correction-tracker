@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import {
   projectMonitorBuildingsPath,
+  projectMonitorGirdersPath,
   projectMonitorOverviewPath,
   projectMonitorReportsPath,
   projectMonitorStructuresPath,
@@ -28,6 +29,11 @@ export function ProjectMonitorTabs({ role, active }) {
       key: "buildings",
       label: "Buildings",
       path: projectMonitorBuildingsPath(role),
+    },
+    {
+      key: "girders",
+      label: "Girders",
+      path: projectMonitorGirdersPath(role),
     },
     {
       key: "reports",

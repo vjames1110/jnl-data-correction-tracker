@@ -119,6 +119,7 @@ export function useUpdateActivity(siteId) {
     onSuccess: () => {
       invalidateStructures(queryClient, siteId);
       invalidateBuildings(queryClient, siteId);
+      invalidateGirderJobs(queryClient, siteId);
     },
   });
 }
@@ -264,6 +265,7 @@ export function useReviewActivity(siteId) {
     onSuccess: () => {
       invalidateStructures(queryClient, siteId);
       invalidateBuildings(queryClient, siteId);
+      invalidateGirderJobs(queryClient, siteId);
     },
   });
 }
@@ -293,5 +295,203 @@ export function useReviewBuilding(siteId) {
       ),
     onSuccess: () =>
       invalidateBuildings(queryClient, siteId),
+  });
+}
+
+export function useGirderJobs(siteId) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorGirderJobs({
+        site: siteId,
+      }),
+    queryFn: () =>
+      projectMonitorService.listGirderJobs({
+        site: siteId,
+      }),
+    enabled: Boolean(siteId),
+  });
+}
+
+function invalidateGirderJobs(
+  queryClient,
+  siteId,
+) {
+  queryClient.invalidateQueries({
+    queryKey: [
+      "project-monitor",
+      "girder-jobs",
+    ],
+    predicate: (query) =>
+      query.queryKey[2]?.site === siteId,
+  });
+  queryClient.invalidateQueries({
+    queryKey:
+      queryKeys.projectMonitorOverview({
+        site: siteId,
+      }),
+  });
+}
+
+export function useCreateGirderJob(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createGirderJob(
+        siteId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useDeleteGirderJob(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (jobId) =>
+      projectMonitorService.deleteGirderJob(
+        jobId,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useReviewGirderJob(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ jobId, payload }) =>
+      projectMonitorService.reviewGirderJob(
+        jobId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useUpdateGirderSpan(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ spanId, payload }) =>
+      projectMonitorService.updateGirderSpan(
+        spanId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useRdsoSpanLibrary(
+  includeInactive,
+) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorRdsoSpanLibrary({
+        all: includeInactive ? "1" : "",
+      }),
+    queryFn: () =>
+      projectMonitorService.listRdsoSpanLibrary(
+        includeInactive
+          ? { all: "1" }
+          : {},
+      ),
+  });
+}
+
+function invalidateRdsoSpanLibrary(
+  queryClient,
+) {
+  queryClient.invalidateQueries({
+    queryKey: [
+      "project-monitor",
+      "rdso-span-library",
+    ],
+  });
+}
+
+export function useCreateRdsoSpanLibraryEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createRdsoSpanLibraryEntry(
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateRdsoSpanLibrary(queryClient),
+  });
+}
+
+export function useUpdateRdsoSpanLibraryEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ entryId, payload }) =>
+      projectMonitorService.updateRdsoSpanLibraryEntry(
+        entryId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateRdsoSpanLibrary(queryClient),
+  });
+}
+
+export function useDeleteRdsoSpanLibraryEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (entryId) =>
+      projectMonitorService.deleteRdsoSpanLibraryEntry(
+        entryId,
+      ),
+    onSuccess: () =>
+      invalidateRdsoSpanLibrary(queryClient),
+  });
+}
+
+export function useCreateProjectExtension(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createProjectExtension(
+        siteId,
+        payload,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.projectMonitorOverview({
+            site: siteId,
+          }),
+      }),
+  });
+}
+
+export function useDeleteProjectExtension(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (extensionId) =>
+      projectMonitorService.deleteProjectExtension(
+        extensionId,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.projectMonitorOverview({
+            site: siteId,
+          }),
+      }),
   });
 }

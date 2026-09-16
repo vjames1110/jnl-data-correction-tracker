@@ -160,4 +160,110 @@ export const projectMonitorService = {
 
     return response.data.data;
   },
+
+  async listGirderJobs(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/girder-jobs/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async createGirderJob(siteId, payload) {
+    const response = await apiClient.post(
+      "/project-monitor/girder-jobs/",
+      payload,
+      { params: { site: siteId } },
+    );
+
+    return response.data.data;
+  },
+
+  async getGirderJob(jobId) {
+    const response = await apiClient.get(
+      `/project-monitor/girder-jobs/${jobId}/`,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteGirderJob(jobId) {
+    await apiClient.delete(
+      `/project-monitor/girder-jobs/${jobId}/`,
+    );
+  },
+
+  async reviewGirderJob(jobId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/girder-jobs/${jobId}/review/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateGirderSpan(spanId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/girder-spans/${spanId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async listRdsoSpanLibrary(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/rdso-span-library/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async createRdsoSpanLibraryEntry(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/rdso-span-library/",
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateRdsoSpanLibraryEntry(
+    entryId,
+    payload,
+  ) {
+    const response = await apiClient.patch(
+      `/project-monitor/rdso-span-library/${entryId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteRdsoSpanLibraryEntry(entryId) {
+    await apiClient.delete(
+      `/project-monitor/rdso-span-library/${entryId}/`,
+    );
+  },
+
+  async createProjectExtension(
+    siteId,
+    payload,
+  ) {
+    const response = await apiClient.post(
+      "/project-monitor/extensions/",
+      payload,
+      { params: { site: siteId } },
+    );
+
+    return response.data.data;
+  },
+
+  async deleteProjectExtension(extensionId) {
+    await apiClient.delete(
+      `/project-monitor/extensions/${extensionId}/`,
+    );
+  },
 };

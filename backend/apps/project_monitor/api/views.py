@@ -21,8 +21,15 @@ from apps.project_monitor.api.serializers import (
     ActivityUpdateSerializer,
     BuildingCreateSerializer,
     BuildingSerializer,
+    GirderJobCreateSerializer,
+    GirderJobSerializer,
+    GirderSpanSerializer,
+    GirderSpanUpdateSerializer,
+    ProjectExtensionCreateSerializer,
+    ProjectExtensionSerializer,
     ProjectSiteDetailsUpdateSerializer,
     ProjectSiteSerializer,
+    RdsoSpanLibraryEntrySerializer,
     ReviewInputSerializer,
     StructureCreateSerializer,
     StructureSerializer,
@@ -32,6 +39,10 @@ from apps.project_monitor.models import (
     Activity,
     ActivityStatus,
     Building,
+    GirderJob,
+    GirderSpan,
+    ProjectExtension,
+    RdsoSpanLibraryEntry,
     Structure,
     StructureTypeDefinition,
 )
@@ -41,6 +52,9 @@ from apps.project_monitor.services.activity_engine import (
 )
 from apps.project_monitor.services.building_generator import (
     create_building,
+)
+from apps.project_monitor.services.girder_generator import (
+    create_girder_job,
 )
 from apps.project_monitor.services.review import (
     apply_review,
@@ -122,6 +136,41 @@ def _building_counts_for_site(site):
     }
 
 
+def _girder_span_prefetch():
+    return Prefetch(
+        "spans",
+        queryset=(
+            GirderSpan.objects.order_by(
+                "row_order"
+            ).prefetch_related(
+                _activities_prefetch()
+            )
+        ),
+    )
+
+
+def _girder_counts_for_site(site):
+    spans = GirderSpan.objects.filter(
+        job__site=site
+    )
+    span_ct = ContentType.objects.get_for_model(
+        GirderSpan
+    )
+    spans_launched = Activity.objects.filter(
+        content_type=span_ct,
+        object_id__in=spans.values_list(
+            "id", flat=True
+        ),
+        group_title="Girder fabrication",
+        name="Launching status",
+        status=ActivityStatus.COMPLETE,
+    ).count()
+    return {
+        "spans_tracked": spans.count(),
+        "spans_launched": spans_launched,
+    }
+
+
 def _get_site_from_query(request):
     site_id = request.query_params.get("site")
     if not site_id:
@@ -144,11 +193,11 @@ def _get_site_from_query(request):
 class ProjectOverviewAPIView(APIView):
     """
     One project's (= one Site's) Project Monitor overview: its core
-    identity/chainage plus a KPI-shaped counts block. Structures
-    counts are real as of Phase 2; Buildings/Girders/Linear/Action
-    Items stay zero until their own phases land, so the frontend
-    overview page doesn't need to change contract as the module
-    grows.
+    identity/chainage plus a KPI-shaped counts block. Structures/
+    Buildings/Girders counts are real as of their respective phases;
+    Linear/Action Items stay zero until their own phases land, so
+    the frontend overview page doesn't need to change contract as
+    the module grows.
 
     GET is Director-and-below read access
     (``HasProjectMonitorReportingAccess``); PATCH - editing the
@@ -172,10 +221,9 @@ class ProjectOverviewAPIView(APIView):
             "buildings": _building_counts_for_site(
                 site
             ),
-            "girders": {
-                "spans_tracked": 0,
-                "spans_launched": 0,
-            },
+            "girders": _girder_counts_for_site(
+                site
+            ),
             "linear": {
                 "done_m": 0,
                 "scope_m": 0,
@@ -220,6 +268,107 @@ class ProjectOverviewAPIView(APIView):
                     site
                 ).data,
             },
+        )
+
+
+class ProjectExtensionListCreateAPIView(
+    APIView
+):
+    """
+    A site's contract-extension history (E1, E2, E3... in the order
+    they were entered, per ``ProjectExtension.Meta.ordering``) - GET
+    is Director-and-below read access, same as the rest of this
+    module's status views (this list is already nested in
+    ``ProjectOverviewAPIView``'s response too; this endpoint exists
+    for direct access/refresh). POST records a new extension -
+    entry-role only, same convention as every other write here.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def get(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+        extensions = ProjectExtension.objects.filter(
+            site=site
+        ).select_related("created_by")
+
+        return success_response(
+            message=(
+                "Project extensions retrieved "
+                "successfully."
+            ),
+            data=ProjectExtensionSerializer(
+                extensions, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+
+        serializer = (
+            ProjectExtensionCreateSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+
+        extension = ProjectExtension.objects.create(
+            site=site,
+            new_end_date=serializer.validated_data[
+                "new_end_date"
+            ],
+            reason=serializer.validated_data[
+                "reason"
+            ],
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        return success_response(
+            message=(
+                "Project extension recorded "
+                "successfully."
+            ),
+            data=ProjectExtensionSerializer(
+                extension
+            ).data,
+        )
+
+
+class ProjectExtensionDetailAPIView(APIView):
+    """
+    Deletes a mistakenly-recorded extension - entry-role only.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            extension = ProjectExtension.objects.get(
+                pk=pk
+            )
+        except (
+            ProjectExtension.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Project extension not found."
+            ) from exc
+
+        extension.delete()
+
+        return success_response(
+            message=(
+                "Project extension deleted "
+                "successfully."
+            ),
+            data=None,
         )
 
 
@@ -570,6 +719,250 @@ class BuildingReviewAPIView(APIView):
         )
 
 
+def _girder_job_queryset():
+    return GirderJob.objects.select_related(
+        "structure",
+        "structure__structure_type",
+    ).prefetch_related(
+        _activities_prefetch(),
+        _girder_span_prefetch(),
+    )
+
+
+class GirderJobListCreateAPIView(APIView):
+    """
+    List every Girder Job (one row per bridge tracked) on a Site
+    with its full span-by-span chain detail (GET - Director-and-
+    below read access), or generate a new one from its parametric
+    inputs (POST - entry-role only) - the server-side port of the
+    prototype's "+ Add girder job" -> ``addGirderJob()`` action.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def get(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+
+        queryset = _girder_job_queryset().filter(
+            site=site
+        )
+
+        return success_response(
+            message=(
+                "Girder jobs retrieved "
+                "successfully."
+            ),
+            data=GirderJobSerializer(
+                queryset, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+
+        serializer = GirderJobCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        job = create_girder_job(
+            site=site,
+            structure=data.get("structure"),
+            structure_kind=data[
+                "structure_kind"
+            ],
+            bridge_name=data["bridge_name"],
+            chainage_km=data.get(
+                "chainage_km"
+            ),
+            girder_scope=data["girder_scope"],
+            spans=data["spans"],
+            actor=request.user,
+        )
+
+        job = _girder_job_queryset().get(
+            pk=job.pk
+        )
+
+        return success_response(
+            message=(
+                "Girder job generated "
+                "successfully."
+            ),
+            data=GirderJobSerializer(job).data,
+        )
+
+
+class GirderJobDetailAPIView(APIView):
+    """
+    One Girder Job's full detail (GET - Director-and-below read
+    access) or its deletion (DELETE - entry-role only). Deleting
+    cascades to every span (``GirderSpan.job``) and, via each
+    span's/the job's own generic ``activities`` relation, every
+    generated Activity row.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def _get_job(self, pk):
+        try:
+            return _girder_job_queryset().get(
+                pk=pk
+            )
+        except (
+            GirderJob.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Girder job not found."
+            ) from exc
+
+    def get(self, request, pk, *args, **kwargs):
+        job = self._get_job(pk)
+        return success_response(
+            message=(
+                "Girder job retrieved "
+                "successfully."
+            ),
+            data=GirderJobSerializer(job).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        job = self._get_job(pk)
+        job.delete()
+        return success_response(
+            message=(
+                "Girder job deleted "
+                "successfully."
+            ),
+            data=None,
+        )
+
+
+class GirderJobReviewAPIView(APIView):
+    """
+    The consolidated "review this whole bridge" action - marks the
+    bridge-level GAD row and every activity on every span as
+    reviewed at once, all with the same reviewer/timestamp/remark -
+    see ``StructureReviewAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorReportingAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            job = GirderJob.objects.prefetch_related(
+                "spans"
+            ).get(pk=pk)
+        except (
+            GirderJob.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Girder job not found."
+            ) from exc
+
+        serializer = ReviewInputSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        remarks = serializer.validated_data[
+            "remarks"
+        ]
+
+        activities = list(job.activities.all())
+        for span in job.spans.all():
+            activities += list(
+                span.activities.all()
+            )
+        review_activities(
+            activities,
+            remarks=remarks,
+            actor=request.user,
+        )
+
+        job = _girder_job_queryset().get(
+            pk=job.pk
+        )
+
+        return success_response(
+            message=(
+                "Girder job reviewed "
+                "successfully."
+            ),
+            data=GirderJobSerializer(job).data,
+        )
+
+
+class GirderSpanUpdateAPIView(APIView):
+    """
+    Updates a span's freely-editable vendor/PO/drawing-no fields -
+    entry-role only. Progress itself goes through the normal
+    ``activity-update`` endpoint against that span's own Activity
+    rows, not here.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            span = GirderSpan.objects.get(pk=pk)
+        except (
+            GirderSpan.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Girder span not found."
+            ) from exc
+
+        serializer = GirderSpanUpdateSerializer(
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        for (
+            field,
+            value,
+        ) in serializer.validated_data.items():
+            setattr(span, field, value)
+        span.save(
+            update_fields=list(
+                serializer.validated_data.keys()
+            )
+            + ["updated_at"]
+        )
+
+        span = (
+            GirderSpan.objects.prefetch_related(
+                _activities_prefetch()
+            ).get(pk=span.pk)
+        )
+
+        return success_response(
+            message=(
+                "Girder span updated "
+                "successfully."
+            ),
+            data=GirderSpanSerializer(
+                span
+            ).data,
+        )
+
+
 class ActivityUpdateAPIView(APIView):
     """
     Apply one "meeting update" action to a single Activity row -
@@ -842,4 +1235,131 @@ class StructureTypeDetailAPIView(APIView):
             for label, count in sorted(
                 counts.items()
             )
+        )
+
+
+class RdsoSpanLibraryEntryListCreateAPIView(
+    APIView
+):
+    """
+    The RDSO standard span library: every entry (the 7 built-in
+    standard spans, plus whatever an Admin has since added/edited)
+    that the "Add girder job" span picker offers. GET defaults to
+    active entries only; pass ``?all=1`` (the Admin settings page)
+    to see inactive ones too, mirroring
+    ``StructureTypeListCreateAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorMasterAccess,
+    ]
+
+    def get(self, request, *args, **kwargs):
+        queryset = (
+            RdsoSpanLibraryEntry.objects.all()
+        )
+        if not request.query_params.get("all"):
+            queryset = queryset.filter(
+                is_active=True
+            )
+
+        return success_response(
+            message=(
+                "RDSO span library retrieved "
+                "successfully."
+            ),
+            data=RdsoSpanLibraryEntrySerializer(
+                queryset, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        serializer = (
+            RdsoSpanLibraryEntrySerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save(
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        return success_response(
+            message=(
+                "RDSO span library entry "
+                "created successfully."
+            ),
+            data=RdsoSpanLibraryEntrySerializer(
+                instance
+            ).data,
+        )
+
+
+class RdsoSpanLibraryEntryDetailAPIView(
+    APIView
+):
+    """
+    Update or delete one RDSO span library entry. Unlike Structure
+    Types, an entry isn't FK-referenced by anything (a span copies
+    its values in at pick-time, display/audit only), so a real
+    delete is always safe - deactivate instead only if it's still
+    wanted for history's sake.
+    """
+
+    permission_classes = [
+        HasProjectMonitorMasterAccess,
+    ]
+
+    def _get_entry(self, pk):
+        try:
+            return (
+                RdsoSpanLibraryEntry.objects.get(
+                    pk=pk
+                )
+            )
+        except (
+            RdsoSpanLibraryEntry.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "RDSO span library entry not "
+                "found."
+            ) from exc
+
+    def patch(self, request, pk, *args, **kwargs):
+        entry = self._get_entry(pk)
+        serializer = (
+            RdsoSpanLibraryEntrySerializer(
+                entry,
+                data=request.data,
+                partial=True,
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            updated_by=request.user
+        )
+
+        return success_response(
+            message=(
+                "RDSO span library entry "
+                "updated successfully."
+            ),
+            data=RdsoSpanLibraryEntrySerializer(
+                entry
+            ).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        entry = self._get_entry(pk)
+        entry.delete()
+
+        return success_response(
+            message=(
+                "RDSO span library entry "
+                "deleted successfully."
+            ),
+            data=None,
         )

@@ -454,4 +454,14 @@ export const queryKeys = Object.freeze({
     "buildings",
     params,
   ],
+  projectMonitorGirderJobs: (params) => [
+    "project-monitor",
+    "girder-jobs",
+    params,
+  ],
+  projectMonitorRdsoSpanLibrary: (params) => [
+    "project-monitor",
+    "rdso-span-library",
+    params,
+  ],
 });
