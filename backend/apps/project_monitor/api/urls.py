@@ -1,6 +1,8 @@
 from django.urls import path
 
 from apps.project_monitor.api.views import (
+    ActionItemDetailAPIView,
+    ActionItemListCreateAPIView,
     ActivityReviewAPIView,
     ActivityUpdateAPIView,
     BuildingDetailAPIView,
@@ -10,11 +12,17 @@ from apps.project_monitor.api.views import (
     GirderJobListCreateAPIView,
     GirderJobReviewAPIView,
     GirderSpanUpdateAPIView,
+    LinearItemDetailAPIView,
+    LinearItemListCreateAPIView,
+    ProgressEntryDetailAPIView,
+    ProgressEntryListCreateAPIView,
     ProjectExtensionDetailAPIView,
     ProjectExtensionListCreateAPIView,
     ProjectOverviewAPIView,
     RdsoSpanLibraryEntryDetailAPIView,
     RdsoSpanLibraryEntryListCreateAPIView,
+    ScopePatchDetailAPIView,
+    ScopePatchListCreateAPIView,
     StructureDetailAPIView,
     StructureListCreateAPIView,
     StructureReviewAPIView,
@@ -110,6 +118,46 @@ urlpatterns = [
         "girder-spans/<uuid:pk>/",
         GirderSpanUpdateAPIView.as_view(),
         name="girder-span-update",
+    ),
+    path(
+        "action-items/",
+        ActionItemListCreateAPIView.as_view(),
+        name="action-item-list",
+    ),
+    path(
+        "action-items/<uuid:pk>/",
+        ActionItemDetailAPIView.as_view(),
+        name="action-item-detail",
+    ),
+    path(
+        "linear-items/",
+        LinearItemListCreateAPIView.as_view(),
+        name="linear-item-list",
+    ),
+    path(
+        "linear-items/<uuid:pk>/",
+        LinearItemDetailAPIView.as_view(),
+        name="linear-item-detail",
+    ),
+    path(
+        "linear-items/<uuid:linear_item_pk>/scope-patches/",
+        ScopePatchListCreateAPIView.as_view(),
+        name="scope-patch-list",
+    ),
+    path(
+        "scope-patches/<uuid:pk>/",
+        ScopePatchDetailAPIView.as_view(),
+        name="scope-patch-detail",
+    ),
+    path(
+        "linear-items/<uuid:linear_item_pk>/progress-entries/",
+        ProgressEntryListCreateAPIView.as_view(),
+        name="progress-entry-list",
+    ),
+    path(
+        "progress-entries/<uuid:pk>/",
+        ProgressEntryDetailAPIView.as_view(),
+        name="progress-entry-detail",
     ),
     path(
         "activities/<uuid:pk>/",

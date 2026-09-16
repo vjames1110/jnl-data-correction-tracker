@@ -1,8 +1,12 @@
 from collections import Counter
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import (
+    ValidationError as DjangoValidationError,
+)
 from django.db.models import Count, Prefetch
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 from rest_framework.exceptions import (
     NotFound,
     ValidationError,
@@ -17,6 +21,9 @@ from apps.project_monitor.api.permissions import (
     HasProjectMonitorReportingAccess,
 )
 from apps.project_monitor.api.serializers import (
+    ActionItemCreateSerializer,
+    ActionItemSerializer,
+    ActionItemUpdateSerializer,
     ActivitySerializer,
     ActivityUpdateSerializer,
     BuildingCreateSerializer,
@@ -25,26 +32,41 @@ from apps.project_monitor.api.serializers import (
     GirderJobSerializer,
     GirderSpanSerializer,
     GirderSpanUpdateSerializer,
+    LinearItemCreateSerializer,
+    LinearItemSerializer,
+    ProgressEntryCreateSerializer,
+    ProgressEntrySerializer,
+    ProgressEntryUpdateSerializer,
     ProjectExtensionCreateSerializer,
     ProjectExtensionSerializer,
     ProjectSiteDetailsUpdateSerializer,
     ProjectSiteSerializer,
     RdsoSpanLibraryEntrySerializer,
     ReviewInputSerializer,
+    ScopePatchCreateSerializer,
+    ScopePatchSerializer,
     StructureCreateSerializer,
     StructureSerializer,
     StructureTypeSerializer,
 )
 from apps.project_monitor.models import (
+    ActionItem,
     Activity,
     ActivityStatus,
     Building,
     GirderJob,
     GirderSpan,
+    LinearItem,
+    LinearUnit,
+    ProgressEntry,
     ProjectExtension,
     RdsoSpanLibraryEntry,
+    ScopePatch,
     Structure,
     StructureTypeDefinition,
+)
+from apps.project_monitor.services.action_item_generator import (
+    create_action_item,
 )
 from apps.project_monitor.services.activity_engine import (
     apply_material_status_update,
@@ -55,6 +77,14 @@ from apps.project_monitor.services.building_generator import (
 )
 from apps.project_monitor.services.girder_generator import (
     create_girder_job,
+)
+from apps.project_monitor.services.linear_generator import (
+    create_linear_item,
+    create_progress_entry,
+    create_scope_patch,
+)
+from apps.project_monitor.services.linear_stats import (
+    compute_item_stats,
 )
 from apps.project_monitor.services.review import (
     apply_review,
@@ -171,6 +201,60 @@ def _girder_counts_for_site(site):
     }
 
 
+def _action_item_counts_for_site(site):
+    action_item_ct = ContentType.objects.get_for_model(
+        ActionItem
+    )
+    open_activities = Activity.objects.filter(
+        content_type=action_item_ct,
+        object_id__in=ActionItem.objects.filter(
+            site=site
+        ).values_list("id", flat=True),
+    ).exclude(
+        status__in=[
+            ActivityStatus.COMPLETE,
+            ActivityStatus.NOT_APPLICABLE,
+        ]
+    )
+
+    overdue = 0
+    for activity in open_activities.prefetch_related(
+        "date_entries"
+    ):
+        entries = list(
+            activity.date_entries.all()
+        )
+        if (
+            entries
+            and entries[-1].target_date
+            < timezone.localdate()
+        ):
+            overdue += 1
+
+    return {
+        "open": open_activities.count(),
+        "overdue": overdue,
+    }
+
+
+def _linear_counts_for_site(site):
+    done_m = 0
+    scope_m = 0
+    for item in LinearItem.objects.filter(
+        site=site, unit=LinearUnit.M
+    ).prefetch_related(
+        "scope_patches", "progress_entries"
+    ):
+        stats = compute_item_stats(item)
+        done_m += stats["done"]
+        scope_m += stats["scope"]
+
+    return {
+        "done_m": done_m,
+        "scope_m": scope_m,
+    }
+
+
 def _get_site_from_query(request):
     site_id = request.query_params.get("site")
     if not site_id:
@@ -193,11 +277,9 @@ def _get_site_from_query(request):
 class ProjectOverviewAPIView(APIView):
     """
     One project's (= one Site's) Project Monitor overview: its core
-    identity/chainage plus a KPI-shaped counts block. Structures/
-    Buildings/Girders counts are real as of their respective phases;
-    Linear/Action Items stay zero until their own phases land, so
-    the frontend overview page doesn't need to change contract as
-    the module grows.
+    identity/chainage plus a KPI-shaped counts block. Every section's
+    counts (Structures/Buildings/Girders/Action Items/Linear) are
+    real now that every phase has landed.
 
     GET is Director-and-below read access
     (``HasProjectMonitorReportingAccess``); PATCH - editing the
@@ -224,14 +306,12 @@ class ProjectOverviewAPIView(APIView):
             "girders": _girder_counts_for_site(
                 site
             ),
-            "linear": {
-                "done_m": 0,
-                "scope_m": 0,
-            },
-            "action_items": {
-                "open": 0,
-                "overdue": 0,
-            },
+            "linear": _linear_counts_for_site(
+                site
+            ),
+            "action_items": _action_item_counts_for_site(
+                site
+            ),
         }
 
         return success_response(
@@ -960,6 +1040,546 @@ class GirderSpanUpdateAPIView(APIView):
             data=GirderSpanSerializer(
                 span
             ).data,
+        )
+
+
+def _action_item_queryset():
+    return ActionItem.objects.prefetch_related(
+        _activities_prefetch()
+    )
+
+
+class ActionItemListCreateAPIView(APIView):
+    """
+    List every Action Item on a Site (GET - Director-and-below read
+    access; "Open"/"Completed" and the overdue flag are all derived
+    client-side from each item's nested ``activity.status``/
+    ``is_overdue``, so one list serves both tables) or record a new
+    one (POST - entry-role only) - the plainest use of the shared
+    Activity engine, via ``create_action_item``.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def get(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+        queryset = _action_item_queryset().filter(
+            site=site
+        )
+
+        return success_response(
+            message=(
+                "Action items retrieved "
+                "successfully."
+            ),
+            data=ActionItemSerializer(
+                queryset, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+
+        serializer = ActionItemCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        item = create_action_item(
+            site=site,
+            name=data["name"],
+            responsibility=data.get(
+                "responsibility", ""
+            ),
+            remarks=data.get("remarks", ""),
+            target_date=data.get(
+                "target_date"
+            ),
+            actor=request.user,
+        )
+
+        item = _action_item_queryset().get(
+            pk=item.pk
+        )
+
+        return success_response(
+            message=(
+                "Action item recorded "
+                "successfully."
+            ),
+            data=ActionItemSerializer(
+                item
+            ).data,
+        )
+
+
+class ActionItemDetailAPIView(APIView):
+    """
+    One Action Item's detail (GET - Director-and-below read access),
+    editing its persistent ``responsibility``/``remarks`` (PATCH -
+    entry-role only, deliberately separate from the dated meeting-
+    log the normal ``activity-update`` endpoint writes to), or its
+    deletion (DELETE - entry-role only).
+    """
+
+    def get_permissions(self):
+        if self.request.method in (
+            "PATCH",
+            "DELETE",
+        ):
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def _get_item(self, pk):
+        try:
+            return _action_item_queryset().get(
+                pk=pk
+            )
+        except (
+            ActionItem.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Action item not found."
+            ) from exc
+
+    def get(self, request, pk, *args, **kwargs):
+        item = self._get_item(pk)
+        return success_response(
+            message=(
+                "Action item retrieved "
+                "successfully."
+            ),
+            data=ActionItemSerializer(
+                item
+            ).data,
+        )
+
+    def patch(self, request, pk, *args, **kwargs):
+        item = self._get_item(pk)
+
+        serializer = ActionItemUpdateSerializer(
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        for (
+            field,
+            value,
+        ) in serializer.validated_data.items():
+            setattr(item, field, value)
+        item.updated_by = request.user
+        item.save(
+            update_fields=list(
+                serializer.validated_data.keys()
+            )
+            + ["updated_by", "updated_at"]
+        )
+
+        return success_response(
+            message=(
+                "Action item updated "
+                "successfully."
+            ),
+            data=ActionItemSerializer(
+                item
+            ).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        item = self._get_item(pk)
+        item.delete()
+        return success_response(
+            message=(
+                "Action item deleted "
+                "successfully."
+            ),
+            data=None,
+        )
+
+
+def _linear_item_queryset():
+    return LinearItem.objects.prefetch_related(
+        "scope_patches", "progress_entries"
+    )
+
+
+class LinearItemListCreateAPIView(APIView):
+    """
+    List every Linear Item (chainage-tracked continuous work) on a
+    Site with its scope patches/progress entries/computed stats
+    nested (GET - Director-and-below read access), or add a new one
+    (POST - entry-role only). Deliberately not built on the generic
+    Activity engine - see ``models.LinearItem``'s own docstring.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def get(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+        queryset = _linear_item_queryset().filter(
+            site=site
+        )
+
+        return success_response(
+            message=(
+                "Linear items retrieved "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                queryset, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = _get_site_from_query(request)
+
+        serializer = LinearItemCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        item = create_linear_item(
+            site=site,
+            name=data["name"],
+            unit=data["unit"],
+            actor=request.user,
+        )
+
+        item = _linear_item_queryset().get(
+            pk=item.pk
+        )
+
+        return success_response(
+            message=(
+                "Linear item created "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                item
+            ).data,
+        )
+
+
+class LinearItemDetailAPIView(APIView):
+    """
+    One Linear Item's detail (GET) or its deletion (DELETE - entry-
+    role only), cascading to every scope patch/progress entry.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def _get_item(self, pk):
+        try:
+            return _linear_item_queryset().get(
+                pk=pk
+            )
+        except (
+            LinearItem.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Linear item not found."
+            ) from exc
+
+    def get(self, request, pk, *args, **kwargs):
+        item = self._get_item(pk)
+        return success_response(
+            message=(
+                "Linear item retrieved "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                item
+            ).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        item = self._get_item(pk)
+        item.delete()
+        return success_response(
+            message=(
+                "Linear item deleted "
+                "successfully."
+            ),
+            data=None,
+        )
+
+
+class ScopePatchListCreateAPIView(APIView):
+    """
+    Adds a scope patch to a Linear Item - entry-role only. An item
+    with zero scope patches is treated as fully unrestricted (see
+    ``services.linear_stats``), so this is optional, not required,
+    before progress can be logged.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(
+        self, request, linear_item_pk, *args, **kwargs
+    ):
+        try:
+            linear_item = LinearItem.objects.get(
+                pk=linear_item_pk
+            )
+        except (
+            LinearItem.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Linear item not found."
+            ) from exc
+
+        serializer = ScopePatchCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            create_scope_patch(
+                linear_item=linear_item,
+                from_chainage_km=data[
+                    "from_chainage_km"
+                ],
+                to_chainage_km=data[
+                    "to_chainage_km"
+                ],
+                side=data["side"],
+                qty=data.get("qty"),
+                remarks=data.get(
+                    "remarks", ""
+                ),
+                actor=request.user,
+            )
+        except DjangoValidationError as exc:
+            raise ValidationError(
+                exc.message_dict
+            ) from exc
+
+        linear_item = _linear_item_queryset().get(
+            pk=linear_item.pk
+        )
+
+        return success_response(
+            message=(
+                "Scope patch added "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                linear_item
+            ).data,
+        )
+
+
+class ScopePatchDetailAPIView(APIView):
+    """Deletes a scope patch - entry-role only."""
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            patch = ScopePatch.objects.get(
+                pk=pk
+            )
+        except (
+            ScopePatch.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Scope patch not found."
+            ) from exc
+
+        patch.delete()
+
+        return success_response(
+            message=(
+                "Scope patch deleted "
+                "successfully."
+            ),
+            data=None,
+        )
+
+
+class ProgressEntryListCreateAPIView(APIView):
+    """
+    Logs a progress entry against a Linear Item - entry-role only.
+    Accepted regardless of scope coverage (the interval math already
+    naturally excludes any out-of-scope portion from the Done/
+    Ongoing totals - see ``services.linear_stats``); there's no hard
+    block here, only the chainage-range validation on the model
+    itself.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(
+        self, request, linear_item_pk, *args, **kwargs
+    ):
+        try:
+            linear_item = LinearItem.objects.get(
+                pk=linear_item_pk
+            )
+        except (
+            LinearItem.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Linear item not found."
+            ) from exc
+
+        serializer = (
+            ProgressEntryCreateSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            create_progress_entry(
+                linear_item=linear_item,
+                date=data["date"],
+                from_chainage_km=data[
+                    "from_chainage_km"
+                ],
+                to_chainage_km=data[
+                    "to_chainage_km"
+                ],
+                side=data["side"],
+                status=data["status"],
+                meeting_date=data[
+                    "meeting_date"
+                ],
+                qty=data.get("qty"),
+                contractor=data.get(
+                    "contractor", ""
+                ),
+                remarks=data.get(
+                    "remarks", ""
+                ),
+                actor=request.user,
+            )
+        except DjangoValidationError as exc:
+            raise ValidationError(
+                exc.message_dict
+            ) from exc
+
+        linear_item = _linear_item_queryset().get(
+            pk=linear_item.pk
+        )
+
+        return success_response(
+            message=(
+                "Progress entry recorded "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                linear_item
+            ).data,
+        )
+
+
+class ProgressEntryDetailAPIView(APIView):
+    """
+    Editing (PATCH - matching the prototype's own ``editEntry``) or
+    deleting (DELETE) a progress entry - entry-role only.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def _get_entry(self, pk):
+        try:
+            return ProgressEntry.objects.get(
+                pk=pk
+            )
+        except (
+            ProgressEntry.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Progress entry not found."
+            ) from exc
+
+    def patch(self, request, pk, *args, **kwargs):
+        entry = self._get_entry(pk)
+
+        serializer = (
+            ProgressEntryUpdateSerializer(
+                data=request.data,
+                partial=True,
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+        for (
+            field,
+            value,
+        ) in serializer.validated_data.items():
+            setattr(entry, field, value)
+        entry.updated_by = request.user
+        try:
+            entry.save(
+                update_fields=list(
+                    serializer.validated_data.keys()
+                )
+                + ["updated_by", "updated_at"]
+            )
+        except DjangoValidationError as exc:
+            raise ValidationError(
+                exc.message_dict
+            ) from exc
+
+        linear_item = (
+            _linear_item_queryset().get(
+                pk=entry.linear_item_id
+            )
+        )
+
+        return success_response(
+            message=(
+                "Progress entry updated "
+                "successfully."
+            ),
+            data=LinearItemSerializer(
+                linear_item
+            ).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        entry = self._get_entry(pk)
+        entry.delete()
+        return success_response(
+            message=(
+                "Progress entry deleted "
+                "successfully."
+            ),
+            data=None,
         )
 
 

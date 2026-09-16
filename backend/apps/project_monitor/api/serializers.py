@@ -6,6 +6,7 @@ from apps.organization.api.serializers import (
 )
 from apps.organization.models import Site
 from apps.project_monitor.models import (
+    ActionItem,
     Activity,
     ActivityComment,
     ActivityDateEntry,
@@ -15,11 +16,19 @@ from apps.project_monitor.models import (
     GirderScope,
     GirderSpan,
     GirderStructureKind,
+    LinearItem,
+    LinearSide,
+    LinearUnit,
     MaterialStatus,
+    ProgressEntry,
     ProjectExtension,
     RdsoSpanLibraryEntry,
+    ScopePatch,
     Structure,
     StructureTypeDefinition,
+)
+from apps.project_monitor.services.linear_stats import (
+    compute_item_stats,
 )
 from apps.project_monitor.services.structure_generator import (
     validate_definition_schema,
@@ -902,3 +911,309 @@ class GirderSpanUpdateSerializer(
         required=False,
         allow_blank=True,
     )
+
+
+class ActionItemSerializer(
+    serializers.ModelSerializer
+):
+    """
+    An Action Item's single generic ``Activity`` (status/target-
+    date-history/comments/review) nested alongside the two fields
+    the Activity itself doesn't carry - ``responsibility`` and the
+    persistent ``remarks``. ``is_overdue`` is derived from the
+    linked Activity's own current target date and status, not
+    stored - the whole point of "Open"/"Completed" is that they're
+    just a read of the Activity's own state.
+    """
+
+    activity = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActionItem
+        fields = [
+            "id",
+            "site",
+            "responsibility",
+            "remarks",
+            "activity",
+            "is_overdue",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def _activity(self, obj):
+        activities = list(obj.activities.all())
+        return activities[0] if activities else None
+
+    def get_activity(self, obj):
+        activity = self._activity(obj)
+        return (
+            ActivitySerializer(activity).data
+            if activity
+            else None
+        )
+
+    def get_is_overdue(self, obj):
+        activity = self._activity(obj)
+        if not activity or activity.status in (
+            ActivityStatus.COMPLETE,
+            ActivityStatus.NOT_APPLICABLE,
+        ):
+            return False
+
+        date_entries = list(
+            activity.date_entries.all()
+        )
+        if not date_entries:
+            return False
+
+        target_date = date_entries[-1].target_date
+        return target_date < timezone.localdate()
+
+
+class ActionItemCreateSerializer(
+    serializers.Serializer
+):
+    name = serializers.CharField(max_length=200)
+    responsibility = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=150,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    target_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "Give the action item a name."
+            )
+        return value
+
+
+class ActionItemUpdateSerializer(
+    serializers.Serializer
+):
+    """
+    The persistent fields an Action Item's own PATCH endpoint edits
+    directly - deliberately separate from the dated meeting-log the
+    normal ``activity-update`` endpoint writes to.
+    """
+
+    responsibility = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=150,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+
+class ScopePatchSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = ScopePatch
+        fields = [
+            "id",
+            "from_chainage_km",
+            "to_chainage_km",
+            "side",
+            "qty",
+            "remarks",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ScopePatchCreateSerializer(
+    serializers.Serializer
+):
+    from_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    to_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    side = serializers.ChoiceField(
+        choices=LinearSide.choices,
+        required=False,
+        default=LinearSide.BOTH,
+    )
+    qty = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class ProgressEntrySerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = ProgressEntry
+        fields = [
+            "id",
+            "date",
+            "from_chainage_km",
+            "to_chainage_km",
+            "qty",
+            "side",
+            "contractor",
+            "status",
+            "remarks",
+            "meeting_date",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class ProgressEntryCreateSerializer(
+    serializers.Serializer
+):
+    date = serializers.DateField()
+    meeting_date = serializers.DateField()
+    from_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    to_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    side = serializers.ChoiceField(
+        choices=LinearSide.choices,
+        required=False,
+        default=LinearSide.BOTH,
+    )
+    qty = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    contractor = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    status = serializers.ChoiceField(
+        choices=ProgressEntry.LINEAR_STATUS_CHOICES,
+        required=False,
+        default=ActivityStatus.IN_PROGRESS,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class ProgressEntryUpdateSerializer(
+    serializers.Serializer
+):
+    """
+    Editing an existing progress entry - mirrors the prototype's
+    own ``editEntry`` action, so every field stays changeable, not
+    just remarks/status.
+    """
+
+    date = serializers.DateField(
+        required=False
+    )
+    from_chainage_km = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        required=False,
+    )
+    to_chainage_km = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        required=False,
+    )
+    side = serializers.ChoiceField(
+        choices=LinearSide.choices,
+        required=False,
+    )
+    qty = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    contractor = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+    status = serializers.ChoiceField(
+        choices=ProgressEntry.LINEAR_STATUS_CHOICES,
+        required=False,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+
+class LinearItemSerializer(
+    serializers.ModelSerializer
+):
+    scope_patches = ScopePatchSerializer(
+        many=True, read_only=True
+    )
+    progress_entries = ProgressEntrySerializer(
+        many=True, read_only=True
+    )
+    stats = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LinearItem
+        fields = [
+            "id",
+            "site",
+            "name",
+            "unit",
+            "scope_patches",
+            "progress_entries",
+            "stats",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_stats(self, obj):
+        return compute_item_stats(obj)
+
+
+class LinearItemCreateSerializer(
+    serializers.Serializer
+):
+    name = serializers.CharField(max_length=150)
+    unit = serializers.ChoiceField(
+        choices=LinearUnit.choices,
+        required=False,
+        default=LinearUnit.M,
+    )
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "Give the linear item a name."
+            )
+        return value

@@ -8,12 +8,25 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
+  useActionItems,
   useBuildings,
+  useGirderJobs,
+  useLinearItems,
   useProjectOverview,
   useStructures,
 } from "../../../hooks/useProjectMonitor";
 import { ProjectMonitorReportSheet } from "../components/ProjectMonitorReportSheet";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
+import { ReportCustomizationPanel } from "../components/ReportCustomizationPanel";
+
+const DEFAULT_SECTIONS = {
+  details: true,
+  structures: true,
+  buildings: true,
+  girders: true,
+  actionItems: true,
+  linearWorks: true,
+};
 
 /**
  * The whole-project, task-wise progress report - separate from the
@@ -30,6 +43,9 @@ export function ProjectMonitorReportPage() {
   const [selectedSite, setSelectedSite] = useState(
     () => searchParams.get("site") || "",
   );
+  const [sections, setSections] = useState(
+    DEFAULT_SECTIONS,
+  );
 
   const sitesQuery = useSitesDropdown();
   const overviewQuery = useProjectOverview(
@@ -41,6 +57,15 @@ export function ProjectMonitorReportPage() {
   const buildingsQuery = useBuildings(
     selectedSite,
   );
+  const girderJobsQuery = useGirderJobs(
+    selectedSite,
+  );
+  const actionItemsQuery = useActionItems(
+    selectedSite,
+  );
+  const linearItemsQuery = useLinearItems(
+    selectedSite,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -49,14 +74,27 @@ export function ProjectMonitorReportPage() {
     );
   };
 
+  const handleToggleSection = (key) => {
+    setSections((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
   const isLoading =
     overviewQuery.isLoading ||
     structuresQuery.isLoading ||
-    buildingsQuery.isLoading;
+    buildingsQuery.isLoading ||
+    girderJobsQuery.isLoading ||
+    actionItemsQuery.isLoading ||
+    linearItemsQuery.isLoading;
   const isError =
     overviewQuery.isError ||
     structuresQuery.isError ||
-    buildingsQuery.isError;
+    buildingsQuery.isError ||
+    girderJobsQuery.isError ||
+    actionItemsQuery.isError ||
+    linearItemsQuery.isError;
 
   return (
     <div className="organization-page">
@@ -136,22 +174,73 @@ export function ProjectMonitorReportPage() {
           message={
             overviewQuery.error?.message ||
             structuresQuery.error?.message ||
-            buildingsQuery.error?.message
+            buildingsQuery.error?.message ||
+            girderJobsQuery.error?.message ||
+            actionItemsQuery.error?.message ||
+            linearItemsQuery.error?.message
           }
           onRetry={() => {
             overviewQuery.refetch();
             structuresQuery.refetch();
             buildingsQuery.refetch();
+            girderJobsQuery.refetch();
+            actionItemsQuery.refetch();
+            linearItemsQuery.refetch();
           }}
         />
       ) : (
-        <ProjectMonitorReportSheet
-          site={overviewQuery.data.site}
-          structures={
-            structuresQuery.data || []
-          }
-          buildings={buildingsQuery.data || []}
-        />
+        <>
+          <ReportCustomizationPanel
+            sections={sections}
+            counts={{
+              structures:
+                structuresQuery.data?.length || 0,
+              buildings:
+                buildingsQuery.data?.length || 0,
+              girders:
+                girderJobsQuery.data?.length || 0,
+              actionItems:
+                actionItemsQuery.data?.length ||
+                0,
+              linearWorks:
+                linearItemsQuery.data?.length ||
+                0,
+            }}
+            onToggle={handleToggleSection}
+            onSelectAll={() =>
+              setSections(DEFAULT_SECTIONS)
+            }
+            onClearAll={() =>
+              setSections({
+                details: false,
+                structures: false,
+                buildings: false,
+                girders: false,
+                actionItems: false,
+                linearWorks: false,
+              })
+            }
+          />
+          <ProjectMonitorReportSheet
+            site={overviewQuery.data.site}
+            structures={
+              structuresQuery.data || []
+            }
+            buildings={
+              buildingsQuery.data || []
+            }
+            girderJobs={
+              girderJobsQuery.data || []
+            }
+            actionItems={
+              actionItemsQuery.data || []
+            }
+            linearItems={
+              linearItemsQuery.data || []
+            }
+            sections={sections}
+          />
+        </>
       )}
     </div>
   );

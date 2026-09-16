@@ -1,14 +1,18 @@
 from django.contrib import admin
 
 from apps.project_monitor.models import (
+    ActionItem,
     Activity,
     ActivityComment,
     ActivityDateEntry,
     Building,
     GirderJob,
     GirderSpan,
+    LinearItem,
+    ProgressEntry,
     ProjectExtension,
     RdsoSpanLibraryEntry,
+    ScopePatch,
     Structure,
     StructureTypeDefinition,
 )
@@ -171,3 +175,57 @@ class ProjectExtensionAdmin(admin.ModelAdmin):
     ]
     list_filter = ["site"]
     search_fields = ["reason"]
+
+
+@admin.register(ActionItem)
+class ActionItemAdmin(admin.ModelAdmin):
+    list_display = [
+        "__str__",
+        "site",
+        "responsibility",
+        "created_at",
+    ]
+    list_filter = ["site"]
+    search_fields = ["responsibility", "remarks"]
+
+
+class ScopePatchInline(admin.TabularInline):
+    model = ScopePatch
+    extra = 0
+    fields = [
+        "from_chainage_km",
+        "to_chainage_km",
+        "side",
+        "qty",
+        "remarks",
+    ]
+
+
+class ProgressEntryInline(admin.TabularInline):
+    model = ProgressEntry
+    extra = 0
+    fields = [
+        "date",
+        "from_chainage_km",
+        "to_chainage_km",
+        "qty",
+        "side",
+        "contractor",
+        "status",
+    ]
+
+
+@admin.register(LinearItem)
+class LinearItemAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "unit",
+        "site",
+        "created_at",
+    ]
+    list_filter = ["unit", "site"]
+    search_fields = ["name"]
+    inlines = [
+        ScopePatchInline,
+        ProgressEntryInline,
+    ]

@@ -464,4 +464,14 @@ export const queryKeys = Object.freeze({
     "rdso-span-library",
     params,
   ],
+  projectMonitorActionItems: (params) => [
+    "project-monitor",
+    "action-items",
+    params,
+  ],
+  projectMonitorLinearItems: (params) => [
+    "project-monitor",
+    "linear-items",
+    params,
+  ],
 });

@@ -15,6 +15,7 @@ export function ActivityUpdateForm({
   onSubmit,
   isPending,
   error,
+  showProgress = true,
 }) {
   const [meetingDate, setMeetingDate] = useState(
     todayIso(),
@@ -125,28 +126,30 @@ export function ActivityUpdateForm({
           )}
         </select>
       </label>
-      <label className="filter-control">
-        <span>
-          {activity.kind === "LENGTH"
-            ? `Done (${activity.unit || "qty"}) of ${formatQty(
-                activity.total_qty,
-              )}`
-            : "% done"}
-        </span>
-        <input
-          type="number"
-          min="0"
-          max={
-            activity.kind === "LENGTH"
-              ? undefined
-              : 100
-          }
-          value={doneQty}
-          onChange={(event) =>
-            setDoneQty(event.target.value)
-          }
-        />
-      </label>
+      {showProgress ? (
+        <label className="filter-control">
+          <span>
+            {activity.kind === "LENGTH"
+              ? `Done (${activity.unit || "qty"}) of ${formatQty(
+                  activity.total_qty,
+                )}`
+              : "% done"}
+          </span>
+          <input
+            type="number"
+            min="0"
+            max={
+              activity.kind === "LENGTH"
+                ? undefined
+                : 100
+            }
+            value={doneQty}
+            onChange={(event) =>
+              setDoneQty(event.target.value)
+            }
+          />
+        </label>
+      ) : null}
       {activity.material_tracked ? (
         <label className="filter-control">
           <span>Material status</span>

@@ -266,4 +266,119 @@ export const projectMonitorService = {
       `/project-monitor/extensions/${extensionId}/`,
     );
   },
+
+  async listActionItems(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/action-items/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async createActionItem(siteId, payload) {
+    const response = await apiClient.post(
+      "/project-monitor/action-items/",
+      payload,
+      { params: { site: siteId } },
+    );
+
+    return response.data.data;
+  },
+
+  async getActionItem(itemId) {
+    const response = await apiClient.get(
+      `/project-monitor/action-items/${itemId}/`,
+    );
+
+    return response.data.data;
+  },
+
+  async updateActionItem(itemId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/action-items/${itemId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteActionItem(itemId) {
+    await apiClient.delete(
+      `/project-monitor/action-items/${itemId}/`,
+    );
+  },
+
+  async listLinearItems(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/linear-items/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async createLinearItem(siteId, payload) {
+    const response = await apiClient.post(
+      "/project-monitor/linear-items/",
+      payload,
+      { params: { site: siteId } },
+    );
+
+    return response.data.data;
+  },
+
+  async deleteLinearItem(itemId) {
+    await apiClient.delete(
+      `/project-monitor/linear-items/${itemId}/`,
+    );
+  },
+
+  async createScopePatch(
+    linearItemId,
+    payload,
+  ) {
+    const response = await apiClient.post(
+      `/project-monitor/linear-items/${linearItemId}/scope-patches/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteScopePatch(patchId) {
+    await apiClient.delete(
+      `/project-monitor/scope-patches/${patchId}/`,
+    );
+  },
+
+  async createProgressEntry(
+    linearItemId,
+    payload,
+  ) {
+    const response = await apiClient.post(
+      `/project-monitor/linear-items/${linearItemId}/progress-entries/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateProgressEntry(
+    entryId,
+    payload,
+  ) {
+    const response = await apiClient.patch(
+      `/project-monitor/progress-entries/${entryId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteProgressEntry(entryId) {
+    await apiClient.delete(
+      `/project-monitor/progress-entries/${entryId}/`,
+    );
+  },
 };

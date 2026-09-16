@@ -41,6 +41,8 @@ import { ProjectOverviewPage } from "../modules/project_monitor/pages/ProjectOve
 import { StructuresPage } from "../modules/project_monitor/pages/StructuresPage";
 import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
 import { GirdersPage } from "../modules/project_monitor/pages/GirdersPage";
+import { ActionItemsPage } from "../modules/project_monitor/pages/ActionItemsPage";
+import { LinearWorksPage } from "../modules/project_monitor/pages/LinearWorksPage";
 import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
 import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
@@ -283,6 +285,18 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/project-manager/action-items",
+                element: (
+                  <ActionItemsPage />
+                ),
+              },
+              {
+                path: "/project-manager/linear-works",
+                element: (
+                  <LinearWorksPage />
+                ),
+              },
+              {
                 path: "/project-manager/reports",
                 element: (
                   <ProjectMonitorReportPage />
@@ -362,6 +376,18 @@ export const router = createBrowserRouter([
                 path: "/director/project-monitor/girders",
                 element: (
                   <GirdersPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/action-items",
+                element: (
+                  <ActionItemsPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/linear-works",
+                element: (
+                  <LinearWorksPage />
                 ),
               },
               {
@@ -507,6 +533,18 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/girders",
                 element: (
                   <GirdersPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/action-items",
+                element: (
+                  <ActionItemsPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/linear-works",
+                element: (
+                  <LinearWorksPage />
                 ),
               },
               {

@@ -33,6 +33,7 @@ export function ActivityDetailPanel({
   error,
   onReview,
   reviewStatus,
+  showProgress = true,
 }) {
   const [isHistoryOpen, setIsHistoryOpen] =
     useState(false);
@@ -67,9 +68,13 @@ export function ActivityDetailPanel({
         </div>
       </div>
 
-      <div style={{ margin: "10px 0" }}>
-        <ActivityProgressBar activity={activity} />
-      </div>
+      {showProgress ? (
+        <div style={{ margin: "10px 0" }}>
+          <ActivityProgressBar
+            activity={activity}
+          />
+        </div>
+      ) : null}
 
       <dl className="details-list">
         <div>
@@ -126,6 +131,7 @@ export function ActivityDetailPanel({
             onSubmit={onSubmitUpdate}
             isPending={isPending}
             error={error}
+            showProgress={showProgress}
           />
         </>
       ) : (

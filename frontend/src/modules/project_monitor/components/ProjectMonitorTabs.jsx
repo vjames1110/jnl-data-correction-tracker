@@ -2,8 +2,10 @@ import clsx from "clsx";
 import { Link, useSearchParams } from "react-router-dom";
 
 import {
+  projectMonitorActionItemsPath,
   projectMonitorBuildingsPath,
   projectMonitorGirdersPath,
+  projectMonitorLinearWorksPath,
   projectMonitorOverviewPath,
   projectMonitorReportsPath,
   projectMonitorStructuresPath,
@@ -34,6 +36,20 @@ export function ProjectMonitorTabs({ role, active }) {
       key: "girders",
       label: "Girders",
       path: projectMonitorGirdersPath(role),
+    },
+    {
+      key: "action-items",
+      label: "Action Items",
+      path: projectMonitorActionItemsPath(
+        role,
+      ),
+    },
+    {
+      key: "linear-works",
+      label: "Linear Works",
+      path: projectMonitorLinearWorksPath(
+        role,
+      ),
     },
     {
       key: "reports",

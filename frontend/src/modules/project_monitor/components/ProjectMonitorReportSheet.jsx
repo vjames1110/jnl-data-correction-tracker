@@ -1,6 +1,7 @@
 import {
   formatDate,
   formatQty,
+  STATUS_LABELS,
   statusLabel,
 } from "../utils/status";
 
@@ -139,10 +140,23 @@ function ActivityTable({ groups }) {
  * reusing this codebase's established print-CSS convention rather
  * than a server-side PDF library.
  */
+const DEFAULT_SECTIONS = {
+  details: true,
+  structures: true,
+  buildings: true,
+  girders: true,
+  actionItems: true,
+  linearWorks: true,
+};
+
 export function ProjectMonitorReportSheet({
   site,
   structures,
   buildings,
+  girderJobs = [],
+  actionItems = [],
+  linearItems = [],
+  sections = DEFAULT_SECTIONS,
 }) {
   return (
     <div className="pm-report">
@@ -159,6 +173,8 @@ export function ProjectMonitorReportSheet({
         </p>
       </header>
 
+      {sections.details ? (
+        <>
       <table className="pm-report__details">
         <tbody>
           <tr>
@@ -271,7 +287,10 @@ export function ProjectMonitorReportSheet({
           </tbody>
         </table>
       ) : null}
+        </>
+      ) : null}
 
+      {sections.structures ? (
       <section className="pm-report__section">
         <h2>Structures</h2>
         {structures.length === 0 ? (
@@ -310,7 +329,9 @@ export function ProjectMonitorReportSheet({
           ))
         )}
       </section>
+      ) : null}
 
+      {sections.buildings ? (
       <section className="pm-report__section">
         <h2>Buildings</h2>
         {buildings.length === 0 ? (
@@ -351,6 +372,251 @@ export function ProjectMonitorReportSheet({
           ))
         )}
       </section>
+      ) : null}
+
+      {sections.girders ? (
+      <section className="pm-report__section">
+        <h2>Girders, Bearings &amp; Expansion Joints</h2>
+        {girderJobs.length === 0 ? (
+          <p className="pm-report__empty">
+            No girder jobs added yet.
+          </p>
+        ) : (
+          girderJobs.map((job) => (
+            <div
+              className="pm-report__block"
+              key={job.id}
+            >
+              <h3>
+                {job.structure_kind_display} -{" "}
+                {job.bridge_name}
+                {job.chainage_km != null
+                  ? ` (Ch. ${job.chainage_km} km)`
+                  : ""}
+              </h3>
+              <p className="pm-report__block-progress">
+                {job.overall_progress.done}/
+                {job.overall_progress.total}{" "}
+                activities complete -{" "}
+                {job.girder_scope_display}
+              </p>
+              {job.groups.length > 0 ? (
+                <ActivityTable
+                  groups={job.groups}
+                />
+              ) : null}
+              {job.spans.map((span) => (
+                <div
+                  className="pm-report__block"
+                  key={span.id}
+                  style={{
+                    marginLeft: 16,
+                  }}
+                >
+                  <h4>
+                    Span - {span.label}
+                    {span.span_length_m
+                      ? ` - ${span.span_length_m} m`
+                      : ""}
+                    {span.drawing_no
+                      ? ` - ${span.drawing_no}`
+                      : ""}
+                  </h4>
+                  <p className="pm-report__block-progress">
+                    {span.overall_progress.done}/
+                    {span.overall_progress.total}{" "}
+                    activities complete
+                  </p>
+                  <ActivityTable
+                    groups={span.groups}
+                  />
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </section>
+      ) : null}
+
+      {sections.actionItems ? (
+      <section className="pm-report__section">
+        <h2>Action Items</h2>
+        {actionItems.length === 0 ? (
+          <p className="pm-report__empty">
+            No action items added yet.
+          </p>
+        ) : (
+          <table className="pm-report__table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Responsibility</th>
+                <th>Status</th>
+                <th>Target date</th>
+                <th>Overdue</th>
+                <th>Remarks</th>
+                <th>Latest update</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actionItems.map((item) => (
+                <tr key={item.id}>
+                  <td className="pm-report__col-task">
+                    {item.activity?.name || "-"}
+                  </td>
+                  <td>
+                    {item.responsibility || "-"}
+                  </td>
+                  <td>
+                    {item.activity
+                      ? statusLabel(
+                          item.activity,
+                        )
+                      : "-"}
+                  </td>
+                  <td>
+                    {formatDate(
+                      item.activity
+                        ?.current_target_date,
+                    )}
+                  </td>
+                  <td>
+                    {item.is_overdue
+                      ? "Yes"
+                      : "No"}
+                  </td>
+                  <td className="pm-report__col-remark">
+                    {item.remarks || "-"}
+                  </td>
+                  <td className="pm-report__col-remark">
+                    {item.activity
+                      ? latestUpdateText(
+                          item.activity,
+                        )
+                      : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+      ) : null}
+
+      {sections.linearWorks ? (
+      <section className="pm-report__section">
+        <h2>Linear Works</h2>
+        {linearItems.length === 0 ? (
+          <p className="pm-report__empty">
+            No linear items added yet.
+          </p>
+        ) : (
+          <>
+            <table className="pm-report__table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Unit</th>
+                  <th>Scope</th>
+                  <th>Done</th>
+                  <th>Ongoing</th>
+                  <th>Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linearItems.map((item) => (
+                  <tr key={item.id}>
+                    <td className="pm-report__col-task">
+                      {item.name}
+                    </td>
+                    <td>{item.unit}</td>
+                    <td>
+                      {formatQty(
+                        item.stats.scope,
+                      )}
+                    </td>
+                    <td>
+                      {formatQty(
+                        item.stats.done,
+                      )}
+                    </td>
+                    <td>
+                      {formatQty(
+                        item.stats.ongoing,
+                      )}
+                    </td>
+                    <td>
+                      {formatQty(
+                        item.stats.pending,
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <table className="pm-report__table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>From (km)</th>
+                  <th>To (km)</th>
+                  <th>Qty</th>
+                  <th>Side</th>
+                  <th>Status</th>
+                  <th>Contractor</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linearItems
+                  .flatMap((item) =>
+                    item.progress_entries.map(
+                      (entry) => ({
+                        item,
+                        entry,
+                      }),
+                    ),
+                  )
+                  .sort((a, b) =>
+                    b.entry.date.localeCompare(
+                      a.entry.date,
+                    ),
+                  )
+                  .map(({ item, entry }) => (
+                    <tr key={entry.id}>
+                      <td>
+                        {formatDate(entry.date)}
+                      </td>
+                      <td>{item.name}</td>
+                      <td>
+                        {entry.from_chainage_km}
+                      </td>
+                      <td>
+                        {entry.to_chainage_km}
+                      </td>
+                      <td>{entry.qty}</td>
+                      <td>{entry.side}</td>
+                      <td>
+                        {STATUS_LABELS[
+                          entry.status
+                        ] || entry.status}
+                      </td>
+                      <td>
+                        {entry.contractor || "-"}
+                      </td>
+                      <td className="pm-report__col-remark">
+                        {entry.remarks || "-"}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </section>
+      ) : null}
     </div>
   );
 }

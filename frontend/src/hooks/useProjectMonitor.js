@@ -120,6 +120,7 @@ export function useUpdateActivity(siteId) {
       invalidateStructures(queryClient, siteId);
       invalidateBuildings(queryClient, siteId);
       invalidateGirderJobs(queryClient, siteId);
+      invalidateActionItems(queryClient, siteId);
     },
   });
 }
@@ -266,6 +267,7 @@ export function useReviewActivity(siteId) {
       invalidateStructures(queryClient, siteId);
       invalidateBuildings(queryClient, siteId);
       invalidateGirderJobs(queryClient, siteId);
+      invalidateActionItems(queryClient, siteId);
     },
   });
 }
@@ -493,5 +495,251 @@ export function useDeleteProjectExtension(
             site: siteId,
           }),
       }),
+  });
+}
+
+export function useActionItems(siteId) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorActionItems({
+        site: siteId,
+      }),
+    queryFn: () =>
+      projectMonitorService.listActionItems({
+        site: siteId,
+      }),
+    enabled: Boolean(siteId),
+  });
+}
+
+function invalidateActionItems(
+  queryClient,
+  siteId,
+) {
+  queryClient.invalidateQueries({
+    queryKey: [
+      "project-monitor",
+      "action-items",
+    ],
+    predicate: (query) =>
+      query.queryKey[2]?.site === siteId,
+  });
+  queryClient.invalidateQueries({
+    queryKey:
+      queryKeys.projectMonitorOverview({
+        site: siteId,
+      }),
+  });
+}
+
+export function useCreateActionItem(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createActionItem(
+        siteId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateActionItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useUpdateActionItem(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ itemId, payload }) =>
+      projectMonitorService.updateActionItem(
+        itemId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateActionItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useDeleteActionItem(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemId) =>
+      projectMonitorService.deleteActionItem(
+        itemId,
+      ),
+    onSuccess: () =>
+      invalidateActionItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useLinearItems(siteId) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorLinearItems({
+        site: siteId,
+      }),
+    queryFn: () =>
+      projectMonitorService.listLinearItems({
+        site: siteId,
+      }),
+    enabled: Boolean(siteId),
+  });
+}
+
+function invalidateLinearItems(
+  queryClient,
+  siteId,
+) {
+  queryClient.invalidateQueries({
+    queryKey: [
+      "project-monitor",
+      "linear-items",
+    ],
+    predicate: (query) =>
+      query.queryKey[2]?.site === siteId,
+  });
+  queryClient.invalidateQueries({
+    queryKey:
+      queryKeys.projectMonitorOverview({
+        site: siteId,
+      }),
+  });
+}
+
+export function useCreateLinearItem(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createLinearItem(
+        siteId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useDeleteLinearItem(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemId) =>
+      projectMonitorService.deleteLinearItem(
+        itemId,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useCreateScopePatch(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      linearItemId,
+      payload,
+    }) =>
+      projectMonitorService.createScopePatch(
+        linearItemId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useDeleteScopePatch(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (patchId) =>
+      projectMonitorService.deleteScopePatch(
+        patchId,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useCreateProgressEntry(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      linearItemId,
+      payload,
+    }) =>
+      projectMonitorService.createProgressEntry(
+        linearItemId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useUpdateProgressEntry(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ entryId, payload }) =>
+      projectMonitorService.updateProgressEntry(
+        entryId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
+  });
+}
+
+export function useDeleteProgressEntry(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (entryId) =>
+      projectMonitorService.deleteProgressEntry(
+        entryId,
+      ),
+    onSuccess: () =>
+      invalidateLinearItems(
+        queryClient,
+        siteId,
+      ),
   });
 }

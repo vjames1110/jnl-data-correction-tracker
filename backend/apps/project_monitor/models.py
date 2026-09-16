@@ -952,3 +952,344 @@ class ProjectExtension(
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class ActionItem(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    The plainest use of the shared Activity engine - no qty/%, no
+    material tag, no doc-type rendering, just a single generic
+    ``Activity`` (via the same ``content_type``/``object_id``
+    relation every other section uses) for status/target-date-
+    history/comments, plus two fields the Activity itself doesn't
+    have: ``responsibility`` (free text - who owns this) and a
+    persistent ``remarks`` field that is edited directly, separate
+    from the dated meeting-log comments every ``apply_update`` call
+    appends.
+
+    "Open"/"Completed" and the overdue flag are derived, not stored
+    - see ``ActionItemSerializer.get_is_overdue`` - from the single
+    linked Activity's own ``status``/current target date, so nothing
+    here duplicates state the Activity already owns.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="action_items",
+    )
+    responsibility = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    remarks = models.TextField(blank=True)
+
+    activities = GenericRelation(
+        Activity,
+        content_type_field="content_type",
+        object_id_field="object_id",
+    )
+
+    class Meta:
+        db_table = (
+            "project_monitor_action_item"
+        )
+        ordering = ["-created_at"]
+        verbose_name = "Action Item"
+        verbose_name_plural = "Action Items"
+
+    def __str__(self) -> str:
+        activity = self.activities.first()
+        return (
+            activity.name
+            if activity
+            else str(self.id)
+        )
+
+    def clean(self):
+        super().clean()
+
+        if self.responsibility:
+            self.responsibility = (
+                normalize_whitespace(
+                    self.responsibility
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class LinearUnit(models.TextChoices):
+    M = "M", "Running metre (m)"
+    CUM = "CUM", "Cubic metre (cum)"
+    NOS = "NOS", "Numbers (nos)"
+
+
+class LinearSide(models.TextChoices):
+    BOTH = "BOTH", "Both"
+    LHS = "LHS", "LHS"
+    RHS = "RHS", "RHS"
+
+
+class LinearItem(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A chainage-tracked linear work (earthwork, P.Way linking, side
+    drains, ...) - genuinely different from every other section in
+    this module: progress is a continuous chainage interval, not a
+    discrete ``Activity`` row, so this deliberately does NOT use the
+    generic Activity engine. See ``services.interval_math`` and
+    ``services.linear_stats`` for how ``scope_patches``/
+    ``progress_entries`` turn into a Scope/Done/Ongoing/Pending
+    figure for ``M``-unit items (a true chainage-interval
+    computation); ``CUM``/``NOS`` items are a flat running-quantity
+    total instead, with no chainage math at all.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="linear_items",
+    )
+    name = models.CharField(max_length=150)
+    unit = models.CharField(
+        max_length=10,
+        choices=LinearUnit.choices,
+        default=LinearUnit.M,
+    )
+
+    class Meta:
+        db_table = (
+            "project_monitor_linear_item"
+        )
+        ordering = ["name"]
+        verbose_name = "Linear Item"
+        verbose_name_plural = "Linear Items"
+
+    def __str__(self) -> str:
+        return f"{self.site.site_code} - {self.name}"
+
+    def clean(self):
+        super().clean()
+
+        if self.name:
+            self.name = normalize_whitespace(
+                self.name
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+def _validate_chainage_range(
+    unit, from_chainage_km, to_chainage_km, errors
+):
+    if (
+        from_chainage_km is None
+        or to_chainage_km is None
+    ):
+        return
+
+    if unit == LinearUnit.M:
+        if to_chainage_km <= from_chainage_km:
+            errors["to_chainage_km"] = (
+                "The 'to' chainage must be "
+                "greater than the 'from' "
+                "chainage for a running-metre "
+                "item."
+            )
+    elif to_chainage_km < from_chainage_km:
+        errors["to_chainage_km"] = (
+            "The 'to' chainage cannot be "
+            "before the 'from' chainage."
+        )
+
+
+class ScopePatch(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One chainage stretch a linear item's scope covers - an item
+    with no scope patches at all is treated as fully unrestricted
+    (see ``services.linear_stats``), matching the prototype's own
+    "no scope defined = unrestricted" rule exactly. ``qty`` is only
+    meaningful for non-``M`` units (auto-derived from the chainage
+    span for ``M`` items at creation time, display/audit only,
+    never re-applied - same convention as ``GirderSpan`` copying
+    RDSO library values in at pick-time).
+    """
+
+    linear_item = models.ForeignKey(
+        LinearItem,
+        on_delete=models.CASCADE,
+        related_name="scope_patches",
+    )
+    from_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    to_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    side = models.CharField(
+        max_length=10,
+        choices=LinearSide.choices,
+        default=LinearSide.BOTH,
+    )
+    qty = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    remarks = models.TextField(blank=True)
+
+    class Meta:
+        db_table = (
+            "project_monitor_scope_patch"
+        )
+        ordering = ["from_chainage_km"]
+        verbose_name = "Scope Patch"
+        verbose_name_plural = "Scope Patches"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.linear_item.name}: "
+            f"{self.from_chainage_km}-"
+            f"{self.to_chainage_km} km"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+        _validate_chainage_range(
+            self.linear_item.unit,
+            self.from_chainage_km,
+            self.to_chainage_km,
+            errors,
+        )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ProgressEntry(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One day's logged progress on a linear item's chainage stretch.
+    ``status`` deliberately only offers 3 of ``ActivityStatus``'s 5
+    values - a linear entry is never "not started" (it wouldn't be
+    logged) or "not applicable" (that's what an absent scope patch
+    already means) - reusing ``ActivityStatus`` rather than a new
+    enum keeps the frontend's existing status labels/colors working
+    unchanged. ``meeting_date`` is which review meeting this was
+    logged under, distinct from ``date`` (the actual day the work
+    happened) - same "on vs date" distinction the prototype makes.
+    """
+
+    LINEAR_STATUS_CHOICES = [
+        (
+            ActivityStatus.IN_PROGRESS,
+            ActivityStatus.IN_PROGRESS.label,
+        ),
+        (
+            ActivityStatus.COMPLETE,
+            ActivityStatus.COMPLETE.label,
+        ),
+        (
+            ActivityStatus.HOLD,
+            ActivityStatus.HOLD.label,
+        ),
+    ]
+
+    linear_item = models.ForeignKey(
+        LinearItem,
+        on_delete=models.CASCADE,
+        related_name="progress_entries",
+    )
+    date = models.DateField()
+    from_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    to_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    qty = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    side = models.CharField(
+        max_length=10,
+        choices=LinearSide.choices,
+        default=LinearSide.BOTH,
+    )
+    contractor = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=LINEAR_STATUS_CHOICES,
+        default=ActivityStatus.IN_PROGRESS,
+    )
+    remarks = models.TextField(blank=True)
+    meeting_date = models.DateField()
+
+    class Meta:
+        db_table = (
+            "project_monitor_progress_entry"
+        )
+        ordering = [
+            "-date",
+            "from_chainage_km",
+        ]
+        verbose_name = "Progress Entry"
+        verbose_name_plural = (
+            "Progress Entries"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.linear_item.name} - "
+            f"{self.date}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+        _validate_chainage_range(
+            self.linear_item.unit,
+            self.from_chainage_km,
+            self.to_chainage_km,
+            errors,
+        )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)

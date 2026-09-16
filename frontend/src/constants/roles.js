@@ -96,6 +96,30 @@ export function projectMonitorGirdersPath(role) {
   return "/admin/project-monitor/girders";
 }
 
+export function projectMonitorActionItemsPath(
+  role,
+) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/action-items";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/action-items";
+  }
+  return "/admin/project-monitor/action-items";
+}
+
+export function projectMonitorLinearWorksPath(
+  role,
+) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/linear-works";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/linear-works";
+  }
+  return "/admin/project-monitor/linear-works";
+}
+
 export function projectMonitorReportsPath(role) {
   if (role === USER_ROLES.PROJECT_MANAGER) {
     return "/project-manager/reports";
