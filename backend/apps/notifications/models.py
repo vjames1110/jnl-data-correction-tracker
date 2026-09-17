@@ -80,6 +80,14 @@ class NotificationEventType(models.TextChoices):
         "RECONCILIATION_RETURNED",
         "Reconciliation Returned",
     )
+    PROJECT_MONITOR_UPDATE_LOGGED = (
+        "PROJECT_MONITOR_UPDATE_LOGGED",
+        "Project Update Logged",
+    )
+    PROJECT_MONITOR_ACTIVITY_REVIEWED = (
+        "PROJECT_MONITOR_ACTIVITY_REVIEWED",
+        "Project Activity Reviewed",
+    )
 
 
 class NotificationSeverity(models.TextChoices):

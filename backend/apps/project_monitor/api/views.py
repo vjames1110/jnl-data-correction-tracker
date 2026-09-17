@@ -86,6 +86,11 @@ from apps.project_monitor.services.linear_generator import (
 from apps.project_monitor.services.linear_stats import (
     compute_item_stats,
 )
+from apps.project_monitor.services.notifications import (
+    notify_activity_reviewed,
+    notify_director_of_update,
+    notify_sheet_reviewed,
+)
 from apps.project_monitor.services.review import (
     apply_review,
     review_activities,
@@ -613,11 +618,22 @@ class StructureReviewAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
+        reviewed_activities = list(
+            structure.activities.select_related(
+                "updated_by"
+            ).all()
+        )
         review_activities(
-            structure.activities.all(),
+            reviewed_activities,
             remarks=serializer.validated_data[
                 "remarks"
             ],
+            actor=request.user,
+        )
+        notify_sheet_reviewed(
+            activities=reviewed_activities,
+            site=structure.site,
+            label=structure.name,
             actor=request.user,
         )
 
@@ -779,11 +795,22 @@ class BuildingReviewAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
+        reviewed_activities = list(
+            building.activities.select_related(
+                "updated_by"
+            ).all()
+        )
         review_activities(
-            building.activities.all(),
+            reviewed_activities,
             remarks=serializer.validated_data[
                 "remarks"
             ],
+            actor=request.user,
+        )
+        notify_sheet_reviewed(
+            activities=reviewed_activities,
+            site=building.site,
+            label=building.name,
             actor=request.user,
         )
 
@@ -961,14 +988,26 @@ class GirderJobReviewAPIView(APIView):
             "remarks"
         ]
 
-        activities = list(job.activities.all())
+        activities = list(
+            job.activities.select_related(
+                "updated_by"
+            ).all()
+        )
         for span in job.spans.all():
             activities += list(
-                span.activities.all()
+                span.activities.select_related(
+                    "updated_by"
+                ).all()
             )
         review_activities(
             activities,
             remarks=remarks,
+            actor=request.user,
+        )
+        notify_sheet_reviewed(
+            activities=activities,
+            site=job.site,
+            label=job.bridge_name,
             actor=request.user,
         )
 
@@ -1652,6 +1691,12 @@ class ActivityUpdateAPIView(APIView):
                 actor=request.user,
             )
 
+        notify_director_of_update(
+            activity=activity,
+            meeting_date=data["meeting_date"],
+            actor=request.user,
+        )
+
         activity = Activity.objects.prefetch_related(
             "date_entries", "comments"
         ).get(pk=activity.pk)
@@ -1700,6 +1745,11 @@ class ActivityReviewAPIView(APIView):
             remarks=serializer.validated_data[
                 "remarks"
             ],
+            actor=request.user,
+        )
+
+        notify_activity_reviewed(
+            activity=activity,
             actor=request.user,
         )
 

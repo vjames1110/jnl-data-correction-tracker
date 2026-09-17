@@ -71,6 +71,8 @@ def apply_update(
     """
     notes = []
     current_date = current_target_date(activity)
+    if actor is not None:
+        activity.updated_by = actor
 
     if new_target_date and new_target_date != current_date:
         ActivityDateEntry.objects.create(

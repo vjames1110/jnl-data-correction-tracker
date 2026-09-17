@@ -94,6 +94,14 @@ EVENT_DEFAULTS = {
         "title": "Reconciliation returned for correction",
         "severity": NotificationSeverity.WARNING,
     },
+    NotificationEventType.PROJECT_MONITOR_UPDATE_LOGGED: {
+        "title": "Project update logged",
+        "severity": NotificationSeverity.INFO,
+    },
+    NotificationEventType.PROJECT_MONITOR_ACTIVITY_REVIEWED: {
+        "title": "Update reviewed",
+        "severity": NotificationSeverity.SUCCESS,
+    },
 }
 
 
