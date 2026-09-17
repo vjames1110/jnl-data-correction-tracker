@@ -35,7 +35,7 @@ function ItemFieldsEditForm({
       className="pm-drawer-form"
       onSubmit={handleSubmit}
     >
-      <label className="filter-control">
+      <label className="form-field">
         <span>Responsibility</span>
         <input
           type="text"
@@ -47,7 +47,7 @@ function ItemFieldsEditForm({
           }
         />
       </label>
-      <label className="filter-control pm-drawer-form__full">
+      <label className="form-field pm-drawer-form__full">
         <span>Remarks</span>
         <input
           type="text"

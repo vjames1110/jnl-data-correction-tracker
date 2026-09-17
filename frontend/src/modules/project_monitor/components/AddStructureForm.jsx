@@ -74,7 +74,7 @@ function resizeItemFields(
 function ConfigField({ field, value, onChange }) {
   if (field.type === "boolean") {
     return (
-      <label className="filter-control">
+      <label className="form-field">
         <span>{field.label}</span>
         <select
           value={value ? "1" : "0"}
@@ -93,7 +93,7 @@ function ConfigField({ field, value, onChange }) {
 
   if (field.type === "choice") {
     return (
-      <label className="filter-control">
+      <label className="form-field">
         <span>{field.label}</span>
         <select
           value={String(value ?? "")}
@@ -126,7 +126,7 @@ function ConfigField({ field, value, onChange }) {
   }
 
   return (
-    <label className="filter-control">
+    <label className="form-field">
       <span>{field.label}</span>
       <input
         type="number"
@@ -165,7 +165,7 @@ function RepeatGroupItemFields({
           return (
             <label
               key={itemField.key}
-              className="filter-control"
+              className="form-field"
               style={{
                 gridColumn: "1 / -1",
               }}
@@ -304,7 +304,7 @@ export function AddStructureForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Type</span>
           <select
             value={structureTypeId}
@@ -324,7 +324,7 @@ export function AddStructureForm({
             ))}
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Structure ID / name</span>
           <input
             type="text"
@@ -336,7 +336,7 @@ export function AddStructureForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Chainage (km)</span>
           <input
             type="number"

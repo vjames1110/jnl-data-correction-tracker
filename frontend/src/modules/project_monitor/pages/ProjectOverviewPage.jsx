@@ -123,7 +123,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
           className="site-toolbar"
           onSubmit={handleSave}
         >
-          <label className="filter-control">
+          <label className="form-field">
             <span>Project name</span>
             <input
               type="text"
@@ -137,7 +137,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               }
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>Start date</span>
             <input
               type="date"
@@ -150,7 +150,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               }
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>End date</span>
             <input
               type="date"
@@ -163,7 +163,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               }
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>Project value (₹)</span>
             <input
               type="number"
@@ -179,7 +179,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               placeholder="e.g. 125000000"
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>Chainage start (km)</span>
             <input
               type="number"
@@ -196,7 +196,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               }
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>Chainage end (km)</span>
             <input
               type="number"
@@ -211,7 +211,7 @@ function ProjectDetailsCard({ site, canEdit, onSaved }) {
               }
             />
           </label>
-          <label className="filter-control">
+          <label className="form-field">
             <span>Client / Section</span>
             <input
               type="text"

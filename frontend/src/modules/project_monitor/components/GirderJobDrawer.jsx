@@ -39,7 +39,7 @@ function SpanEditForm({
       className="pm-drawer-form"
       onSubmit={handleSubmit}
     >
-      <label className="filter-control">
+      <label className="form-field">
         <span>Drawing no.</span>
         <input
           type="text"
@@ -49,7 +49,7 @@ function SpanEditForm({
           }
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Vendor</span>
         <input
           type="text"
@@ -59,7 +59,7 @@ function SpanEditForm({
           }
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>PO number</span>
         <input
           type="text"

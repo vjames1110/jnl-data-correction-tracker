@@ -44,7 +44,7 @@ function AddScopePatchInlineForm({
       className="pm-drawer-form"
       onSubmit={handleSubmit}
     >
-      <label className="filter-control">
+      <label className="form-field">
         <span>From (km)</span>
         <input
           type="number"
@@ -56,7 +56,7 @@ function AddScopePatchInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>To (km)</span>
         <input
           type="number"
@@ -68,7 +68,7 @@ function AddScopePatchInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Side</span>
         <select
           value={side}
@@ -82,7 +82,7 @@ function AddScopePatchInlineForm({
         </select>
       </label>
       {!isM ? (
-        <label className="filter-control">
+        <label className="form-field">
           <span>Qty ({item.unit})</span>
           <input
             type="number"
@@ -94,7 +94,7 @@ function AddScopePatchInlineForm({
           />
         </label>
       ) : null}
-      <label className="filter-control pm-drawer-form__full">
+      <label className="form-field pm-drawer-form__full">
         <span>Remarks</span>
         <input
           type="text"
@@ -180,7 +180,7 @@ function AddProgressEntryInlineForm({
       className="pm-drawer-form"
       onSubmit={handleSubmit}
     >
-      <label className="filter-control">
+      <label className="form-field">
         <span>Work date</span>
         <input
           type="date"
@@ -191,7 +191,7 @@ function AddProgressEntryInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Meeting date</span>
         <input
           type="date"
@@ -204,7 +204,7 @@ function AddProgressEntryInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>From (km)</span>
         <input
           type="number"
@@ -216,7 +216,7 @@ function AddProgressEntryInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>To (km)</span>
         <input
           type="number"
@@ -228,7 +228,7 @@ function AddProgressEntryInlineForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Side</span>
         <select
           value={side}
@@ -242,7 +242,7 @@ function AddProgressEntryInlineForm({
         </select>
       </label>
       {!isM ? (
-        <label className="filter-control">
+        <label className="form-field">
           <span>Qty ({item.unit})</span>
           <input
             type="number"
@@ -254,7 +254,7 @@ function AddProgressEntryInlineForm({
           />
         </label>
       ) : null}
-      <label className="filter-control">
+      <label className="form-field">
         <span>Contractor</span>
         <input
           type="text"
@@ -266,7 +266,7 @@ function AddProgressEntryInlineForm({
           }
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Status</span>
         <select
           value={status}
@@ -283,7 +283,7 @@ function AddProgressEntryInlineForm({
           <option value="HOLD">Hold</option>
         </select>
       </label>
-      <label className="filter-control pm-drawer-form__full">
+      <label className="form-field pm-drawer-form__full">
         <span>Remarks</span>
         <input
           type="text"

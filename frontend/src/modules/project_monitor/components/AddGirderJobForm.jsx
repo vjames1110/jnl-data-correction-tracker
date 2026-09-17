@@ -186,7 +186,7 @@ export function AddGirderJobForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Structure kind</span>
           <select
             value={structureKind}
@@ -208,7 +208,7 @@ export function AddGirderJobForm({
             ))}
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             Pick an existing structure
             (optional)
@@ -236,7 +236,7 @@ export function AddGirderJobForm({
             )}
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Bridge no. / name</span>
           <input
             type="text"
@@ -250,7 +250,7 @@ export function AddGirderJobForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Chainage (km)</span>
           <input
             type="number"
@@ -264,7 +264,7 @@ export function AddGirderJobForm({
             placeholder="15.500"
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             Girder fabrication & launching
           </span>
@@ -293,7 +293,7 @@ export function AddGirderJobForm({
           key={index}
         >
           <div className="form-grid">
-            <label className="filter-control">
+            <label className="form-field">
               <span>Span label</span>
               <input
                 type="text"
@@ -308,7 +308,7 @@ export function AddGirderJobForm({
                 required
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>RDSO standard span</span>
               <select
                 value={span.libraryId}
@@ -333,7 +333,7 @@ export function AddGirderJobForm({
                 ))}
               </select>
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>Drawing no.</span>
               <input
                 type="text"
@@ -347,7 +347,7 @@ export function AddGirderJobForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>Span length (m)</span>
               <input
                 type="number"
@@ -362,7 +362,7 @@ export function AddGirderJobForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>Girder type</span>
               <input
                 type="text"
@@ -376,7 +376,7 @@ export function AddGirderJobForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>Qty (MT)</span>
               <input
                 type="number"
@@ -391,7 +391,7 @@ export function AddGirderJobForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>Vendor</span>
               <input
                 type="text"
@@ -405,7 +405,7 @@ export function AddGirderJobForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>PO number</span>
               <input
                 type="text"
@@ -421,7 +421,7 @@ export function AddGirderJobForm({
             </label>
             {!isFob ? (
               <>
-                <label className="filter-control">
+                <label className="form-field">
                   <span>Bearings (nos)</span>
                   <input
                     type="number"
@@ -438,7 +438,7 @@ export function AddGirderJobForm({
                     }
                   />
                 </label>
-                <label className="filter-control">
+                <label className="form-field">
                   <span>
                     Expansion joints (nos)
                   </span>

@@ -84,7 +84,7 @@ export function ActivityUpdateForm({
       className="pm-drawer-form"
       onSubmit={handleSubmit}
     >
-      <label className="filter-control">
+      <label className="form-field">
         <span>Meeting date</span>
         <input
           type="date"
@@ -95,7 +95,7 @@ export function ActivityUpdateForm({
           required
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>
           {activity.is_doc
             ? "Approval date (or expected)"
@@ -109,7 +109,7 @@ export function ActivityUpdateForm({
           }
         />
       </label>
-      <label className="filter-control">
+      <label className="form-field">
         <span>Status</span>
         <select
           value={status}
@@ -127,7 +127,7 @@ export function ActivityUpdateForm({
         </select>
       </label>
       {showProgress ? (
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             {activity.kind === "LENGTH"
               ? `Done (${activity.unit || "qty"}) of ${formatQty(
@@ -151,7 +151,7 @@ export function ActivityUpdateForm({
         </label>
       ) : null}
       {activity.material_tracked ? (
-        <label className="filter-control">
+        <label className="form-field">
           <span>Material status</span>
           <select
             value={materialStatus}
@@ -192,7 +192,7 @@ export function ActivityUpdateForm({
       {isHindrance ? (
         <div className="pm-hindrance-fields pm-drawer-form__full">
           <div className="pm-drawer-form">
-            <label className="filter-control">
+            <label className="form-field">
               <span>
                 Expected removal date
               </span>
@@ -208,7 +208,7 @@ export function ActivityUpdateForm({
                 }
               />
             </label>
-            <label className="filter-control">
+            <label className="form-field">
               <span>
                 Actual/final removal date
               </span>
@@ -222,7 +222,7 @@ export function ActivityUpdateForm({
                 }
               />
             </label>
-            <label className="filter-control pm-drawer-form__full">
+            <label className="form-field pm-drawer-form__full">
               <span>Hindrance remarks</span>
               <input
                 type="text"
@@ -238,7 +238,7 @@ export function ActivityUpdateForm({
           </div>
         </div>
       ) : null}
-      <label className="filter-control pm-drawer-form__full">
+      <label className="form-field pm-drawer-form__full">
         <span>Remark for this meeting</span>
         <input
           type="text"

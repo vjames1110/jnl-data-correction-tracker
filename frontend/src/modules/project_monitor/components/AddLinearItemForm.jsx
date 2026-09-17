@@ -25,7 +25,7 @@ export function AddLinearItemForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Linear item</span>
           <input
             type="text"
@@ -37,7 +37,7 @@ export function AddLinearItemForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Unit</span>
           <select
             value={unit}

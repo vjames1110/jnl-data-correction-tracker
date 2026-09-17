@@ -292,15 +292,21 @@
   font-size: 12px;
 }
 
-.pm-drawer-form .filter-control span {
+.pm-drawer-form .form-field {
+  gap: 3px;
+}
+
+.pm-drawer-form .form-field > span {
   font-size: 11px;
 }
 
 .pm-drawer-form input,
-.pm-drawer-form select {
+.pm-drawer-form select,
+.pm-drawer-form textarea {
   width: 100%;
   padding: 5px 6px;
   font-size: 12px;
+  min-height: 0;
 }
 
 .pm-drawer-form__full {

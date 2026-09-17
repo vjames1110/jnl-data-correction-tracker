@@ -39,7 +39,7 @@ export function AddActionItemForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Action item</span>
           <input
             type="text"
@@ -54,7 +54,7 @@ export function AddActionItemForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Responsibility</span>
           <input
             type="text"
@@ -68,7 +68,7 @@ export function AddActionItemForm({
             placeholder="e.g. Site Engineer - Rahul"
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Target date</span>
           <input
             type="date"
@@ -81,7 +81,7 @@ export function AddActionItemForm({
             }
           />
         </label>
-        <label className="filter-control pm-drawer-form__full">
+        <label className="form-field pm-drawer-form__full">
           <span>Remarks</span>
           <input
             type="text"

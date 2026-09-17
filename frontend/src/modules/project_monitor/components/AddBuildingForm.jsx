@@ -55,7 +55,7 @@ export function AddBuildingForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Site / station</span>
           <input
             type="text"
@@ -70,7 +70,7 @@ export function AddBuildingForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Building name</span>
           <input
             type="text"
@@ -85,7 +85,7 @@ export function AddBuildingForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Chainage (km)</span>
           <input
             type="number"
@@ -100,7 +100,7 @@ export function AddBuildingForm({
             placeholder="12.345"
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Ground floor area (sqm)</span>
           <input
             type="number"
@@ -113,7 +113,7 @@ export function AddBuildingForm({
             }
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>No. of upper floors</span>
           <input
             type="number"
@@ -127,7 +127,7 @@ export function AddBuildingForm({
             }
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             Typical upper floor area (sqm)
           </span>
@@ -142,7 +142,7 @@ export function AddBuildingForm({
             }
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Foundation</span>
           <select
             value={form.found}
@@ -161,7 +161,7 @@ export function AddBuildingForm({
           </select>
         </label>
         {form.found === "pile" ? (
-          <label className="filter-control">
+          <label className="form-field">
             <span>Piles (nos)</span>
             <input
               type="number"
@@ -175,7 +175,7 @@ export function AddBuildingForm({
             />
           </label>
         ) : null}
-        <label className="filter-control">
+        <label className="form-field">
           <span>Lift</span>
           <select
             value={form.lift ? "1" : "0"}
@@ -190,7 +190,7 @@ export function AddBuildingForm({
             <option value="1">Yes</option>
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Fire fighting</span>
           <select
             value={form.fire ? "1" : "0"}
@@ -205,7 +205,7 @@ export function AddBuildingForm({
             <option value="1">Yes</option>
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             Compound wall / external
             development
