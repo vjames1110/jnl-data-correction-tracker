@@ -25,7 +25,7 @@ export function StoreHeader({
             {env.companyName}
           </span>
           <strong className="user-header__portal">
-            Store Reconciliation Portal
+            Production Reconciliation Portal
           </strong>
         </div>
       </div>

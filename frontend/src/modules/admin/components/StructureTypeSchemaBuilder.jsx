@@ -84,7 +84,7 @@ function textToOptions(text) {
 
 function Field({ label, children }) {
   return (
-    <label className="filter-control">
+    <label className="form-field">
       <span>{label}</span>
       {children}
     </label>

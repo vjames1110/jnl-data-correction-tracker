@@ -68,3 +68,61 @@ export function activityProgressPercent(activity) {
     Number(activity.done_qty) || 0,
   );
 }
+
+export function formatProgress(activity) {
+  if (activity.status === "NOT_APPLICABLE") {
+    return "-";
+  }
+  if (activity.kind === "LENGTH") {
+    return `${formatQty(activity.done_qty)}/${formatQty(
+      activity.total_qty,
+    )}${activity.unit ? ` ${activity.unit}` : ""}`;
+  }
+  return `${formatQty(activity.done_qty)}%`;
+}
+
+const INR_FORMATTER = new Intl.NumberFormat("en-IN", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+export function formatCurrency(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `₹${INR_FORMATTER.format(Number(value))}`;
+}
+
+export function formatCountdown(site) {
+  if (site.days_remaining == null) {
+    return "End date not set";
+  }
+  if (site.days_remaining < 0) {
+    return `Overdue by ${Math.abs(site.days_remaining)} day(s)`;
+  }
+  return `${site.days_remaining} day(s) left`;
+}
+
+export function formatPercent(value) {
+  return value == null ? "-" : `${value}%`;
+}
+
+/**
+ * Compact rupee amounts for dashboards: crores, lakhs, else the
+ * en-IN grouped figure (negative values keep their sign).
+ */
+export function formatMoneyCompact(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  const number = Number(value);
+  const sign = number < 0 ? "-" : "";
+  const abs = Math.abs(number);
+  if (abs >= 1e7) {
+    return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`;
+  }
+  if (abs >= 1e5) {
+    return `${sign}₹${(abs / 1e5).toFixed(2)} L`;
+  }
+  return `${sign}₹${INR_FORMATTER.format(abs)}`;
+}

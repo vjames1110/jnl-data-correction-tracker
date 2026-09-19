@@ -146,7 +146,7 @@ export function DirectorDashboardPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Director Portal
+            Approval Management
           </span>
           <h1>Dashboard</h1>
           <p>

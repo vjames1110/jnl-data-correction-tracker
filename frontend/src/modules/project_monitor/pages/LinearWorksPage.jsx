@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { CalendarDays, ChartGantt, Plus } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -25,6 +25,7 @@ import { DayWisePivot } from "../components/DayWisePivot";
 import { LinearItemPanel } from "../components/LinearItemPanel";
 import { LinearRegisters } from "../components/LinearRegisters";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
+import { WorkspaceSwitch } from "../components/WorkspaceSwitch";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
 export function LinearWorksPage() {
@@ -228,34 +229,23 @@ export function LinearWorksPage() {
         />
       ) : (
         <>
-          <div className="pm-tabs print-hidden">
-            <button
-              type="button"
-              className={
-                subTab === "diagram"
-                  ? "pm-tab pm-tab--active"
-                  : "pm-tab"
-              }
-              onClick={() =>
-                setSubTab("diagram")
-              }
-            >
-              Rolling Diagram
-            </button>
-            <button
-              type="button"
-              className={
-                subTab === "day-wise"
-                  ? "pm-tab pm-tab--active"
-                  : "pm-tab"
-              }
-              onClick={() =>
-                setSubTab("day-wise")
-              }
-            >
-              Day-wise
-            </button>
-          </div>
+          <WorkspaceSwitch
+            label="Linear works view"
+            value={subTab}
+            onChange={setSubTab}
+            options={[
+              {
+                key: "diagram",
+                label: "Rolling Diagram",
+                icon: ChartGantt,
+              },
+              {
+                key: "day-wise",
+                label: "Day-wise",
+                icon: CalendarDays,
+              },
+            ]}
+          />
 
           {subTab === "diagram" ? (
             <>

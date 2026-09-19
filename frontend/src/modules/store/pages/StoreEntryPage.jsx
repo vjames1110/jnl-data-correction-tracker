@@ -1900,7 +1900,7 @@ export function StoreEntryPage() {
       <div className="page-heading print-hidden">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Monthly Entry</h1>
           <p>

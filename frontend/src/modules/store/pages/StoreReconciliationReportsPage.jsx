@@ -373,7 +373,7 @@ export function StoreReconciliationReportsPage() {
       <div className="page-heading print-hidden">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Variance Reports</h1>
           <p>
@@ -424,7 +424,7 @@ export function StoreReconciliationReportsPage() {
       ) : (
         <>
           <p className="print-only print-title">
-            Store Reconciliation Report —{" "}
+            Production Reconciliation Report —{" "}
             {displayMonth}
           </p>
 

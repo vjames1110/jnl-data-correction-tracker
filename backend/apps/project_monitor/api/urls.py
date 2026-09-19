@@ -1,5 +1,31 @@
 from django.urls import path
 
+from apps.project_monitor.api.dashboard_views import (
+    DueTrackerAPIView,
+    OverdueCountsAPIView,
+    ProjectDashboardAPIView,
+)
+from apps.project_monitor.api.dpr_views import (
+    DprAccessAPIView,
+    DprContractDetailsAPIView,
+    DprEntryDetailAPIView,
+    DprEntryListCreateAPIView,
+    DprGridAPIView,
+    DprItemDetailAPIView,
+    DprItemImportAPIView,
+    DprItemListCreateAPIView,
+    DprTemplateAPIView,
+    DprUnlockAPIView,
+    DprUploadAPIView,
+    FinancialReportAPIView,
+    FinancialSummaryAPIView,
+    RaBillDetailAPIView,
+    RaBillListCreateAPIView,
+)
+from apps.project_monitor.api.site_access_views import (
+    SiteAccessDetailAPIView,
+    SiteAccessListCreateAPIView,
+)
 from apps.project_monitor.api.views import (
     ActionItemDetailAPIView,
     ActionItemListCreateAPIView,
@@ -34,6 +60,106 @@ from apps.project_monitor.api.views import (
 app_name = "project-monitor-api"
 
 urlpatterns = [
+    path(
+        "dpr/access/",
+        DprAccessAPIView.as_view(),
+        name="dpr-access",
+    ),
+    path(
+        "dpr/contract/",
+        DprContractDetailsAPIView.as_view(),
+        name="dpr-contract",
+    ),
+    path(
+        "dpr/items/",
+        DprItemListCreateAPIView.as_view(),
+        name="dpr-item-list",
+    ),
+    path(
+        "dpr/items/import/",
+        DprItemImportAPIView.as_view(),
+        name="dpr-item-import",
+    ),
+    path(
+        "dpr/items/<uuid:pk>/",
+        DprItemDetailAPIView.as_view(),
+        name="dpr-item-detail",
+    ),
+    path(
+        "dpr/grid/",
+        DprGridAPIView.as_view(),
+        name="dpr-grid",
+    ),
+    path(
+        "dpr/entries/",
+        DprEntryListCreateAPIView.as_view(),
+        name="dpr-entry-list",
+    ),
+    path(
+        "dpr/entries/<uuid:pk>/",
+        DprEntryDetailAPIView.as_view(),
+        name="dpr-entry-detail",
+    ),
+    path(
+        "dpr/template/",
+        DprTemplateAPIView.as_view(),
+        name="dpr-template",
+    ),
+    path(
+        "dpr/upload/",
+        DprUploadAPIView.as_view(),
+        name="dpr-upload",
+    ),
+    path(
+        "dpr/unlock/",
+        DprUnlockAPIView.as_view(),
+        name="dpr-unlock",
+    ),
+    path(
+        "ra-bills/",
+        RaBillListCreateAPIView.as_view(),
+        name="ra-bill-list",
+    ),
+    path(
+        "ra-bills/<uuid:pk>/",
+        RaBillDetailAPIView.as_view(),
+        name="ra-bill-detail",
+    ),
+    path(
+        "financial-summary/",
+        FinancialSummaryAPIView.as_view(),
+        name="financial-summary",
+    ),
+    path(
+        "financial-report/",
+        FinancialReportAPIView.as_view(),
+        name="financial-report",
+    ),
+    path(
+        "site-access/",
+        SiteAccessListCreateAPIView.as_view(),
+        name="site-access-list",
+    ),
+    path(
+        "site-access/<uuid:pk>/",
+        SiteAccessDetailAPIView.as_view(),
+        name="site-access-detail",
+    ),
+    path(
+        "dashboard/",
+        ProjectDashboardAPIView.as_view(),
+        name="dashboard",
+    ),
+    path(
+        "due-tracker/",
+        DueTrackerAPIView.as_view(),
+        name="due-tracker",
+    ),
+    path(
+        "overdue-counts/",
+        OverdueCountsAPIView.as_view(),
+        name="overdue-counts",
+    ),
     path(
         "overview/",
         ProjectOverviewAPIView.as_view(),

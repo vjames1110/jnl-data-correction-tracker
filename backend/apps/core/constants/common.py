@@ -17,5 +17,5 @@ DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
 
 API_VERSION = "v1"
-APPLICATION_NAME = "JNL Approval Management System"
+APPLICATION_NAME = "JNLOps"
 COMPANY_NAME = "Jhajharia Nirman Limited"

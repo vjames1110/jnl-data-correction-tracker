@@ -6,11 +6,17 @@ from apps.project_monitor.models import (
     ActivityComment,
     ActivityDateEntry,
     Building,
+    DprDayUnlock,
+    DprEntry,
+    DprItem,
     GirderJob,
     GirderSpan,
     LinearItem,
     ProgressEntry,
     ProjectExtension,
+    ProjectSiteAccess,
+    RaBill,
+    RaBillLine,
     RdsoSpanLibraryEntry,
     ScopePatch,
     Structure,
@@ -229,3 +235,59 @@ class LinearItemAdmin(admin.ModelAdmin):
         ScopePatchInline,
         ProgressEntryInline,
     ]
+
+
+@admin.register(ProjectSiteAccess)
+class ProjectSiteAccessAdmin(admin.ModelAdmin):
+    list_display = ["site", "user", "role", "created_at"]
+    list_filter = ["role", "site"]
+    search_fields = [
+        "user__employee_id",
+        "user__first_name",
+        "site__site_code",
+    ]
+
+
+@admin.register(DprItem)
+class DprItemAdmin(admin.ModelAdmin):
+    list_display = [
+        "item_no",
+        "description",
+        "site",
+        "unit",
+        "scope_qty",
+        "rate",
+        "is_active",
+    ]
+    list_filter = ["site", "is_active"]
+    search_fields = ["item_no", "description"]
+
+
+@admin.register(DprEntry)
+class DprEntryAdmin(admin.ModelAdmin):
+    list_display = ["date", "item", "qty", "rate", "source"]
+    list_filter = ["source", "item__site"]
+    date_hierarchy = "date"
+
+
+@admin.register(DprDayUnlock)
+class DprDayUnlockAdmin(admin.ModelAdmin):
+    list_display = ["site", "date", "reason", "created_by"]
+    list_filter = ["site"]
+
+
+class RaBillLineInline(admin.TabularInline):
+    model = RaBillLine
+    extra = 0
+
+
+@admin.register(RaBill)
+class RaBillAdmin(admin.ModelAdmin):
+    list_display = [
+        "bill_no",
+        "site",
+        "bill_date",
+        "received_amount",
+    ]
+    list_filter = ["site"]
+    inlines = [RaBillLineInline]

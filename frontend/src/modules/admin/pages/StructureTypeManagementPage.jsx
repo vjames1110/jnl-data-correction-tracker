@@ -126,7 +126,7 @@ function StructureTypeForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
-        <label className="filter-control">
+        <label className="form-field">
           <span>Code</span>
           <input
             type="text"
@@ -141,7 +141,7 @@ function StructureTypeForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Name</span>
           <input
             type="text"
@@ -156,7 +156,7 @@ function StructureTypeForm({
             required
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Display order</span>
           <input
             type="number"
@@ -169,7 +169,7 @@ function StructureTypeForm({
             }
           />
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Include approval docs</span>
           <select
             value={
@@ -190,7 +190,7 @@ function StructureTypeForm({
             <option value="0">No</option>
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>Active</span>
           <select
             value={
@@ -207,7 +207,7 @@ function StructureTypeForm({
             <option value="0">Inactive</option>
           </select>
         </label>
-        <label className="filter-control">
+        <label className="form-field">
           <span>
             Description shown on each
             structure - use {"{field_key}"}
@@ -226,7 +226,7 @@ function StructureTypeForm({
           />
         </label>
         {copyFrom.length ? (
-          <label className="filter-control">
+          <label className="form-field">
             <span>
               Start from an existing type
             </span>

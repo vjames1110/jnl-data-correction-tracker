@@ -382,7 +382,7 @@ BREVO_SENDER_EMAIL = config(
 )
 BREVO_SENDER_NAME = config(
     "BREVO_SENDER_NAME",
-    default="JNL Approval Management System",
+    default="JNLOps",
 )
 
 
@@ -391,10 +391,11 @@ BREVO_SENDER_NAME = config(
 # ---------------------------------------------------------------------------
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "JNL Approval Management System API",
+    "TITLE": "JNLOps API",
     "DESCRIPTION": (
-        "Backend API for the Jhajharia Nirman Limited "
-        "Approval Management System."
+        "Backend API for the Jhajharia Nirman Limited JNLOps "
+        "platform: approval management, production "
+        "reconciliation and project monitoring."
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,

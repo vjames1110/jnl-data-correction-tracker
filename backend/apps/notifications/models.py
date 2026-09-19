@@ -62,23 +62,23 @@ class NotificationEventType(models.TextChoices):
     )
     RECONCILIATION_SUBMITTED = (
         "RECONCILIATION_SUBMITTED",
-        "Reconciliation Submitted",
+        "Production Reconciliation Submitted",
     )
     RECONCILIATION_APPROVAL_PENDING = (
         "RECONCILIATION_APPROVAL_PENDING",
-        "Reconciliation Approval Pending",
+        "Production Reconciliation Approval Pending",
     )
     RECONCILIATION_APPROVED = (
         "RECONCILIATION_APPROVED",
-        "Reconciliation Approved",
+        "Production Reconciliation Approved",
     )
     RECONCILIATION_REJECTED = (
         "RECONCILIATION_REJECTED",
-        "Reconciliation Rejected",
+        "Production Reconciliation Rejected",
     )
     RECONCILIATION_RETURNED = (
         "RECONCILIATION_RETURNED",
-        "Reconciliation Returned",
+        "Production Reconciliation Returned",
     )
     PROJECT_MONITOR_UPDATE_LOGGED = (
         "PROJECT_MONITOR_UPDATE_LOGGED",

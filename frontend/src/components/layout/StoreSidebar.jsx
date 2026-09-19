@@ -69,7 +69,7 @@ export function StoreSidebar({
 
         {!collapsed ? (
           <div>
-            <strong>Store Reconciliation</strong>
+            <strong>Production Reconciliation</strong>
             <span>Store HO Portal</span>
           </div>
         ) : null}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import clsx from "clsx";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 function loadOpenState(storageKey, groupKeys) {
   try {
@@ -61,6 +61,7 @@ export function SidebarNavGroups({
   collapsed,
   storageKey,
 }) {
+  const { pathname } = useLocation();
   const groupKeys = groups.map(
     (group) => group.key,
   );
@@ -88,6 +89,16 @@ export function SidebarNavGroups({
 
   const renderLink = (item) => {
     const Icon = item.icon;
+    // A nav item whose path is a parent of another item's path
+    // (e.g. Project Monitor > Structure Types) must not stay
+    // highlighted while that more specific item is the page.
+    const claimedByNested = items.some(
+      (other) =>
+        other.key !== item.key &&
+        other.path.startsWith(`${item.path}/`) &&
+        (pathname === other.path ||
+          pathname.startsWith(`${other.path}/`)),
+    );
 
     return (
       <NavLink
@@ -97,6 +108,7 @@ export function SidebarNavGroups({
           clsx(
             `${prefix}__link`,
             isActive &&
+              !claimedByNested &&
               `${prefix}__link--active`,
           )
         }

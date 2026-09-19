@@ -245,7 +245,7 @@ export function LinearRegisters({
                         <td>
                           <button
                             type="button"
-                            className="button button--tertiary"
+                            className="button button--tertiary button--sm"
                             onClick={() =>
                               setEditingEntryId(
                                 (

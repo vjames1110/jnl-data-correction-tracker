@@ -76,9 +76,9 @@ export function StoreReconciliationDashboardPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
-          <h1>Store Reconciliation Setup</h1>
+          <h1>Production Reconciliation Setup</h1>
           <p>
             Configure item categories, the item
             master, and the three-tier rate/mix

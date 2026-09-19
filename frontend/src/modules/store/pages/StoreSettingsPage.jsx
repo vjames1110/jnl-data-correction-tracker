@@ -73,7 +73,7 @@ export function StoreSettingsPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Reconciliation Settings</h1>
           <p>

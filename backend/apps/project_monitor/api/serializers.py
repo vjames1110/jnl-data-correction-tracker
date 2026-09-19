@@ -33,6 +33,10 @@ from apps.project_monitor.services.linear_stats import (
 from apps.project_monitor.services.structure_generator import (
     validate_definition_schema,
 )
+from apps.project_monitor.services.timeline import (
+    days_remaining,
+    effective_end_date,
+)
 
 COUNTDOWN_GREEN_THRESHOLD_DAYS = 30
 COUNTDOWN_ORANGE_THRESHOLD_DAYS = 15
@@ -125,28 +129,11 @@ class ProjectSiteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def _effective_end_date(self, obj):
-        extension_dates = [
-            extension.new_end_date
-            for extension in obj.extensions.all()
-        ]
-        if extension_dates:
-            return max(extension_dates)
-        return obj.end_date
-
     def get_effective_end_date(self, obj):
-        return self._effective_end_date(obj)
+        return effective_end_date(obj)
 
     def get_days_remaining(self, obj):
-        effective_end_date = (
-            self._effective_end_date(obj)
-        )
-        if effective_end_date is None:
-            return None
-        return (
-            effective_end_date
-            - timezone.localdate()
-        ).days
+        return days_remaining(obj)
 
     def get_countdown_status(self, obj):
         days_remaining = self.get_days_remaining(

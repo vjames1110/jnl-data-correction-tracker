@@ -49,7 +49,7 @@ const navItems = [
   },
   {
     key: "reconciliation",
-    label: "Store Reconciliation",
+    label: "Production Reconciliation",
     path: "/director/reconciliation",
     icon: Package,
     group: "reports",

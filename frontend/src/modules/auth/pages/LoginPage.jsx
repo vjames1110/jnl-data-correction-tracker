@@ -136,7 +136,7 @@ export function LoginPage() {
   return (
     <div className="auth-form-shell">
       <div className="auth-form-heading">
-        <span>Administration Portal</span>
+        <span>JNLOps</span>
         <h2>Welcome back</h2>
         <p>
           Sign in using the Employee ID and

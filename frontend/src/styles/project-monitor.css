@@ -1064,3 +1064,566 @@ table.pm-report__table th {
 .pm-report-toggle--on .pm-report-toggle__knob {
   transform: translateX(14px);
 }
+
+/* ---- Tab overdue badge ---- */
+.pm-tab__badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-white);
+  background: var(--color-error-600);
+  border-radius: 999px;
+}
+
+/* ---- Due tracker ---- */
+.pm-due-tracker__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pm-due-tracker__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pm-due-tracker__overdue {
+  font-weight: 700;
+  color: var(--color-error-700);
+}
+
+.pm-due-tracker__earlier {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--color-neutral-500);
+}
+
+/* ---- All Projects dashboard ---- */
+.pm-dashboard-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .pm-dashboard-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pm-countdown-badge--inline {
+  display: inline-block;
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pm-gantt__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 160px;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  color: var(--color-neutral-600);
+}
+
+.pm-gantt__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pm-gantt__label {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 150px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.pm-gantt__label .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-gantt__track {
+  position: relative;
+  flex: 1;
+  height: 24px;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-sm);
+}
+
+.pm-gantt__bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-neutral-300);
+}
+
+.pm-gantt__bar--green {
+  background: var(--color-success-100);
+}
+
+.pm-gantt__bar--orange {
+  background: var(--color-warning-100);
+}
+
+.pm-gantt__bar--red {
+  background: var(--color-error-100);
+}
+
+.pm-gantt__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--color-neutral-500);
+  opacity: 0.55;
+}
+
+.pm-gantt__bar--green .pm-gantt__fill {
+  background: var(--color-success-600);
+}
+
+.pm-gantt__bar--orange .pm-gantt__fill {
+  background: var(--color-warning-600);
+}
+
+.pm-gantt__bar--red .pm-gantt__fill {
+  background: var(--color-error-600);
+}
+
+.pm-gantt__pct {
+  position: relative;
+  padding-left: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--color-neutral-900);
+}
+
+.pm-gantt__today {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-primary-600);
+}
+
+@media print {
+  .pm-pack {
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+.kpi-grid--compact.pm-dashboard-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .kpi-grid--compact.pm-dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- Finance tier: DPR & Bills ---- */
+.pm-finance-tiles {
+  margin-bottom: var(--space-4);
+}
+
+.kpi-grid--compact.pm-finance-tiles__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1000px) {
+  .kpi-grid--compact.pm-finance-tiles__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .kpi-grid--compact.pm-finance-tiles__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pm-finance-progress {
+  height: 8px;
+  margin-top: var(--space-3);
+  overflow: hidden;
+  background: var(--color-neutral-200);
+  border-radius: 999px;
+}
+
+.pm-finance-progress__fill {
+  height: 100%;
+  background: var(--color-success-600);
+  border-radius: 999px;
+}
+
+.pm-dpr__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.pm-dpr__bar .sub {
+  flex: 1;
+  min-width: 260px;
+}
+
+.pm-dpr-grid {
+  width: max-content;
+  min-width: 100%;
+  font-size: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.pm-dpr-grid th,
+.pm-dpr-grid td {
+  padding: 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.pm-dpr-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-neutral-700);
+  background: var(--color-neutral-50);
+}
+
+.pm-dpr-grid__sticky {
+  position: sticky;
+  z-index: 3;
+  text-align: left !important;
+}
+
+.pm-dpr-grid__sticky--1 {
+  left: 0;
+  min-width: 56px;
+}
+
+.pm-dpr-grid__sticky--2 {
+  left: 56px;
+  min-width: 220px;
+  max-width: 280px;
+  border-right: 2px solid var(--color-neutral-300);
+}
+
+.pm-dpr-grid__desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pm-dpr-grid__row--minor td {
+  color: var(--color-neutral-500);
+}
+
+.pm-dpr-grid__row--inactive td {
+  color: var(--color-neutral-400, var(--color-neutral-500));
+  text-decoration: line-through;
+}
+
+.pm-dpr-grid__major {
+  font-weight: 700;
+  color: var(--color-primary-700);
+}
+
+.pm-dpr-grid__day {
+  min-width: 74px;
+  text-align: center !important;
+}
+
+.pm-dpr-grid__day svg {
+  margin-left: 3px;
+  vertical-align: -1px;
+}
+
+.pm-dpr-grid__day--locked {
+  color: var(--color-neutral-500) !important;
+}
+
+.pm-dpr-grid__cell {
+  padding: 2px 4px !important;
+}
+
+.pm-dpr-grid__cell input {
+  width: 68px;
+  padding: 3px 4px;
+  font-size: 12px;
+  text-align: right;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+}
+
+.pm-dpr-grid__cell input:focus {
+  outline: 0;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 2px var(--color-primary-100);
+}
+
+.pm-dpr-grid__cell--locked {
+  color: var(--color-neutral-500);
+  background: var(--color-neutral-50) !important;
+}
+
+.pm-dpr-grid__total td {
+  font-weight: 700;
+  background: var(--color-neutral-50);
+}
+
+.pm-dpr-import {
+  margin-bottom: 10px;
+}
+
+.pm-import-errors {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.pm-unlock,
+.pm-detailed-entry {
+  margin: 12px 0;
+}
+
+.pm-unlock summary,
+.pm-detailed-entry summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-primary-700);
+}
+
+.pm-unlock__list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.pm-bill-form {
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-50);
+}
+
+.pm-bill-form__qty {
+  width: 110px;
+  padding: 4px 6px;
+  text-align: right;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+}
+
+.pm-finance-report h2 {
+  margin: 0 0 2px;
+}
+
+@media print {
+  .pm-dpr-grid th {
+    position: static;
+  }
+}
+
+/* ---- UI polish: workspace switcher, toolbars, alignment ---- */
+.pm-stack {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.pm-tabs {
+  overflow-x: auto;
+}
+
+.pm-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Segmented "workspace" switcher - inside-page views, distinct from
+   the underlined top tab strip. */
+.pm-workspace {
+  display: inline-flex;
+  gap: 2px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 4px;
+  overflow-x: auto;
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 12px;
+}
+
+.pm-workspace__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.pm-workspace__item:hover {
+  color: var(--color-neutral-900);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.pm-workspace__item--active,
+.pm-workspace__item--active:hover {
+  color: var(--color-primary-700);
+  background: var(--color-white);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    0 0 0 1px var(--color-neutral-200);
+}
+
+.pm-workspace__item:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: 1px;
+}
+
+/* Rows that mix labelled inputs with buttons line up on the input
+   baseline, not the label. */
+.pm-inline-row {
+  align-items: flex-end;
+}
+
+.form-grid > .pm-inline-row,
+.site-toolbar > .pm-inline-row {
+  align-self: end;
+}
+
+.pm-inline-row + .pm-table-wrap,
+.pm-inline-row + .inline-alert {
+  margin-top: 12px;
+}
+
+/* DPR import toolbar */
+.pm-dpr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 28px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.pm-dpr-toolbar__group {
+  display: grid;
+  gap: 6px;
+}
+
+.pm-dpr-toolbar__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.pm-dpr-toolbar__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pm-dpr-toolbar__help {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--color-neutral-600);
+}
+
+/* Collapsible card header */
+.pm-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pm-collapse-toggle h2 {
+  margin: 0;
+}
+
+.pm-collapse-summary {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* Bill form rhythm */
+.pm-bill-form h3 {
+  margin: 20px 0 8px;
+  font-size: 13px;
+}
+
+.pm-bill-form .pm-inline-row {
+  margin-top: 14px;
+}
+
+.pm-detailed-entry form {
+  margin-top: 10px;
+}
+
+/* Due tracker: keep dates and headings on one line */
+.pm-due-tracker__table th {
+  white-space: nowrap;
+}
+
+.pm-due-tracker__table td:first-child {
+  white-space: nowrap;
+}
+
+.pm-collapse-header--closed {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
+}

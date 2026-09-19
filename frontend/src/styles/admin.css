@@ -373,6 +373,12 @@
   gap: var(--space-4);
 }
 
+/* Let wide children (tables, grids) scroll inside their own wrapper
+   instead of stretching the whole page past the viewport. */
+.organization-page > * {
+  min-width: 0;
+}
+
 .page-heading {
   display: flex;
   align-items: flex-start;
@@ -488,7 +494,7 @@
   background: var(--color-error-100);
 }
 
-/* Store Reconciliation's KPI rows run more cards at once (up to 7
+/* Production Reconciliation's KPI rows run more cards at once (up to 7
    on Reports) than the rest of the admin dashboards - a smaller
    footprint keeps them from crowding into a single tall column. */
 .kpi-grid--compact {
@@ -569,8 +575,19 @@
 .page-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.page-actions .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.page-actions .filter-control select {
+  min-width: 0;
+  text-overflow: ellipsis;
 }
 
 .hod-warning {
@@ -1948,4 +1965,158 @@
   .notification-preferences__event-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- JNLOps module switcher (top of the shared sidebar) ---- */
+.module-switcher {
+  position: relative;
+  padding: var(--space-3) var(--space-2) 0;
+}
+
+.module-switcher__trigger,
+.module-switcher__option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--shell-text);
+  text-align: left;
+  cursor: pointer;
+  background: rgb(255 255 255 / 7%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: var(--radius-md);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.module-switcher__trigger:hover:not(:disabled),
+.module-switcher__trigger[aria-expanded="true"] {
+  background: var(--shell-bg-hover);
+  border-color: rgb(255 255 255 / 22%);
+}
+
+.module-switcher__trigger:disabled {
+  cursor: default;
+}
+
+.module-switcher__trigger:focus-visible,
+.module-switcher__option:focus-visible,
+.module-switcher__icon-button:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+.module-switcher__chip {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  color: var(--color-white);
+  background: var(--color-primary-600);
+  border-radius: var(--radius-sm);
+}
+
+.module-switcher__text {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 1px;
+}
+
+.module-switcher__text strong {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-switcher__eyebrow {
+  color: var(--shell-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.module-switcher__caret,
+.module-switcher__check {
+  flex: 0 0 auto;
+  color: var(--shell-text-muted);
+}
+
+.module-switcher__list {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  margin: 6px 0 0;
+  list-style: none;
+  background: rgb(0 0 0 / 22%);
+  border-radius: var(--radius-md);
+}
+
+.module-switcher__option {
+  background: transparent;
+  border-color: transparent;
+}
+
+.module-switcher__option:hover {
+  background: var(--shell-bg-hover);
+}
+
+.module-switcher__option--active {
+  background: rgb(255 255 255 / 10%);
+  border-color: rgb(255 255 255 / 16%);
+}
+
+.module-switcher__option .module-switcher__text span {
+  overflow: hidden;
+  color: var(--shell-text-muted);
+  font-size: 11px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-switcher__option--active .module-switcher__check {
+  color: var(--color-white);
+}
+
+.module-switcher--collapsed {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: var(--space-3) 0 0;
+}
+
+.module-switcher__icon-button {
+  width: 40px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: var(--shell-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.module-switcher__icon-button:hover {
+  color: var(--color-white);
+  background: var(--shell-bg-hover);
+}
+
+.module-switcher__icon-button--active,
+.module-switcher__icon-button--active:hover {
+  color: var(--color-white);
+  background: var(--color-primary-600);
+}
+
+.admin-header__module {
+  color: var(--color-neutral-600);
+  font-weight: 500;
 }

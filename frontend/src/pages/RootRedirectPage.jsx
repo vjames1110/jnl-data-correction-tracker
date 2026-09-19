@@ -82,6 +82,15 @@ export function RootRedirectPage() {
     );
   }
 
+  if (user?.role === USER_ROLES.PROJECT_MANAGER) {
+    return (
+      <Navigate
+        to={AUTH_ROUTES.PROJECT_MANAGER_DASHBOARD}
+        replace
+      />
+    );
+  }
+
   return (
     <Navigate
       to={AUTH_ROUTES.USER_DASHBOARD}

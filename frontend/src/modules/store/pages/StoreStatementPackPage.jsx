@@ -59,7 +59,7 @@ export function StoreStatementPackPage() {
       <div className="page-heading print-hidden">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Multi-Site Statement Pack</h1>
           <p>
@@ -152,7 +152,7 @@ export function StoreStatementPackPage() {
       ) : (
         <>
           <p className="print-only print-title">
-            Store Reconciliation - Multi-Site
+            Production Reconciliation - Multi-Site
             Statement Pack - {displayMonth}
           </p>
           {statements.map((statement) => (

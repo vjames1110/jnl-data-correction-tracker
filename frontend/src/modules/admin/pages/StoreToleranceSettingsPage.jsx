@@ -116,7 +116,7 @@ export function StoreToleranceSettingsPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Tolerance Settings</h1>
           <p>

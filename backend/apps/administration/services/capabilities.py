@@ -112,7 +112,7 @@ def build_admin_navigation(
         },
         {
             "key": "reconciliation",
-            "label": "Store Reconciliation",
+            "label": "Production Reconciliation",
             "path": "/admin/reconciliation",
             "icon": "package",
             "group": "master",
@@ -139,6 +139,30 @@ def build_admin_navigation(
             "label": "Structure Types",
             "path": "/admin/project-monitor/structure-types",
             "icon": "layers",
+            "group": "master",
+            "required_capability": (
+                AdminCapability
+                .MANAGE_PROJECT_MONITOR
+                .value
+            ),
+        },
+        {
+            "key": "rdso-span-library",
+            "label": "RDSO Span Library",
+            "path": "/admin/project-monitor/rdso-span-library",
+            "icon": "ruler",
+            "group": "master",
+            "required_capability": (
+                AdminCapability
+                .MANAGE_PROJECT_MONITOR
+                .value
+            ),
+        },
+        {
+            "key": "site-access",
+            "label": "Site Access",
+            "path": "/admin/project-monitor/site-access",
+            "icon": "key-round",
             "group": "master",
             "required_capability": (
                 AdminCapability

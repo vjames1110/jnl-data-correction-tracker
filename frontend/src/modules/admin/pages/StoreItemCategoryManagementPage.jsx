@@ -500,7 +500,7 @@ export function StoreItemCategoryManagementPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Item Category Management</h1>
           <p>

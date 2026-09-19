@@ -10,6 +10,8 @@ import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
   useActionItems,
   useBuildings,
+  useDprAccess,
+  useFinancialReport,
   useGirderJobs,
   useLinearItems,
   useProjectOverview,
@@ -26,6 +28,7 @@ const DEFAULT_SECTIONS = {
   girders: true,
   actionItems: true,
   linearWorks: true,
+  financial: true,
 };
 
 /**
@@ -65,6 +68,15 @@ export function ProjectMonitorReportPage() {
   );
   const linearItemsQuery = useLinearItems(
     selectedSite,
+  );
+  const financeAccess = useDprAccess(selectedSite);
+  const canViewFinance = Boolean(
+    financeAccess.data?.can_view,
+  );
+  const financialQuery = useFinancialReport(
+    selectedSite,
+    undefined,
+    canViewFinance,
   );
 
   const handleSiteChange = (value) => {
@@ -206,6 +218,9 @@ export function ProjectMonitorReportPage() {
                 linearItemsQuery.data?.length ||
                 0,
             }}
+            hiddenKeys={
+              canViewFinance ? [] : ["financial"]
+            }
             onToggle={handleToggleSection}
             onSelectAll={() =>
               setSections(DEFAULT_SECTIONS)
@@ -218,6 +233,7 @@ export function ProjectMonitorReportPage() {
                 girders: false,
                 actionItems: false,
                 linearWorks: false,
+                financial: false,
               })
             }
           />
@@ -237,6 +253,11 @@ export function ProjectMonitorReportPage() {
             }
             linearItems={
               linearItemsQuery.data || []
+            }
+            financialReport={
+              canViewFinance
+                ? financialQuery.data
+                : null
             }
             sections={sections}
           />

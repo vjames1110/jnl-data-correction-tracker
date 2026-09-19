@@ -135,7 +135,7 @@ export function ResponsibleDashboardPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Work Assignee Portal
+            Approval Management
           </span>
           <h1>Work Dashboard</h1>
           <p>

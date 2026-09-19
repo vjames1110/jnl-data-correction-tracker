@@ -148,7 +148,7 @@ def _build_brevo_payload(notification: Notification) -> dict:
                 "name": recipient_name,
             }
         ],
-        "subject": f"[JNL Approval Management System] {notification.title}",
+        "subject": f"[JNLOps] {notification.title}",
         "htmlContent": _html_content(notification),
         "textContent": _text_content(notification),
         "tags": [
@@ -174,7 +174,7 @@ def _html_content(notification: Notification) -> str:
             '<p><a href="{url}" '
             'style="display:inline-block;padding:10px 14px;'
             "background:#0f5ea8;color:#ffffff;text-decoration:none;"
-            'border-radius:4px">Open in tracker</a></p>'
+            'border-radius:4px">Open in JNLOps</a></p>'
         ).format(url=deep_link)
         if deep_link
         else ""
@@ -195,7 +195,7 @@ def _html_content(notification: Notification) -> str:
         f"{request_block}"
         f"{action_link}"
         "<p>This is an automated notification from "
-        "JNL Approval Management System.</p>"
+        "JNLOps.</p>"
         "</div></body></html>"
     )
 
@@ -216,13 +216,13 @@ def _text_content(notification: Notification) -> str:
 
     deep_link = _absolute_deep_link(notification)
     if deep_link:
-        lines.extend(["", f"Open in tracker: {deep_link}"])
+        lines.extend(["", f"Open in JNLOps: {deep_link}"])
 
     lines.extend(
         [
             "",
             "This is an automated notification from "
-            "JNL Approval Management System.",
+            "JNLOps.",
         ]
     )
     return "\n".join(lines)

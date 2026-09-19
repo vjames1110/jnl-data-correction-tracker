@@ -24,7 +24,7 @@ class HasProjectMonitorPortalAccess(BasePermission):
     Project Manager (and Admin/Super Admin as a backup) can enter
     and edit Project Monitor data - no per-site account restriction,
     the same "pick whichever site you're working on" convention
-    Store HO already uses for Store Reconciliation.
+    Store HO already uses for Production Reconciliation.
     """
 
     message = (
@@ -96,6 +96,46 @@ class HasProjectMonitorMasterAccess(BasePermission):
                 UserRole.ADMIN,
                 UserRole.SUPER_ADMIN,
             }
+
+        return user.role in {
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        }
+
+
+class HasFinanceRoleAccess(BasePermission):
+    """
+    The role-level gate for DPR/billing endpoints: only the roles
+    that can ever see finance data get past it. Whether the caller
+    may see or enter a *particular site* is decided per request by
+    ``services.site_access`` (``ensure_can_view``/``ensure_can_enter``),
+    since that depends on the site's assignments, not just the role.
+    """
+
+    message = "Project Monitor finance access is required."
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not _is_active_authenticated(user):
+            return False
+
+        return user.role in {
+            UserRole.DIRECTOR,
+            UserRole.PROJECT_MANAGER,
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        }
+
+
+class IsProjectMonitorAdmin(BasePermission):
+    """Admin/Super Admin only (site assignments, day unlocks)."""
+
+    message = "Admin access is required."
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not _is_active_authenticated(user):
+            return False
 
         return user.role in {
             UserRole.ADMIN,

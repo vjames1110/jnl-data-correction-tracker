@@ -1,3 +1,4 @@
+import { FinancialReportSheet } from "./FinancialReportView";
 import {
   formatDate,
   formatQty,
@@ -147,6 +148,7 @@ const DEFAULT_SECTIONS = {
   girders: true,
   actionItems: true,
   linearWorks: true,
+  financial: true,
 };
 
 export function ProjectMonitorReportSheet({
@@ -156,6 +158,7 @@ export function ProjectMonitorReportSheet({
   girderJobs = [],
   actionItems = [],
   linearItems = [],
+  financialReport = null,
   sections = DEFAULT_SECTIONS,
 }) {
   return (
@@ -616,6 +619,15 @@ export function ProjectMonitorReportSheet({
           </>
         )}
       </section>
+      ) : null}
+
+      {sections.financial && financialReport ? (
+        <section className="pm-report__section">
+          <FinancialReportSheet
+            report={financialReport}
+            title="DPR & bills"
+          />
+        </section>
       ) : null}
     </div>
   );

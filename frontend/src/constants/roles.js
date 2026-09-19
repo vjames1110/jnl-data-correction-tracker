@@ -56,6 +56,16 @@ export function reconciliationOverviewPath(role) {
     : "/admin/reconciliation";
 }
 
+export function projectMonitorDashboardPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/projects";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/projects";
+  }
+  return "/admin/project-monitor/projects";
+}
+
 export function projectMonitorOverviewPath(role) {
   if (role === USER_ROLES.PROJECT_MANAGER) {
     return "/project-manager/dashboard";
@@ -118,6 +128,16 @@ export function projectMonitorLinearWorksPath(
     return "/director/project-monitor/linear-works";
   }
   return "/admin/project-monitor/linear-works";
+}
+
+export function projectMonitorDprBillsPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/dpr-bills";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/dpr-bills";
+  }
+  return "/admin/project-monitor/dpr-bills";
 }
 
 export function projectMonitorReportsPath(role) {

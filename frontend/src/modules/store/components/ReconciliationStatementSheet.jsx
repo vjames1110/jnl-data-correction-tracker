@@ -173,7 +173,7 @@ export function ReconciliationStatementSheet({
   return (
     <div className="recon-sheet">
       <h2 className="recon-sheet__title">
-        Store Reconciliation Statement
+        Production Reconciliation Statement
       </h2>
       <div className="recon-sheet__subtitle">
         {env.companyName}

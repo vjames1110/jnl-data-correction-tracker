@@ -72,7 +72,7 @@ class HasStorePortalAccess(BasePermission):
     picks whichever site it's working on.
     """
 
-    message = "Store portal access is required."
+    message = "Production module access is required."
 
     def has_permission(
         self,

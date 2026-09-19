@@ -18,10 +18,14 @@ import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
   useCreateProjectExtension,
   useDeleteProjectExtension,
+  useDprAccess,
+  useFinancialSummary,
   useProjectOverview,
   useUpdateProjectSiteDetails,
 } from "../../../hooks/useProjectMonitor";
 import { KpiCard } from "../../admin/components/KpiCard";
+import { DueTracker } from "../components/DueTracker";
+import { FinancialTiles } from "../components/FinancialTiles";
 import { ProjectCountdownBadge } from "../components/ProjectCountdownBadge";
 import { ProjectExtensionsList } from "../components/ProjectExtensionsList";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
@@ -339,6 +343,11 @@ export function ProjectOverviewPage() {
   const canEdit = isProjectManagerRole(
     user?.role,
   );
+  const financeAccess = useDprAccess(selectedSite);
+  const financeSummary = useFinancialSummary(
+    selectedSite,
+    Boolean(financeAccess.data?.can_view),
+  );
   const createExtension =
     useCreateProjectExtension(selectedSite);
   const deleteExtension =
@@ -425,6 +434,17 @@ export function ProjectOverviewPage() {
             onSaved={overviewQuery.refetch}
           />
 
+          {financeSummary.data ? (
+            <SurfaceCard className="print-hidden">
+              <div className="surface-card__header">
+                <h2>Contract &amp; billing status</h2>
+              </div>
+              <FinancialTiles
+                summary={financeSummary.data}
+              />
+            </SurfaceCard>
+          ) : null}
+
           <SurfaceCard className="print-hidden">
             <ProjectExtensionsList
               extensions={
@@ -444,7 +464,7 @@ export function ProjectOverviewPage() {
             />
           </SurfaceCard>
 
-          <section className="kpi-grid kpi-grid--compact">
+          <section className="kpi-grid kpi-grid--compact pm-dashboard-kpis">
             <KpiCard
               label="Structures"
               value={overviewQuery.data.counts.structures.by_type.reduce(
@@ -500,20 +520,14 @@ export function ProjectOverviewPage() {
             />
           </section>
 
-          <SurfaceCard className="print-hidden">
+          <SurfaceCard>
             <div className="surface-card__header">
-              <h2>Coming in the next phases</h2>
+              <h2>
+                Due tracker - what was to be
+                completed on a date
+              </h2>
             </div>
-            <p className="table-subtext">
-              This overview will fill in as each
-              section is built: Structures (Minor/
-              Major Bridges, RUBs, ROBs), Building
-              works, Girders/Bearings/Expansion
-              Joints, Linear works (chainage rolling
-              diagram), and Action items - all
-              sharing one timeline-based progress
-              view, updated meeting over meeting.
-            </p>
+            <DueTracker site={selectedSite} />
           </SurfaceCard>
         </>
       )}

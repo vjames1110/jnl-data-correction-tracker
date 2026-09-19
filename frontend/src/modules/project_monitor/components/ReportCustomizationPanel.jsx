@@ -1,4 +1,5 @@
 import {
+  Banknote,
   Building2,
   CheckCheck,
   FileText,
@@ -30,8 +31,8 @@ const SECTION_DEFS = [
   },
   {
     key: "girders",
-    label: "Girders / Bearings / EJ",
-    description: "Span-wise fabrication chains",
+    label: "Girders & bearings",
+    description: "Span-wise girder, bearing & EJ chains",
     icon: Link2,
   },
   {
@@ -46,6 +47,12 @@ const SECTION_DEFS = [
     description: "Chainage scope & progress register",
     icon: Route,
   },
+  {
+    key: "financial",
+    label: "DPR & bills",
+    description: "Executed value, billing & balance",
+    icon: Banknote,
+  },
 ];
 
 /**
@@ -58,11 +65,15 @@ const SECTION_DEFS = [
 export function ReportCustomizationPanel({
   sections,
   counts,
+  hiddenKeys = [],
   onToggle,
   onSelectAll,
   onClearAll,
 }) {
-  const activeCount = SECTION_DEFS.filter(
+  const defs = SECTION_DEFS.filter(
+    (def) => !hiddenKeys.includes(def.key),
+  );
+  const activeCount = defs.filter(
     (def) => sections[def.key],
   ).length;
 
@@ -79,7 +90,7 @@ export function ReportCustomizationPanel({
         <div className="pm-report-customize__bulk">
           <span className="pm-report-customize__count">
             {activeCount} of{" "}
-            {SECTION_DEFS.length} included
+            {defs.length} included
           </span>
           <button
             type="button"
@@ -99,7 +110,7 @@ export function ReportCustomizationPanel({
       </div>
 
       <div className="pm-report-customize__grid">
-        {SECTION_DEFS.map((def) => {
+        {defs.map((def) => {
           const Icon = def.icon;
           const isOn = Boolean(
             sections[def.key],

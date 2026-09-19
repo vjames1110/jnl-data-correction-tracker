@@ -1,6 +1,253 @@
 import { apiClient } from "./apiClient";
 
 export const projectMonitorService = {
+  async getDprAccess(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/access/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getDprContract(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/contract/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async updateDprContract(siteId, payload) {
+    const response = await apiClient.patch(
+      "/project-monitor/dpr/contract/",
+      payload,
+      { params: { site: siteId } },
+    );
+    return response.data.data;
+  },
+
+  async listDprItems(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/items/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createDprItem(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/dpr/items/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateDprItem(itemId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/dpr/items/${itemId}/`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteDprItem(itemId) {
+    await apiClient.delete(
+      `/project-monitor/dpr/items/${itemId}/`,
+    );
+  },
+
+  async importDprItems(siteId, file) {
+    const form = new FormData();
+    form.append("site", siteId);
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/dpr/items/import/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
+  async uploadDpr(siteId, file) {
+    const form = new FormData();
+    form.append("site", siteId);
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/dpr/upload/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
+  async downloadDprTemplate(siteId, kind) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/template/",
+      {
+        params: { site: siteId, kind },
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  },
+
+  async getDprGrid(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/grid/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async saveDprGrid(payload) {
+    const response = await apiClient.put(
+      "/project-monitor/dpr/grid/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async listDprEntries(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/entries/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createDprEntry(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/dpr/entries/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteDprEntry(entryId) {
+    await apiClient.delete(
+      `/project-monitor/dpr/entries/${entryId}/`,
+    );
+  },
+
+  async listDprUnlocks(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/unlock/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async unlockDprDay(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/dpr/unlock/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async listRaBills(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/ra-bills/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createRaBill(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/ra-bills/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateRaBill(billId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/ra-bills/${billId}/`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteRaBill(billId) {
+    await apiClient.delete(
+      `/project-monitor/ra-bills/${billId}/`,
+    );
+  },
+
+  async getFinancialSummary(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/financial-summary/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getFinancialReport(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/financial-report/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async listSiteAccess(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/site-access/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async grantSiteAccess(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/site-access/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async revokeSiteAccess(accessId) {
+    await apiClient.delete(
+      `/project-monitor/site-access/${accessId}/`,
+    );
+  },
+
+  async getDashboard(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dashboard/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async getDueTracker(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/due-tracker/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async getOverdueCounts(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/overdue-counts/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
   async getOverview(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/overview/",

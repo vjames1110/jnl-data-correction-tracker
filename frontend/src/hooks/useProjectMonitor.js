@@ -7,6 +7,59 @@ import {
 import { queryKeys } from "../constants/queryKeys";
 import { projectMonitorService } from "../services/projectMonitorService";
 
+export function useProjectDashboard(includeEmpty) {
+  return useQuery({
+    queryKey: queryKeys.projectMonitorDashboard({
+      include_empty: includeEmpty ? "1" : "",
+    }),
+    queryFn: () =>
+      projectMonitorService.getDashboard(
+        includeEmpty ? { include_empty: "1" } : {},
+      ),
+  });
+}
+
+export function useDueTracker({
+  mode,
+  date,
+  site,
+}) {
+  const params = {
+    mode,
+    ...(date ? { date } : {}),
+    ...(site ? { site } : {}),
+  };
+
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorDueTracker(params),
+    queryFn: () =>
+      projectMonitorService.getDueTracker(params),
+  });
+}
+
+export function useOverdueCounts(siteId) {
+  return useQuery({
+    queryKey: queryKeys.projectMonitorOverdueCounts(
+      { site: siteId },
+    ),
+    queryFn: () =>
+      projectMonitorService.getOverdueCounts({
+        site: siteId,
+      }),
+    enabled: Boolean(siteId),
+  });
+}
+
+function invalidateRollups(queryClient) {
+  ["dashboard", "due-tracker", "overdue-counts"].forEach(
+    (segment) =>
+      queryClient.invalidateQueries({
+        queryKey: ["project-monitor", segment],
+      }),
+  );
+}
+
 export function useProjectOverview(siteId) {
   return useQuery({
     queryKey:
@@ -64,6 +117,7 @@ function invalidateStructures(
   queryClient,
   siteId,
 ) {
+  invalidateRollups(queryClient);
   queryClient.invalidateQueries({
     queryKey: [
       "project-monitor",
@@ -211,6 +265,7 @@ function invalidateBuildings(
   queryClient,
   siteId,
 ) {
+  invalidateRollups(queryClient);
   queryClient.invalidateQueries({
     queryKey: [
       "project-monitor",
@@ -318,6 +373,7 @@ function invalidateGirderJobs(
   queryClient,
   siteId,
 ) {
+  invalidateRollups(queryClient);
   queryClient.invalidateQueries({
     queryKey: [
       "project-monitor",
@@ -516,6 +572,7 @@ function invalidateActionItems(
   queryClient,
   siteId,
 ) {
+  invalidateRollups(queryClient);
   queryClient.invalidateQueries({
     queryKey: [
       "project-monitor",
@@ -600,6 +657,7 @@ function invalidateLinearItems(
   queryClient,
   siteId,
 ) {
+  invalidateRollups(queryClient);
   queryClient.invalidateQueries({
     queryKey: [
       "project-monitor",
@@ -742,4 +800,260 @@ export function useDeleteProgressEntry(
         siteId,
       ),
   });
+}
+
+
+// ---------------------------------------------------------------
+// Finance tier: DPR, RA bills, financial summary, site access
+// ---------------------------------------------------------------
+
+function useFinanceQuery(name, params, queryFn, enabled) {
+  return useQuery({
+    queryKey: queryKeys.projectMonitorFinance(
+      name,
+      params,
+    ),
+    queryFn,
+    enabled,
+  });
+}
+
+function invalidateFinance(queryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ["project-monitor", "finance"],
+  });
+  invalidateRollups(queryClient);
+  queryClient.invalidateQueries({
+    queryKey: ["project-monitor", "overview"],
+  });
+}
+
+function useFinanceMutation(mutationFn) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn,
+    onSuccess: () => invalidateFinance(queryClient),
+  });
+}
+
+export function useDprAccess(siteId) {
+  return useFinanceQuery(
+    "access",
+    { site: siteId },
+    () =>
+      projectMonitorService.getDprAccess({
+        site: siteId,
+      }),
+    Boolean(siteId),
+  );
+}
+
+export function useDprContract(siteId, enabled) {
+  return useFinanceQuery(
+    "contract",
+    { site: siteId },
+    () =>
+      projectMonitorService.getDprContract({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useUpdateDprContract(siteId) {
+  return useFinanceMutation((payload) =>
+    projectMonitorService.updateDprContract(
+      siteId,
+      payload,
+    ),
+  );
+}
+
+export function useDprItems(siteId, enabled) {
+  return useFinanceQuery(
+    "items",
+    { site: siteId },
+    () =>
+      projectMonitorService.listDprItems({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateDprItem() {
+  return useFinanceMutation(
+    projectMonitorService.createDprItem,
+  );
+}
+
+export function useUpdateDprItem() {
+  return useFinanceMutation(
+    ({ itemId, payload }) =>
+      projectMonitorService.updateDprItem(
+        itemId,
+        payload,
+      ),
+  );
+}
+
+export function useDeleteDprItem() {
+  return useFinanceMutation(
+    projectMonitorService.deleteDprItem,
+  );
+}
+
+export function useImportDprItems(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.importDprItems(siteId, file),
+  );
+}
+
+export function useUploadDpr(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.uploadDpr(siteId, file),
+  );
+}
+
+export function useDprGrid(siteId, enabled) {
+  return useFinanceQuery(
+    "grid",
+    { site: siteId },
+    () =>
+      projectMonitorService.getDprGrid({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useSaveDprGrid() {
+  return useFinanceMutation(
+    projectMonitorService.saveDprGrid,
+  );
+}
+
+export function useDprEntries(params, enabled) {
+  return useFinanceQuery(
+    "entries",
+    params,
+    () => projectMonitorService.listDprEntries(params),
+    Boolean(params.site) && enabled,
+  );
+}
+
+export function useCreateDprEntry() {
+  return useFinanceMutation(
+    projectMonitorService.createDprEntry,
+  );
+}
+
+export function useDeleteDprEntry() {
+  return useFinanceMutation(
+    projectMonitorService.deleteDprEntry,
+  );
+}
+
+export function useDprUnlocks(siteId, enabled) {
+  return useFinanceQuery(
+    "unlocks",
+    { site: siteId },
+    () =>
+      projectMonitorService.listDprUnlocks({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useUnlockDprDay() {
+  return useFinanceMutation(
+    projectMonitorService.unlockDprDay,
+  );
+}
+
+export function useRaBills(siteId, enabled) {
+  return useFinanceQuery(
+    "ra-bills",
+    { site: siteId },
+    () =>
+      projectMonitorService.listRaBills({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateRaBill() {
+  return useFinanceMutation(
+    projectMonitorService.createRaBill,
+  );
+}
+
+export function useUpdateRaBill() {
+  return useFinanceMutation(({ billId, payload }) =>
+    projectMonitorService.updateRaBill(billId, payload),
+  );
+}
+
+export function useDeleteRaBill() {
+  return useFinanceMutation(
+    projectMonitorService.deleteRaBill,
+  );
+}
+
+export function useFinancialSummary(siteId, enabled) {
+  return useFinanceQuery(
+    "summary",
+    { site: siteId },
+    () =>
+      projectMonitorService.getFinancialSummary({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useFinancialReport(
+  siteId,
+  asOn,
+  enabled,
+) {
+  const params = {
+    site: siteId,
+    ...(asOn ? { as_on: asOn } : {}),
+  };
+
+  return useFinanceQuery(
+    "report",
+    params,
+    () =>
+      projectMonitorService.getFinancialReport(params),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useSiteAccess(siteId) {
+  return useFinanceQuery(
+    "site-access",
+    { site: siteId },
+    () =>
+      projectMonitorService.listSiteAccess(
+        siteId ? { site: siteId } : {},
+      ),
+    true,
+  );
+}
+
+export function useGrantSiteAccess() {
+  return useFinanceMutation(
+    projectMonitorService.grantSiteAccess,
+  );
+}
+
+export function useRevokeSiteAccess() {
+  return useFinanceMutation(
+    projectMonitorService.revokeSiteAccess,
+  );
 }

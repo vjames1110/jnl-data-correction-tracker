@@ -195,7 +195,7 @@ export function DirectorApprovalInboxPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Director Portal
+            Approval Management
           </span>
           <h1>Approval Inbox</h1>
           <p>

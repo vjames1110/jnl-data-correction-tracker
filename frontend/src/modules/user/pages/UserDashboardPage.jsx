@@ -91,7 +91,7 @@ export function UserDashboardPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Request Creator Portal
+            Approval Management
           </span>
           <h1>Correction Dashboard</h1>
           <p>

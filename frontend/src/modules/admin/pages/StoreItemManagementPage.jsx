@@ -526,7 +526,7 @@ export function StoreItemManagementPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Item Management</h1>
           <p>

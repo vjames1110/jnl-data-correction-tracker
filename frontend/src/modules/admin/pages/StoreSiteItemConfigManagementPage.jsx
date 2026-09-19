@@ -700,7 +700,7 @@ export function StoreSiteItemConfigManagementPage() {
       <div className="page-heading">
         <div>
           <span className="page-eyebrow">
-            Store Reconciliation
+            Production Reconciliation
           </span>
           <h1>Site Rate &amp; Mix Overrides</h1>
           <p>

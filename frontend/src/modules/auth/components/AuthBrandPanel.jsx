@@ -33,14 +33,14 @@ export function AuthBrandPanel() {
           </span>
 
           <h1>
-            Approvals managed with
-            accountability.
+            One platform for approvals,
+            production and projects.
           </h1>
 
           <p>
-            Centralize ERP correction requests,
-            approvals, assignments, resolutions,
-            and operational analytics.
+            JNLOps brings approval management,
+            production reconciliation and project
+            monitoring together in one workspace.
           </p>
         </div>
 

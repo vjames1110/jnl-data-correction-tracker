@@ -226,6 +226,52 @@ class Site(BusinessModel):
             "value for this project, in ₹."
         ),
     )
+    contract_no = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=(
+            "Project Monitor finance: contract / LOA "
+            "number."
+        ),
+    )
+    varied_value = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor finance: contract value "
+            "as per the latest variation, in ₹. "
+            "Falls back to the awarded value when "
+            "blank."
+        ),
+    )
+    opening_billed_value = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        default=0,
+        help_text=(
+            "Project Monitor finance: gross value "
+            "already billed BEFORE RA bills were "
+            "recorded in this system, in ₹."
+        ),
+    )
+    opening_bill_no = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text=(
+            "Project Monitor finance: number of the "
+            "last RA bill raised before this system."
+        ),
+    )
+    opening_bill_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor finance: date of the "
+            "last RA bill raised before this system."
+        ),
+    )
 
     class Meta:
         db_table = "organization_site"

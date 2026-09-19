@@ -2,13 +2,8 @@ import {
   createBrowserRouter,
 } from "react-router-dom";
 
-import { AdminLayout } from "../layouts/AdminLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
-import { DirectorLayout } from "../layouts/DirectorLayout";
-import { ProjectManagerLayout } from "../layouts/ProjectManagerLayout";
-import { ResponsibleLayout } from "../layouts/ResponsibleLayout";
-import { StoreLayout } from "../layouts/StoreLayout";
-import { UserLayout } from "../layouts/UserLayout";
+import { JnlOpsLayout } from "../layouts/JnlOpsLayout";
 import { AdminDashboardPage } from "../modules/admin/pages/AdminDashboardPage";
 import { CorrectionRequestManagementPage } from "../modules/admin/pages/CorrectionRequestManagementPage";
 import { DepartmentManagementPage } from "../modules/admin/pages/DepartmentManagementPage";
@@ -42,8 +37,12 @@ import { StructuresPage } from "../modules/project_monitor/pages/StructuresPage"
 import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
 import { GirdersPage } from "../modules/project_monitor/pages/GirdersPage";
 import { ActionItemsPage } from "../modules/project_monitor/pages/ActionItemsPage";
+import { ProjectDashboardPage } from "../modules/project_monitor/pages/ProjectDashboardPage";
+import { DprBillsPage } from "../modules/project_monitor/pages/DprBillsPage";
 import { LinearWorksPage } from "../modules/project_monitor/pages/LinearWorksPage";
 import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
+import { ProjectMonitorSiteAccessPage } from "../modules/admin/pages/ProjectMonitorSiteAccessPage";
+import { RdsoSpanLibraryPage } from "../modules/admin/pages/RdsoSpanLibraryPage";
 import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
 import { DirectorAnalyticsPage } from "../modules/director/pages/DirectorAnalyticsPage";
 import { DirectorApprovalDetailPage } from "../modules/director/pages/DirectorApprovalDetailPage";
@@ -112,7 +111,7 @@ export const router = createBrowserRouter([
         element: <UserRoute />,
         children: [
           {
-            element: <UserLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/user/dashboard",
@@ -150,7 +149,7 @@ export const router = createBrowserRouter([
         element: <ResponsibleRoute />,
         children: [
           {
-            element: <ResponsibleLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/responsible/dashboard",
@@ -185,7 +184,7 @@ export const router = createBrowserRouter([
         element: <StoreRoute />,
         children: [
           {
-            element: <StoreLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/store/dashboard",
@@ -258,7 +257,7 @@ export const router = createBrowserRouter([
         element: <ProjectManagerRoute />,
         children: [
           {
-            element: <ProjectManagerLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/project-manager/dashboard",
@@ -297,6 +296,18 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/project-manager/projects",
+                element: (
+                  <ProjectDashboardPage />
+                ),
+              },
+              {
+                path: "/project-manager/dpr-bills",
+                element: (
+                  <DprBillsPage />
+                ),
+              },
+              {
                 path: "/project-manager/reports",
                 element: (
                   <ProjectMonitorReportPage />
@@ -310,7 +321,7 @@ export const router = createBrowserRouter([
         element: <DirectorRoute />,
         children: [
           {
-            element: <DirectorLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/director/dashboard",
@@ -391,6 +402,18 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/director/project-monitor/projects",
+                element: (
+                  <ProjectDashboardPage />
+                ),
+              },
+              {
+                path: "/director/project-monitor/dpr-bills",
+                element: (
+                  <DprBillsPage />
+                ),
+              },
+              {
                 path: "/director/project-monitor/reports",
                 element: (
                   <ProjectMonitorReportPage />
@@ -414,7 +437,7 @@ export const router = createBrowserRouter([
         element: <AdminRoute />,
         children: [
           {
-            element: <AdminLayout />,
+            element: <JnlOpsLayout />,
             children: [
               {
                 path: "/admin/dashboard",
@@ -548,6 +571,18 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/admin/project-monitor/projects",
+                element: (
+                  <ProjectDashboardPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/dpr-bills",
+                element: (
+                  <DprBillsPage />
+                ),
+              },
+              {
                 path: "/admin/project-monitor/reports",
                 element: (
                   <ProjectMonitorReportPage />
@@ -557,6 +592,18 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/structure-types",
                 element: (
                   <StructureTypeManagementPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/site-access",
+                element: (
+                  <ProjectMonitorSiteAccessPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/rdso-span-library",
+                element: (
+                  <RdsoSpanLibraryPage />
                 ),
               },
               {

@@ -7,6 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.authentication.models import UserRole
 from apps.core.models import (
     BusinessModel,
     TimeStampedModel,
@@ -1293,3 +1294,387 @@ class ProgressEntry(
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+
+# --------------------------------------------------------------------
+# Finance tier (Phase 9+): per-site access, DPR and RA bills.
+# --------------------------------------------------------------------
+
+
+class ProjectSiteAccessRole(models.TextChoices):
+    """
+    Which daily feed a Project Manager owns for one site. Only the
+    DPR & Bills role exists so far - the HR and Machinery roles join
+    this same table in the phases that add those feeds.
+    """
+
+    DPR_BILLS = "DPR_BILLS", "DPR & Bills entry"
+
+
+class ProjectSiteAccess(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    "This Project Manager owns this feed for this site" - the
+    per-site permission finance data needs (contract rates and
+    billing must not be visible to every Project Manager, unlike the
+    role-wide access the rest of Project Monitor uses). Assigned by
+    an Admin; only Project Manager accounts can hold it.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="monitor_access",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_monitor_site_access",
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ProjectSiteAccessRole.choices,
+        default=ProjectSiteAccessRole.DPR_BILLS,
+    )
+
+    class Meta:
+        db_table = "project_monitor_site_access"
+        ordering = [
+            "site__site_name",
+            "user__employee_id",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "user", "role"],
+                name="pm_site_access_uniq",
+            ),
+        ]
+        verbose_name = "Project Monitor Site Access"
+        verbose_name_plural = (
+            "Project Monitor Site Access"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.user_id} - {self.site_id} - "
+            f"{self.role}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if (
+            self.user_id
+            and self.user.role
+            != UserRole.PROJECT_MANAGER
+        ):
+            raise ValidationError(
+                {
+                    "user": (
+                        "Only Project Manager accounts "
+                        "can be given site access."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class DprItem(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One contract (BOQ) item monitored in the DPR - description,
+    unit, scope quantity and contract rate. ``concrete_per_unit``
+    and ``tmt_kg_per_unit`` are stored now and used by the costing
+    phase. An item that has DPR entries or bill lines can be
+    deactivated but never deleted (the prototype silently orphaned
+    those entries).
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="dpr_items",
+    )
+    item_no = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+    description = models.CharField(max_length=300)
+    unit = models.CharField(
+        max_length=30,
+        blank=True,
+    )
+    scope_qty = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=0,
+    )
+    rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+    )
+    concrete_per_unit = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        default=0,
+    )
+    tmt_kg_per_unit = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        default=0,
+    )
+    is_active = models.BooleanField(default=True)
+    row_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "project_monitor_dpr_item"
+        ordering = ["row_order", "item_no", "description"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "item_no"],
+                condition=~models.Q(item_no=""),
+                name="pm_dpr_item_no_uniq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.item_no} {self.description}".strip()
+
+    @property
+    def amount(self):
+        return self.scope_qty * self.rate
+
+    def clean(self):
+        super().clean()
+
+        self.item_no = (self.item_no or "").strip()
+        self.description = normalize_whitespace(
+            self.description
+        )
+        errors = {}
+        if not self.description:
+            errors["description"] = (
+                "Description is required."
+            )
+        if self.scope_qty < 0:
+            errors["scope_qty"] = (
+                "Scope quantity cannot be negative."
+            )
+        if self.rate < 0:
+            errors["rate"] = "Rate cannot be negative."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class DprEntrySource(models.TextChoices):
+    MANUAL_GRID = "MANUAL_GRID", "Daily grid"
+    DETAILED = "DETAILED", "Detailed entry"
+    EXCEL = "EXCEL", "Excel upload"
+
+
+class DprEntry(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    Quantity executed on one item on one day. ``rate`` is a snapshot
+    of the item's contract rate at entry time, so later rate edits
+    never rewrite the value of work already recorded. Grid saves
+    replace only ``MANUAL_GRID`` rows; detailed/Excel rows (which
+    carry location/agency/remarks) are kept.
+    """
+
+    item = models.ForeignKey(
+        DprItem,
+        on_delete=models.PROTECT,
+        related_name="entries",
+    )
+    date = models.DateField(db_index=True)
+    qty = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+    )
+    rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    location = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+    agency = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+    remarks = models.CharField(
+        max_length=300,
+        blank=True,
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=DprEntrySource.choices,
+        default=DprEntrySource.DETAILED,
+    )
+
+    class Meta:
+        db_table = "project_monitor_dpr_entry"
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["item", "date"],
+                name="pm_dpr_entry_item_date_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(qty__gt=0),
+                name="pm_dpr_entry_qty_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.item_id} - {self.date} - {self.qty}"
+
+    @property
+    def value(self):
+        return self.qty * self.rate
+
+
+class DprDayUnlock(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    An Admin's logged decision to reopen one past DPR day for one
+    site after the normal edit window has closed.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="dpr_day_unlocks",
+    )
+    date = models.DateField()
+    reason = models.CharField(max_length=300)
+
+    class Meta:
+        db_table = "project_monitor_dpr_day_unlock"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "date"],
+                name="pm_dpr_unlock_site_date_uniq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id} - {self.date}"
+
+
+class RaBill(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One running-account bill. Its gross value is computed from its
+    lines (qty x the rate snapshotted on each line) - never stored -
+    so a deleted or corrected bill can never leave a stale running
+    total behind.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="ra_bills",
+    )
+    bill_no = models.CharField(max_length=50)
+    bill_date = models.DateField()
+    received_amount = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    received_on = models.DateField(
+        null=True,
+        blank=True,
+    )
+    remarks = models.CharField(
+        max_length=300,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "project_monitor_ra_bill"
+        ordering = ["bill_date", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "bill_no"],
+                name="pm_ra_bill_no_uniq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id} - {self.bill_no}"
+
+
+class RaBillLine(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+):
+    bill = models.ForeignKey(
+        RaBill,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    item = models.ForeignKey(
+        DprItem,
+        on_delete=models.PROTECT,
+        related_name="bill_lines",
+    )
+    qty = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+    )
+    rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+
+    class Meta:
+        db_table = "project_monitor_ra_bill_line"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["bill", "item"],
+                name="pm_ra_bill_line_item_uniq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(qty__gt=0),
+                name="pm_ra_bill_line_qty_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.bill_id} - {self.item_id}"
+
+    @property
+    def value(self):
+        return self.qty * self.rate
