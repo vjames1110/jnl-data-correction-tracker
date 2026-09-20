@@ -38,6 +38,8 @@ import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
 import { GirdersPage } from "../modules/project_monitor/pages/GirdersPage";
 import { ActionItemsPage } from "../modules/project_monitor/pages/ActionItemsPage";
 import { ProjectDashboardPage } from "../modules/project_monitor/pages/ProjectDashboardPage";
+import { HrPage } from "../modules/project_monitor/pages/HrPage";
+import { MachineryPage } from "../modules/project_monitor/pages/MachineryPage";
 import { DprBillsPage } from "../modules/project_monitor/pages/DprBillsPage";
 import { LinearWorksPage } from "../modules/project_monitor/pages/LinearWorksPage";
 import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
@@ -302,6 +304,14 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/project-manager/machinery",
+                element: <MachineryPage />,
+              },
+              {
+                path: "/project-manager/hr",
+                element: <HrPage />,
+              },
+              {
                 path: "/project-manager/dpr-bills",
                 element: (
                   <DprBillsPage />
@@ -406,6 +416,14 @@ export const router = createBrowserRouter([
                 element: (
                   <ProjectDashboardPage />
                 ),
+              },
+              {
+                path: "/director/project-monitor/machinery",
+                element: <MachineryPage />,
+              },
+              {
+                path: "/director/project-monitor/hr",
+                element: <HrPage />,
               },
               {
                 path: "/director/project-monitor/dpr-bills",
@@ -575,6 +593,14 @@ export const router = createBrowserRouter([
                 element: (
                   <ProjectDashboardPage />
                 ),
+              },
+              {
+                path: "/admin/project-monitor/machinery",
+                element: <MachineryPage />,
+              },
+              {
+                path: "/admin/project-monitor/hr",
+                element: <HrPage />,
               },
               {
                 path: "/admin/project-monitor/dpr-bills",

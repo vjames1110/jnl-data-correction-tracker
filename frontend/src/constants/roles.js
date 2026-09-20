@@ -140,6 +140,26 @@ export function projectMonitorDprBillsPath(role) {
   return "/admin/project-monitor/dpr-bills";
 }
 
+export function projectMonitorHrPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/hr";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/hr";
+  }
+  return "/admin/project-monitor/hr";
+}
+
+export function projectMonitorMachineryPath(role) {
+  if (role === USER_ROLES.PROJECT_MANAGER) {
+    return "/project-manager/machinery";
+  }
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/machinery";
+  }
+  return "/admin/project-monitor/machinery";
+}
+
 export function projectMonitorReportsPath(role) {
   if (role === USER_ROLES.PROJECT_MANAGER) {
     return "/project-manager/reports";

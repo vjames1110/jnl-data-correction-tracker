@@ -1057,3 +1057,227 @@ export function useRevokeSiteAccess() {
     projectMonitorService.revokeSiteAccess,
   );
 }
+
+// ---------------------------------------------------------------
+// HR: labour, staff and their day-wise cost (per-site HR role)
+// ---------------------------------------------------------------
+
+export function useHrAccess(siteId) {
+  return useFinanceQuery(
+    "hr-access",
+    { site: siteId },
+    () =>
+      projectMonitorService.getHrAccess({ site: siteId }),
+    Boolean(siteId),
+  );
+}
+
+export function useHrSummary(siteId, month, enabled) {
+  return useFinanceQuery(
+    "hr-summary",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.getHrSummary({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useLabourEntries(siteId, month, enabled) {
+  return useFinanceQuery(
+    "hr-labour",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.listLabour({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateLabour() {
+  return useFinanceMutation(
+    projectMonitorService.createLabour,
+  );
+}
+
+export function useDeleteLabour() {
+  return useFinanceMutation(
+    projectMonitorService.deleteLabour,
+  );
+}
+
+export function useStaffMembers(siteId, enabled) {
+  return useFinanceQuery(
+    "hr-staff",
+    { site: siteId },
+    () =>
+      projectMonitorService.listStaff({ site: siteId }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateStaff() {
+  return useFinanceMutation(
+    projectMonitorService.createStaff,
+  );
+}
+
+export function useUpdateStaff() {
+  return useFinanceMutation(({ staffId, payload }) =>
+    projectMonitorService.updateStaff(staffId, payload),
+  );
+}
+
+export function useDeleteStaff() {
+  return useFinanceMutation(
+    projectMonitorService.deleteStaff,
+  );
+}
+
+export function useStaffOverrides(siteId, month, enabled) {
+  return useFinanceQuery(
+    "hr-overrides",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.listStaffOverrides({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useSaveStaffOverride() {
+  return useFinanceMutation(
+    projectMonitorService.saveStaffOverride,
+  );
+}
+
+export function useDeleteStaffOverride() {
+  return useFinanceMutation(
+    projectMonitorService.deleteStaffOverride,
+  );
+}
+
+export function useUploadHr(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.uploadHr(siteId, file),
+  );
+}
+
+// ---------------------------------------------------------------
+// Machinery: machines, daily usage and fuel (per-site Machinery role)
+// ---------------------------------------------------------------
+
+export function useMachineryAccess(siteId) {
+  return useFinanceQuery(
+    "machinery-access",
+    { site: siteId },
+    () =>
+      projectMonitorService.getMachineryAccess({
+        site: siteId,
+      }),
+    Boolean(siteId),
+  );
+}
+
+export function useMachinerySummary(siteId, month, enabled) {
+  return useFinanceQuery(
+    "machinery-summary",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.getMachinerySummary({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useMachines(siteId, enabled) {
+  return useFinanceQuery(
+    "machinery-machines",
+    { site: siteId },
+    () =>
+      projectMonitorService.listMachines({ site: siteId }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateMachine() {
+  return useFinanceMutation(
+    projectMonitorService.createMachine,
+  );
+}
+
+export function useUpdateMachine() {
+  return useFinanceMutation(({ machineId, payload }) =>
+    projectMonitorService.updateMachine(machineId, payload),
+  );
+}
+
+export function useDeleteMachine() {
+  return useFinanceMutation(
+    projectMonitorService.deleteMachine,
+  );
+}
+
+export function useMachineUsage(siteId, month, enabled) {
+  return useFinanceQuery(
+    "machinery-usage",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.listMachineUsage({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useSaveMachineUsage() {
+  return useFinanceMutation(
+    projectMonitorService.saveMachineUsage,
+  );
+}
+
+export function useDeleteMachineUsage() {
+  return useFinanceMutation(
+    projectMonitorService.deleteMachineUsage,
+  );
+}
+
+export function useFuelEntries(siteId, month, enabled) {
+  return useFinanceQuery(
+    "machinery-fuel",
+    { site: siteId, month },
+    () =>
+      projectMonitorService.listFuel({
+        site: siteId,
+        month,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateFuel() {
+  return useFinanceMutation(
+    projectMonitorService.createFuel,
+  );
+}
+
+export function useDeleteFuel() {
+  return useFinanceMutation(
+    projectMonitorService.deleteFuel,
+  );
+}
+
+export function useUploadMachinery(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.uploadMachinery(siteId, file),
+  );
+}

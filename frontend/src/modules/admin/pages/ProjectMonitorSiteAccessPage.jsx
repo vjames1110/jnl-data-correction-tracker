@@ -16,15 +16,22 @@ import {
 } from "../../../hooks/useProjectMonitor";
 import { apiErrorMessage } from "../../project_monitor/utils/finance";
 
+const ROLE_LABELS = {
+  DPR_BILLS: "DPR & Bills entry",
+  HR: "HR entry",
+  MACHINERY: "Machinery entry",
+};
+
 /**
- * Admin page: which Project Managers own the DPR & Bills feed for
- * which site. A Project Manager sees and enters a site's DPR/billing
+ * Admin page: which Project Managers own each finance feed (DPR &
+ * Bills, HR) for which site. A Project Manager sees and enters a site's DPR/billing
  * figures only while assigned here; Director and Admins always see
  * every site.
  */
 export function ProjectMonitorSiteAccessPage() {
   const [siteId, setSiteId] = useState("");
   const [userId, setUserId] = useState("");
+  const [role, setRole] = useState("DPR_BILLS");
 
   const sitesQuery = useSitesDropdown();
   const managersQuery = useUsersDropdown({
@@ -38,7 +45,9 @@ export function ProjectMonitorSiteAccessPage() {
     (row) => !siteId || row.site === siteId,
   );
   const assignedIds = new Set(
-    assigned.map((row) => row.user),
+    assigned
+      .filter((row) => row.role === role)
+      .map((row) => row.user),
   );
   const managers = (managersQuery.data ?? []).filter(
     (manager) => !assignedIds.has(manager.id),
@@ -50,7 +59,7 @@ export function ProjectMonitorSiteAccessPage() {
       await grantAccess.mutateAsync({
         site: siteId,
         user: userId,
-        role: "DPR_BILLS",
+        role,
       });
       setUserId("");
     } catch {
@@ -67,9 +76,10 @@ export function ProjectMonitorSiteAccessPage() {
           </span>
           <h1>Site Access</h1>
           <p>
-            Choose which Project Managers can enter and see
-            DPR quantities and RA bills for each site.
-            Director and Admins always see every site.
+            Choose which Project Managers own each data feed for a
+            site: DPR quantities and RA bills, or HR (labour and
+            staff salaries). Director and Admins always see every
+            site.
           </p>
         </div>
         <div className="page-actions">
@@ -102,6 +112,24 @@ export function ProjectMonitorSiteAccessPage() {
             className="pm-inline-row"
             onSubmit={handleGrant}
           >
+            <label className="form-field">
+              <span>Feed</span>
+              <select
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setUserId("");
+                }}
+              >
+                {Object.entries(ROLE_LABELS).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
             <label
               className="form-field"
               style={{ minWidth: 300 }}
@@ -183,7 +211,7 @@ export function ProjectMonitorSiteAccessPage() {
                     </td>
                     <td>{row.user_name}</td>
                     <td>{row.user_employee_id}</td>
-                    <td>DPR &amp; Bills entry</td>
+                    <td>{ROLE_LABELS[row.role] ?? row.role}</td>
                     <td>
                       <button
                         type="button"
@@ -191,7 +219,7 @@ export function ProjectMonitorSiteAccessPage() {
                         onClick={() => {
                           if (
                             window.confirm(
-                              `Remove ${row.user_name} from ${row.site_code}? They will lose access to its DPR and bills.`,
+                              `Remove ${row.user_name} (${ROLE_LABELS[row.role] ?? row.role}) from ${row.site_code}? They will lose that access.`,
                             )
                           ) {
                             revokeAccess.mutate(row.id);

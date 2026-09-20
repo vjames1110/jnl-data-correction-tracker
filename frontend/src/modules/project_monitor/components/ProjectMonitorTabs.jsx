@@ -8,7 +8,9 @@ import {
   projectMonitorDashboardPath,
   projectMonitorDprBillsPath,
   projectMonitorGirdersPath,
+  projectMonitorHrPath,
   projectMonitorLinearWorksPath,
+  projectMonitorMachineryPath,
   projectMonitorOverviewPath,
   projectMonitorReportsPath,
   projectMonitorStructuresPath,
@@ -70,6 +72,16 @@ export function ProjectMonitorTabs({ role, active }) {
       key: "dpr-bills",
       label: "DPR & Bills",
       path: projectMonitorDprBillsPath(role),
+    },
+    {
+      key: "hr",
+      label: "HR",
+      path: projectMonitorHrPath(role),
+    },
+    {
+      key: "machinery",
+      label: "Machinery",
+      path: projectMonitorMachineryPath(role),
     },
     {
       key: "reports",

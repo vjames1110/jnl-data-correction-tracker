@@ -1304,12 +1304,13 @@ class ProgressEntry(
 
 class ProjectSiteAccessRole(models.TextChoices):
     """
-    Which daily feed a Project Manager owns for one site. Only the
-    DPR & Bills role exists so far - the HR and Machinery roles join
-    this same table in the phases that add those feeds.
+    Which daily feed a Project Manager owns for one site. DPR & Bills,
+    HR and Machinery - each a separate assignment on this one table.
     """
 
     DPR_BILLS = "DPR_BILLS", "DPR & Bills entry"
+    HR = "HR", "HR entry"
+    MACHINERY = "MACHINERY", "Machinery entry"
 
 
 class ProjectSiteAccess(
@@ -1678,3 +1679,381 @@ class RaBillLine(
     @property
     def value(self):
         return self.qty * self.rate
+
+
+class LabourEntrySource(models.TextChoices):
+    MANUAL = "MANUAL", "Manual"
+    EXCEL = "EXCEL", "Excel"
+
+
+class LabourEntry(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    Contract labour on site for one day: a head-count of one category
+    at one daily rate. ``amount`` is stored (nos x rate unless the
+    entry overrides it, e.g. a lump-sum gang) so a later rate change
+    can never rewrite what a past day cost.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="labour_entries",
+    )
+    date = models.DateField(db_index=True)
+    category = models.CharField(max_length=100)
+    nos = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+    rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    agency = models.CharField(max_length=150, blank=True)
+    remarks = models.CharField(max_length=300, blank=True)
+    source = models.CharField(
+        max_length=20,
+        choices=LabourEntrySource.choices,
+        default=LabourEntrySource.MANUAL,
+    )
+
+    class Meta:
+        db_table = "project_monitor_labour_entry"
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["site", "date"],
+                name="pm_labour_site_date_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(nos__gt=0),
+                name="pm_labour_nos_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="pm_labour_amount_non_negative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site_id} - {self.date} - "
+            f"{self.category} x {self.nos}"
+        )
+
+
+class StaffMember(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    Project staff on the payroll of one site. Their cost accrues per
+    day from ``from_date`` to ``to_date`` (open-ended while still on
+    the project): monthly salary divided by the days in that calendar
+    month, unless a ``StaffDayOverride`` says otherwise.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="staff_members",
+    )
+    name = models.CharField(max_length=150)
+    designation = models.CharField(max_length=100, blank=True)
+    monthly_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+    from_date = models.DateField()
+    to_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = "project_monitor_staff_member"
+        ordering = ["name", "from_date"]
+        indexes = [
+            models.Index(
+                fields=["site", "from_date"],
+                name="pm_staff_site_from_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monthly_salary__gte=0),
+                name="pm_staff_salary_non_negative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.site_id})"
+
+    def clean(self):
+        super().clean()
+        if self.to_date and self.to_date < self.from_date:
+            raise ValidationError(
+                {
+                    "to_date": (
+                        "The last day cannot be before the "
+                        "joining date."
+                    )
+                }
+            )
+
+
+class StaffDayOverride(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    What one staff member actually cost on one day when it differs
+    from the normal daily rate. ``amount`` of 0 means absent/unpaid.
+    """
+
+    staff = models.ForeignKey(
+        StaffMember,
+        on_delete=models.CASCADE,
+        related_name="day_overrides",
+    )
+    date = models.DateField()
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "project_monitor_staff_day_override"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["staff", "date"],
+                name="pm_staff_override_uniq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="pm_staff_override_non_negative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.staff_id} - {self.date} - {self.amount}"
+
+
+class MachineSource(models.TextChoices):
+    MARKET = "MARKET", "Market hire"
+    HO = "HO", "In-house (HO)"
+
+
+class HireBasis(models.TextChoices):
+    DAY = "DAY", "Per day"
+    HOUR = "HOUR", "Per hour"
+    MONTH = "MONTH", "Per month"
+
+
+class Machine(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A machine or vehicle working on one site. ``rate`` is what one
+    unit of ``hire_basis`` costs (a day, an hour or a month); usage
+    rows snapshot the resulting hire amount when they are entered, so
+    a later rate edit never rewrites past days. Machines created by a
+    bulk upload that named one nobody registered are ``needs_review``
+    until someone fills in the rate and basis.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="machines",
+    )
+    name = models.CharField(max_length=150)
+    reg_no = models.CharField(max_length=50, blank=True)
+    source = models.CharField(
+        max_length=10,
+        choices=MachineSource.choices,
+        default=MachineSource.MARKET,
+    )
+    agency = models.CharField(max_length=150, blank=True)
+    hire_basis = models.CharField(
+        max_length=10,
+        choices=HireBasis.choices,
+        default=HireBasis.DAY,
+    )
+    rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    is_active = models.BooleanField(default=True)
+    needs_review = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "project_monitor_machine"
+        ordering = ["name", "reg_no"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "name", "reg_no"],
+                name="pm_machine_site_name_reg_uniq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rate__gte=0),
+                name="pm_machine_rate_non_negative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.site_id})"
+
+
+class MachineUsageSource(models.TextChoices):
+    MANUAL = "MANUAL", "Manual"
+    EXCEL = "EXCEL", "Excel"
+
+
+class MachineUsage(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One machine's working day: how many units (days or hours) it
+    worked, the hire that cost, and any maintenance/other spend. One
+    row per machine per day - entering the day again replaces it.
+    """
+
+    machine = models.ForeignKey(
+        Machine,
+        on_delete=models.PROTECT,
+        related_name="usages",
+    )
+    date = models.DateField(db_index=True)
+    qty = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+    )
+    hire_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+    )
+    maintenance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+    )
+    other = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+    )
+    remarks = models.CharField(max_length=300, blank=True)
+    source = models.CharField(
+        max_length=20,
+        choices=MachineUsageSource.choices,
+        default=MachineUsageSource.MANUAL,
+    )
+
+    class Meta:
+        db_table = "project_monitor_machine_usage"
+        ordering = ["-date", "machine__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["machine", "date"],
+                name="pm_machine_usage_day_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(qty__gte=0)
+                    & models.Q(hire_amount__gte=0)
+                    & models.Q(maintenance__gte=0)
+                    & models.Q(other__gte=0)
+                ),
+                name="pm_machine_usage_non_negative",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.machine_id} - {self.date}"
+
+
+class FuelEntry(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    Fuel bought or issued: litres and what it cost, optionally for
+    one machine (blank = general site fuel). ``amount`` is stored, not
+    derived, so a later price change never rewrites a past day.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="fuel_entries",
+    )
+    machine = models.ForeignKey(
+        Machine,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fuel_entries",
+    )
+    date = models.DateField(db_index=True)
+    litres = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+    rate = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    remarks = models.CharField(max_length=300, blank=True)
+    source = models.CharField(
+        max_length=20,
+        choices=MachineUsageSource.choices,
+        default=MachineUsageSource.MANUAL,
+    )
+
+    class Meta:
+        db_table = "project_monitor_fuel_entry"
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["site", "date"],
+                name="pm_fuel_site_date_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(litres__gt=0)
+                    & models.Q(amount__gte=0)
+                ),
+                name="pm_fuel_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id} - {self.date} - {self.litres} L"

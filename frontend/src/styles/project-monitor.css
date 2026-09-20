@@ -1627,3 +1627,63 @@ table.pm-report__table th {
   margin-bottom: 0;
   border-bottom: 0;
 }
+
+/* ---- HR: labour, staff and day-wise cost ---- */
+table.pm-report__table th.pm-num,
+table.pm-report__table td.pm-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-hr-table tfoot th {
+  background: var(--color-neutral-100);
+  border-top: 2px solid var(--color-neutral-300);
+}
+
+.pm-hr-table__empty td {
+  color: var(--color-neutral-500);
+}
+
+.pm-hr-subheading {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.pm-hr-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pm-hr-form {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-items: end;
+  padding-bottom: 4px;
+}
+
+.pm-hr-form .pm-dpr-toolbar__help {
+  grid-column: 1 / -1;
+}
+
+.pm-hr-tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .pm-hr-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pm-hr-subheading + .pm-dpr-toolbar__help {
+  margin: 0 0 12px;
+}
+
+.pm-hr-form .pm-dpr-toolbar__help {
+  margin-top: 4px;
+}
+
+.pm-hr-form + .pm-table-wrap {
+  margin-top: 12px;
+}

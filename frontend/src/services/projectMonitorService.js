@@ -199,6 +199,248 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  // ---- HR (labour and staff cost) ----
+
+  async getHrAccess(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/access/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getHrSummary(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/summary/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async listLabour(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/labour/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createLabour(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/hr/labour/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteLabour(entryId) {
+    await apiClient.delete(
+      `/project-monitor/hr/labour/${entryId}/`,
+    );
+  },
+
+  async listStaff(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/staff/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createStaff(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/hr/staff/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateStaff(staffId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/hr/staff/${staffId}/`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteStaff(staffId) {
+    await apiClient.delete(
+      `/project-monitor/hr/staff/${staffId}/`,
+    );
+  },
+
+  async listStaffOverrides(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/overrides/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async saveStaffOverride(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/hr/overrides/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteStaffOverride(overrideId) {
+    await apiClient.delete(
+      `/project-monitor/hr/overrides/${overrideId}/`,
+    );
+  },
+
+  async downloadHrTemplate(siteId) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/template/",
+      {
+        params: siteId ? { site: siteId } : {},
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  },
+
+  async uploadHr(siteId, file) {
+    const form = new FormData();
+    if (siteId) {
+      form.append("site", siteId);
+    }
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/hr/upload/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
+  // ---- Machinery (machines, usage, fuel) ----
+
+  async getMachineryAccess(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/access/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getMachinerySummary(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/summary/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async listMachines(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/machines/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createMachine(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/machinery/machines/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateMachine(machineId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/machinery/machines/${machineId}/`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteMachine(machineId) {
+    await apiClient.delete(
+      `/project-monitor/machinery/machines/${machineId}/`,
+    );
+  },
+
+  async listMachineUsage(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/usage/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async saveMachineUsage(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/machinery/usage/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteMachineUsage(usageId) {
+    await apiClient.delete(
+      `/project-monitor/machinery/usage/${usageId}/`,
+    );
+  },
+
+  async listFuel(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/fuel/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createFuel(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/machinery/fuel/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteFuel(fuelId) {
+    await apiClient.delete(
+      `/project-monitor/machinery/fuel/${fuelId}/`,
+    );
+  },
+
+  async downloadMachineryTemplate(siteId) {
+    const response = await apiClient.get(
+      "/project-monitor/machinery/template/",
+      {
+        params: siteId ? { site: siteId } : {},
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  },
+
+  async uploadMachinery(siteId, file) {
+    const form = new FormData();
+    if (siteId) {
+      form.append("site", siteId);
+    }
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/machinery/upload/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
   async listSiteAccess(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/site-access/",

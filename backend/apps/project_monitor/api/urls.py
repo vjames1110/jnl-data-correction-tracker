@@ -22,6 +22,30 @@ from apps.project_monitor.api.dpr_views import (
     RaBillDetailAPIView,
     RaBillListCreateAPIView,
 )
+from apps.project_monitor.api.hr_views import (
+    HrAccessAPIView,
+    HrLabourDetailAPIView,
+    HrLabourListCreateAPIView,
+    HrOverrideDetailAPIView,
+    HrOverrideListCreateAPIView,
+    HrStaffDetailAPIView,
+    HrStaffListCreateAPIView,
+    HrSummaryAPIView,
+    HrTemplateAPIView,
+    HrUploadAPIView,
+)
+from apps.project_monitor.api.machinery_views import (
+    FuelDetailAPIView,
+    FuelListCreateAPIView,
+    MachineDetailAPIView,
+    MachineListCreateAPIView,
+    MachineryAccessAPIView,
+    MachinerySummaryAPIView,
+    MachineryTemplateAPIView,
+    MachineryUploadAPIView,
+    UsageDetailAPIView,
+    UsageListCreateAPIView,
+)
 from apps.project_monitor.api.site_access_views import (
     SiteAccessDetailAPIView,
     SiteAccessListCreateAPIView,
@@ -134,6 +158,106 @@ urlpatterns = [
         "financial-report/",
         FinancialReportAPIView.as_view(),
         name="financial-report",
+    ),
+    path(
+        "hr/access/",
+        HrAccessAPIView.as_view(),
+        name="hr-access",
+    ),
+    path(
+        "hr/summary/",
+        HrSummaryAPIView.as_view(),
+        name="hr-summary",
+    ),
+    path(
+        "hr/labour/",
+        HrLabourListCreateAPIView.as_view(),
+        name="hr-labour-list",
+    ),
+    path(
+        "hr/labour/<uuid:pk>/",
+        HrLabourDetailAPIView.as_view(),
+        name="hr-labour-detail",
+    ),
+    path(
+        "hr/staff/",
+        HrStaffListCreateAPIView.as_view(),
+        name="hr-staff-list",
+    ),
+    path(
+        "hr/staff/<uuid:pk>/",
+        HrStaffDetailAPIView.as_view(),
+        name="hr-staff-detail",
+    ),
+    path(
+        "hr/overrides/",
+        HrOverrideListCreateAPIView.as_view(),
+        name="hr-override-list",
+    ),
+    path(
+        "hr/overrides/<uuid:pk>/",
+        HrOverrideDetailAPIView.as_view(),
+        name="hr-override-detail",
+    ),
+    path(
+        "hr/template/",
+        HrTemplateAPIView.as_view(),
+        name="hr-template",
+    ),
+    path(
+        "hr/upload/",
+        HrUploadAPIView.as_view(),
+        name="hr-upload",
+    ),
+    path(
+        "machinery/access/",
+        MachineryAccessAPIView.as_view(),
+        name="machinery-access",
+    ),
+    path(
+        "machinery/summary/",
+        MachinerySummaryAPIView.as_view(),
+        name="machinery-summary",
+    ),
+    path(
+        "machinery/machines/",
+        MachineListCreateAPIView.as_view(),
+        name="machinery-machine-list",
+    ),
+    path(
+        "machinery/machines/<uuid:pk>/",
+        MachineDetailAPIView.as_view(),
+        name="machinery-machine-detail",
+    ),
+    path(
+        "machinery/usage/",
+        UsageListCreateAPIView.as_view(),
+        name="machinery-usage-list",
+    ),
+    path(
+        "machinery/usage/<uuid:pk>/",
+        UsageDetailAPIView.as_view(),
+        name="machinery-usage-detail",
+    ),
+    path(
+        "machinery/fuel/",
+        FuelListCreateAPIView.as_view(),
+        name="machinery-fuel-list",
+    ),
+    path(
+        "machinery/fuel/<uuid:pk>/",
+        FuelDetailAPIView.as_view(),
+        name="machinery-fuel-detail",
+    ),
+    path(
+        "machinery/template/",
+        MachineryTemplateAPIView.as_view(),
+        name="machinery-template",
+    ),
+    path(
+        "machinery/upload/",
+        MachineryUploadAPIView.as_view(),
+        name="machinery-upload",
     ),
     path(
         "site-access/",

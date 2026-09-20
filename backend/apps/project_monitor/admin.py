@@ -9,6 +9,10 @@ from apps.project_monitor.models import (
     DprDayUnlock,
     DprEntry,
     DprItem,
+    FuelEntry,
+    LabourEntry,
+    Machine,
+    MachineUsage,
     GirderJob,
     GirderSpan,
     LinearItem,
@@ -17,6 +21,8 @@ from apps.project_monitor.models import (
     ProjectSiteAccess,
     RaBill,
     RaBillLine,
+    StaffDayOverride,
+    StaffMember,
     RdsoSpanLibraryEntry,
     ScopePatch,
     Structure,
@@ -291,3 +297,72 @@ class RaBillAdmin(admin.ModelAdmin):
     ]
     list_filter = ["site"]
     inlines = [RaBillLineInline]
+
+
+@admin.register(LabourEntry)
+class LabourEntryAdmin(admin.ModelAdmin):
+    list_display = [
+        "date",
+        "site",
+        "category",
+        "nos",
+        "rate",
+        "amount",
+        "source",
+    ]
+    list_filter = ["site", "source"]
+    date_hierarchy = "date"
+
+
+class StaffDayOverrideInline(admin.TabularInline):
+    model = StaffDayOverride
+    extra = 0
+
+
+@admin.register(StaffMember)
+class StaffMemberAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "site",
+        "designation",
+        "monthly_salary",
+        "from_date",
+        "to_date",
+    ]
+    list_filter = ["site"]
+    inlines = [StaffDayOverrideInline]
+
+
+@admin.register(Machine)
+class MachineAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "site",
+        "source",
+        "hire_basis",
+        "rate",
+        "is_active",
+        "needs_review",
+    ]
+    list_filter = ["site", "source", "needs_review"]
+
+
+@admin.register(MachineUsage)
+class MachineUsageAdmin(admin.ModelAdmin):
+    list_display = [
+        "date",
+        "machine",
+        "qty",
+        "hire_amount",
+        "maintenance",
+        "other",
+    ]
+    list_filter = ["machine__site"]
+    date_hierarchy = "date"
+
+
+@admin.register(FuelEntry)
+class FuelEntryAdmin(admin.ModelAdmin):
+    list_display = ["date", "site", "machine", "litres", "amount"]
+    list_filter = ["site"]
+    date_hierarchy = "date"
