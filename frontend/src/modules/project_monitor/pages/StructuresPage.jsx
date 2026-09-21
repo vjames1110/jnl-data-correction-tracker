@@ -6,9 +6,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useCreateStructure,
   useDeleteStructure,
@@ -19,6 +23,7 @@ import {
   useUpdateActivity,
 } from "../../../hooks/useProjectMonitor";
 import { AddStructureForm } from "../components/AddStructureForm";
+import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
 import { ItemGroupSection } from "../components/ItemGroupSection";
@@ -38,15 +43,19 @@ export function StructuresPage() {
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const structureTypesQuery =
     useStructureTypes();
   const structuresQuery = useStructures(
     selectedSite,
   );
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const lacksTask =
+    Boolean(selectedSite) &&
+    !siteTasks.isLoading &&
+    !siteTasks.has("STRUCTURES");
+  const canEdit =
+    isProjectEntryRole(user?.role) && !lacksTask;
 
   const createStructure = useCreateStructure(
     selectedSite,
@@ -72,6 +81,12 @@ export function StructuresPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleCreateStructure = (
     payload,
@@ -232,6 +247,8 @@ export function StructuresPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to see its structures."
         />
+      ) : lacksTask ? (
+        <NoTaskAccess task="Structures" />
       ) : isLoading ? (
         <AppLoader label="Loading structures..." />
       ) : isError ? (

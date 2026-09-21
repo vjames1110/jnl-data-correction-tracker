@@ -659,7 +659,9 @@ def test_admin_assigns_and_removes_site_access(api, site):
     listing = api.get(
         url("site-access-list"), {"site": str(site.id)}
     )
-    assert len(listing.data["data"]) == 1
+    people = listing.data["data"]["people"]
+    assert len(people) == 1
+    assert people[0]["tasks"] == ["DPR_BILLS"]
 
     api.delete(
         url("site-access-detail", granted.data["data"]["id"])
@@ -668,7 +670,7 @@ def test_admin_assigns_and_removes_site_access(api, site):
 
 
 @pytest.mark.django_db
-def test_only_project_managers_can_be_assigned_and_only_by_admins(
+def test_only_incharges_and_managers_can_be_assigned_and_only_by_admins(
     api, site, assigned_pm
 ):
     api.force_authenticate(user=AdminUserFactory())

@@ -2,6 +2,8 @@ import {
   Banknote,
   CalendarClock,
   Gauge,
+  HandCoins,
+  Hourglass,
   Receipt,
   TrendingUp,
   Wallet,
@@ -107,6 +109,42 @@ export function FinancialTiles({ summary }) {
                 ? `Short by ${formatMoneyCompact(summary.shortfall)}`
                 : `7-day average ${formatMoneyCompact(summary.seven_day_average)}`
           }
+        />
+      </section>
+
+      <section className="kpi-grid kpi-grid--compact pm-finance-tiles__grid pm-finance-tiles__payments">
+        <KpiCard
+          label="Billed to date"
+          value={formatMoneyCompact(
+            summary.work_done_to_last_bill,
+          )}
+          icon={Receipt}
+          tone="information"
+          helper={
+            Number(summary.lump_sum_billed) > 0
+              ? `Includes lump sum ${formatMoneyCompact(summary.lump_sum_billed)}`
+              : "Item bills and billed before this system"
+          }
+        />
+        <KpiCard
+          label="Payments received"
+          value={formatMoneyCompact(summary.received_total)}
+          icon={HandCoins}
+          tone="success"
+          helper="On the bills recorded here"
+        />
+        <KpiCard
+          label="Outstanding"
+          value={formatMoneyCompact(
+            summary.outstanding_total,
+          )}
+          icon={Hourglass}
+          tone={
+            Number(summary.outstanding_total) > 0
+              ? "warning"
+              : "default"
+          }
+          helper="Billed but not yet received"
         />
       </section>
 

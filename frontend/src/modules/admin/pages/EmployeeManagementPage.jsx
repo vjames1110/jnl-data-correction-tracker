@@ -112,6 +112,10 @@ const fallbackOptions = {
       value: "PROJECT_MANAGER",
       label: "Project Manager",
     },
+    {
+      value: "PROJECT_INCHARGE",
+      label: "Project Incharge",
+    },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },
@@ -519,6 +523,14 @@ function EmployeeCreatePanel({
                 </option>
               ))}
             </select>
+            {form.role === "PROJECT_INCHARGE" ||
+            form.role === "PROJECT_MANAGER" ? (
+              <small className="form-hint">
+                Project Management access is not set here - an
+                Admin gives this person tasks site by site on
+                the Site Access page.
+              </small>
+            ) : null}
           </label>
           <label className="form-field">
             <span>Department</span>

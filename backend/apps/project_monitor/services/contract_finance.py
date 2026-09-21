@@ -83,6 +83,7 @@ def financial_summary(site, today=None) -> dict:
         "pace": pace,
         "shortfall": shortfall,
         "unbilled_value": billing.unbilled_value(site),
+        **billing.payment_totals(site),
     }
 
 

@@ -26,6 +26,11 @@ const mutation = {
 };
 
 vi.mock("../../../hooks/useProjectMonitor", () => ({
+  useVisibleTasks: () => ({ isLoading: false, has: () => true }),
+  useProjectSites: () => ({
+    data: [{ id: "site-1", code: "CHK", label: "Chunar" }],
+  }),
+  useAutoSelectSite: () => {},
   useMachineryAccess: (...a) => hooks.useMachineryAccess(...a),
   useMachinerySummary: (...a) => hooks.useMachinerySummary(...a),
   useMachines: (...a) => hooks.useMachines(...a),
@@ -40,12 +45,6 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useDeleteFuel: () => mutation,
   useUploadMachinery: () => mutation,
   useOverdueCounts: () => ({ data: {} }),
-}));
-
-vi.mock("../../../hooks/useOrganization", () => ({
-  useSitesDropdown: () => ({
-    data: [{ id: "site-1", code: "CHK", label: "Chunar" }],
-  }),
 }));
 
 vi.mock("../../../hooks/useAuth", () => ({

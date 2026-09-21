@@ -6,7 +6,11 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useActionItems,
   useBuildings,
@@ -50,24 +54,36 @@ export function ProjectMonitorReportPage() {
     DEFAULT_SECTIONS,
   );
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
+  // A person granted only some tasks reports on those tasks only:
+  // a query for a task they do not hold is never sent (an empty
+  // site disables it) and its section is left out.
+  const siteTasks = useSiteTasks(selectedSite);
+  const canReport = siteTasks.has("REPORTS");
+  const canSee = {
+    structures: canReport && siteTasks.has("STRUCTURES"),
+    buildings: canReport && siteTasks.has("BUILDINGS"),
+    girders: canReport && siteTasks.has("GIRDERS"),
+    actionItems: canReport && siteTasks.has("ACTION_ITEMS"),
+    linearWorks: canReport && siteTasks.has("LINEAR_WORKS"),
+  };
   const overviewQuery = useProjectOverview(
-    selectedSite,
+    canReport ? selectedSite : "",
   );
   const structuresQuery = useStructures(
-    selectedSite,
+    canSee.structures ? selectedSite : "",
   );
   const buildingsQuery = useBuildings(
-    selectedSite,
+    canSee.buildings ? selectedSite : "",
   );
   const girderJobsQuery = useGirderJobs(
-    selectedSite,
+    canSee.girders ? selectedSite : "",
   );
   const actionItemsQuery = useActionItems(
-    selectedSite,
+    canSee.actionItems ? selectedSite : "",
   );
   const linearItemsQuery = useLinearItems(
-    selectedSite,
+    canSee.linearWorks ? selectedSite : "",
   );
   const financeAccess = useDprAccess(selectedSite);
   const canViewFinance = Boolean(
@@ -86,6 +102,12 @@ export function ProjectMonitorReportPage() {
     );
   };
 
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
+
   const handleToggleSection = (key) => {
     setSections((current) => ({
       ...current,
@@ -93,20 +115,34 @@ export function ProjectMonitorReportPage() {
     }));
   };
 
+  // Only the queries that actually run count towards loading/error.
+  const active = [
+    overviewQuery,
+    canSee.structures && structuresQuery,
+    canSee.buildings && buildingsQuery,
+    canSee.girders && girderJobsQuery,
+    canSee.actionItems && actionItemsQuery,
+    canSee.linearWorks && linearItemsQuery,
+  ].filter(Boolean);
   const isLoading =
-    overviewQuery.isLoading ||
-    structuresQuery.isLoading ||
-    buildingsQuery.isLoading ||
-    girderJobsQuery.isLoading ||
-    actionItemsQuery.isLoading ||
-    linearItemsQuery.isLoading;
-  const isError =
-    overviewQuery.isError ||
-    structuresQuery.isError ||
-    buildingsQuery.isError ||
-    girderJobsQuery.isError ||
-    actionItemsQuery.isError ||
-    linearItemsQuery.isError;
+    siteTasks.isLoading ||
+    active.some((query) => query.isLoading);
+  const isError = active.some((query) => query.isError);
+  const heldSections = {
+    ...sections,
+    structures: sections.structures && canSee.structures,
+    buildings: sections.buildings && canSee.buildings,
+    girders: sections.girders && canSee.girders,
+    actionItems: sections.actionItems && canSee.actionItems,
+    linearWorks: sections.linearWorks && canSee.linearWorks,
+    financial: sections.financial && canViewFinance,
+  };
+  const hiddenSections = [
+    ...(canViewFinance ? [] : ["financial"]),
+    ...Object.entries(canSee)
+      .filter(([, allowed]) => !allowed)
+      .map(([key]) => key),
+  ];
 
   return (
     <div className="organization-page">
@@ -178,27 +214,23 @@ export function ProjectMonitorReportPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to generate its report."
         />
+      ) : !siteTasks.isLoading && !canReport ? (
+        <EmptyState
+          title="No access to Reports on this project"
+          message="Ask an Admin to grant you the Reports task for this site on the Site Access page."
+        />
       ) : isLoading ? (
         <AppLoader label="Building report..." />
       ) : isError ? (
         <ErrorState
           title="Report unavailable"
           message={
-            overviewQuery.error?.message ||
-            structuresQuery.error?.message ||
-            buildingsQuery.error?.message ||
-            girderJobsQuery.error?.message ||
-            actionItemsQuery.error?.message ||
-            linearItemsQuery.error?.message
+            active.find((query) => query.isError)
+              ?.error?.message
           }
-          onRetry={() => {
-            overviewQuery.refetch();
-            structuresQuery.refetch();
-            buildingsQuery.refetch();
-            girderJobsQuery.refetch();
-            actionItemsQuery.refetch();
-            linearItemsQuery.refetch();
-          }}
+          onRetry={() =>
+            active.forEach((query) => query.refetch())
+          }
         />
       ) : (
         <>
@@ -218,9 +250,7 @@ export function ProjectMonitorReportPage() {
                 linearItemsQuery.data?.length ||
                 0,
             }}
-            hiddenKeys={
-              canViewFinance ? [] : ["financial"]
-            }
+            hiddenKeys={hiddenSections}
             onToggle={handleToggleSection}
             onSelectAll={() =>
               setSections(DEFAULT_SECTIONS)
@@ -259,7 +289,7 @@ export function ProjectMonitorReportPage() {
                 ? financialQuery.data
                 : null
             }
-            sections={sections}
+            sections={heldSections}
           />
         </>
       )}

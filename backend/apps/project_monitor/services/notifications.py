@@ -20,7 +20,14 @@ from apps.notifications.models import (
     NotificationEventType,
 )
 from apps.notifications.services.delivery import notify_users
-from apps.project_monitor.models import GirderSpan
+from apps.project_monitor.models import (
+    ActionItem,
+    Building,
+    GirderJob,
+    GirderSpan,
+    ProjectSiteAccessRole,
+    Structure,
+)
 
 
 def resolve_activity_site(activity):
@@ -38,12 +45,33 @@ def resolve_activity_site(activity):
     return getattr(parent, "site", None)
 
 
+def resolve_activity_task(activity):
+    """
+    The Site Access task an activity belongs to, from the type of its
+    parent (Structure, Building, GirderJob/GirderSpan, ActionItem) -
+    the same split the rollups and due tracker use.
+    """
+    parent = activity.parent
+    if isinstance(parent, Structure):
+        return ProjectSiteAccessRole.STRUCTURES.value
+    if isinstance(parent, Building):
+        return ProjectSiteAccessRole.BUILDINGS.value
+    if isinstance(parent, (GirderJob, GirderSpan)):
+        return ProjectSiteAccessRole.GIRDERS.value
+    if isinstance(parent, ActionItem):
+        return ProjectSiteAccessRole.ACTION_ITEMS.value
+    return None
+
+
 def _project_label(site) -> str:
     return site.project_name or site.site_name
 
 
 def _overview_deep_link(role: str, site_id) -> str:
-    if role == UserRole.PROJECT_MANAGER:
+    if role in (
+        UserRole.PROJECT_MANAGER,
+        UserRole.PROJECT_INCHARGE,
+    ):
         base = "/project-manager/dashboard"
     elif role == UserRole.DIRECTOR:
         base = "/director/project-monitor"

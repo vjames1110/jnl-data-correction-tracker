@@ -6,9 +6,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useCreateGirderJob,
   useDeleteGirderJob,
@@ -23,6 +27,7 @@ import {
 import { AddGirderJobForm } from "../components/AddGirderJobForm";
 import { GirderJobDrawer } from "../components/GirderJobDrawer";
 import { ItemGroupSection } from "../components/ItemGroupSection";
+import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
@@ -46,7 +51,7 @@ export function GirdersPage() {
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const girderJobsQuery = useGirderJobs(
     selectedSite,
   );
@@ -54,9 +59,13 @@ export function GirdersPage() {
     selectedSite,
   );
   const spanLibraryQuery = useRdsoSpanLibrary();
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const lacksTask =
+    Boolean(selectedSite) &&
+    !siteTasks.isLoading &&
+    !siteTasks.has("GIRDERS");
+  const canEdit =
+    isProjectEntryRole(user?.role) && !lacksTask;
 
   const createGirderJob = useCreateGirderJob(
     selectedSite,
@@ -85,6 +94,12 @@ export function GirdersPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleCreateGirderJob = (
     payload,
@@ -260,6 +275,8 @@ export function GirdersPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to see its girder jobs."
         />
+      ) : lacksTask ? (
+        <NoTaskAccess task="Girders" />
       ) : isLoading ? (
         <AppLoader label="Loading girder jobs..." />
       ) : isError ? (

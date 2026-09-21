@@ -29,6 +29,7 @@ from apps.project_monitor.models import (
     DprEntrySource,
     DprItem,
     RaBill,
+    RaBillKind,
 )
 from apps.project_monitor.services import (
     billing,
@@ -136,7 +137,16 @@ class BillCreateSerializer(serializers.Serializer):
     site = serializers.UUIDField()
     bill_no = serializers.CharField(max_length=50)
     bill_date = serializers.DateField()
-    lines = BillLineSerializer(many=True)
+    kind = serializers.ChoiceField(
+        choices=RaBillKind.choices,
+        default=RaBillKind.ITEMS,
+    )
+    amount = _money_field(
+        required=False, allow_null=True, min_value=0
+    )
+    lines = BillLineSerializer(
+        many=True, required=False, default=list
+    )
     received_amount = _money_field(
         required=False, allow_null=True, min_value=0
     )
@@ -725,6 +735,8 @@ class RaBillListCreateAPIView(APIView):
             bill_no=data["bill_no"],
             bill_date=data["bill_date"],
             lines=lines,
+            kind=data["kind"],
+            amount=data.get("amount"),
             received_amount=data.get("received_amount"),
             received_on=data.get("received_on"),
             remarks=data.get("remarks", ""),

@@ -21,6 +21,11 @@ const hooks = vi.hoisted(() => ({
 const mutation = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false };
 
 vi.mock("../../../hooks/useProjectMonitor", () => ({
+  useVisibleTasks: () => ({ isLoading: false, has: () => true }),
+  useProjectSites: () => ({
+    data: [{ id: "site-1", code: "CHK", label: "Chunar" }],
+  }),
+  useAutoSelectSite: () => {},
   useHrAccess: (...a) => hooks.useHrAccess(...a),
   useHrSummary: (...a) => hooks.useHrSummary(...a),
   useLabourEntries: (...a) => hooks.useLabourEntries(...a),
@@ -35,12 +40,6 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useDeleteStaffOverride: () => mutation,
   useUploadHr: () => mutation,
   useOverdueCounts: () => ({ data: {} }),
-}));
-
-vi.mock("../../../hooks/useOrganization", () => ({
-  useSitesDropdown: () => ({
-    data: [{ id: "site-1", code: "CHK", label: "Chunar" }],
-  }),
 }));
 
 vi.mock("../../../hooks/useAuth", () => ({

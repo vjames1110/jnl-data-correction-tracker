@@ -62,6 +62,31 @@ describe("module access by role", () => {
     expect(
       keysFor(USER_ROLES.PROJECT_MANAGER),
     ).toEqual([MODULE_KEYS.PROJECT]);
+    expect(
+      keysFor(USER_ROLES.PROJECT_INCHARGE),
+    ).toEqual([MODULE_KEYS.PROJECT]);
+  });
+
+  it("gives a Project Incharge the same Project Management module as a Project Manager", () => {
+    const incharge = getModuleNav(
+      USER_ROLES.PROJECT_INCHARGE,
+      MODULE_KEYS.PROJECT,
+    );
+    expect(incharge).toEqual(
+      getModuleNav(
+        USER_ROLES.PROJECT_MANAGER,
+        MODULE_KEYS.PROJECT,
+      ),
+    );
+    expect(incharge.map((entry) => entry.label)).toEqual([
+      "Project Monitor",
+    ]);
+    expect(
+      getModuleHome(
+        USER_ROLES.PROJECT_INCHARGE,
+        MODULE_KEYS.PROJECT,
+      ),
+    ).toBe("/project-manager/dashboard");
   });
 
   it("opens each role in its own module by default", () => {

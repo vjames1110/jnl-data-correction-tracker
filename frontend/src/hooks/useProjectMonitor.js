@@ -4,6 +4,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { useEffect, useRef } from "react";
+
 import { queryKeys } from "../constants/queryKeys";
 import { projectMonitorService } from "../services/projectMonitorService";
 
@@ -1046,16 +1048,21 @@ export function useSiteAccess(siteId) {
   );
 }
 
-export function useGrantSiteAccess() {
-  return useFinanceMutation(
-    projectMonitorService.grantSiteAccess,
-  );
-}
+export function useSetSiteAccess() {
+  const queryClient = useQueryClient();
 
-export function useRevokeSiteAccess() {
-  return useFinanceMutation(
-    projectMonitorService.revokeSiteAccess,
-  );
+  return useMutation({
+    mutationFn: projectMonitorService.setSiteAccess,
+    onSuccess: () => {
+      invalidateFinance(queryClient);
+      [
+        queryKeys.projectMonitorSites(),
+        queryKeys.projectMonitorSiteScope(),
+      ].forEach((queryKey) =>
+        queryClient.invalidateQueries({ queryKey }),
+      );
+    },
+  });
 }
 
 // ---------------------------------------------------------------
@@ -1280,4 +1287,84 @@ export function useUploadMachinery(siteId) {
   return useFinanceMutation((file) =>
     projectMonitorService.uploadMachinery(siteId, file),
   );
+}
+
+// ---------------------------------------------------------------
+// Site scope: which sites the caller may work on
+// ---------------------------------------------------------------
+
+export function useProjectSites() {
+  return useQuery({
+    queryKey: queryKeys.projectMonitorSites(),
+    queryFn: projectMonitorService.getProjectSites,
+  });
+}
+
+/**
+ * Someone limited to a single site should not have to pick it: when
+ * the list has exactly one site and none is chosen yet, choose it.
+ */
+export function useAutoSelectSite(sites, selected, onSelect) {
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  });
+
+  useEffect(() => {
+    if (!selected && sites?.length === 1) {
+      onSelectRef.current(sites[0].id);
+    }
+  }, [sites, selected]);
+}
+
+export function useSiteScope() {
+  return useQuery({
+    queryKey: queryKeys.projectMonitorSiteScope(),
+    queryFn: projectMonitorService.getSiteScope,
+  });
+}
+
+/**
+ * The tasks the signed-in person holds on a site (Site Access), from
+ * the same list the site picker uses. ``has(task)`` is what tabs and
+ * pages test; Director/Admin hold every task.
+ */
+export function useSiteTasks(siteId) {
+  const sitesQuery = useProjectSites();
+  const site = (sitesQuery.data ?? []).find(
+    (candidate) => candidate.id === siteId,
+  );
+  const tasks = site?.tasks ?? [];
+  return {
+    isLoading: sitesQuery.isLoading,
+    tasks,
+    readOnly: Boolean(site?.read_only),
+    has: (task) => tasks.includes(task),
+  };
+}
+
+/**
+ * Which tabs to show: the tasks held on the chosen site, or - with no
+ * site chosen yet - on any of the person's sites. While the site list
+ * loads everything counts as visible (no flicker).
+ */
+export function useVisibleTasks(siteId) {
+  const sitesQuery = useProjectSites();
+  if (sitesQuery.isLoading || !sitesQuery.data) {
+    return {
+      isLoading: true,
+      noSites: false,
+      has: () => true,
+    };
+  }
+  const sites = siteId
+    ? sitesQuery.data.filter((site) => site.id === siteId)
+    : sitesQuery.data;
+  const held = new Set(sites.flatMap((site) => site.tasks));
+  return {
+    isLoading: false,
+    // Signed in, but no site has been given to this person yet.
+    noSites: sitesQuery.data.length === 0,
+    has: (task) => held.has(task),
+  };
 }

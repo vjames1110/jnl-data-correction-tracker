@@ -9,7 +9,7 @@ Girders and Action Items, which all share the generic ``Activity``.
 from datetime import timedelta
 
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 from apps.project_monitor.models import (
@@ -29,6 +29,13 @@ from apps.project_monitor.services.rollups import (
 )
 
 MODES = ("date", "week", "overdue", "upcoming")
+
+
+def _uuid(value):
+    """Accept a site id given as text or as a UUID."""
+    import uuid
+
+    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
 DEFAULT_LIMIT = 500
 
 
@@ -125,8 +132,16 @@ def due_rows(
     mode,
     on_date=None,
     site_id=None,
+    access=None,
     limit=DEFAULT_LIMIT,
 ):
+    """
+    ``site_id`` scopes to one site. ``access`` limits what a person
+    who was granted only some tasks may see: ``None`` = everything,
+    otherwise ``{site_id: {module, ...}}`` (see
+    ``project_scope.module_access``) - sites and activity modules
+    outside it are left out.
+    """
     if mode not in MODES:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -141,9 +156,21 @@ def due_rows(
         .filter(**_window_filter(mode, on_date))
     )
     if site_id:
-        queryset = queryset.filter(
-            site_parent_filter(site_id)
+        modules = (
+            None
+            if access is None
+            else access.get(_uuid(site_id), set())
         )
+        queryset = queryset.filter(
+            site_parent_filter(site_id, modules)
+        )
+    elif access is not None:
+        allowed = Q(pk__in=[])
+        for allowed_site_id, modules in access.items():
+            allowed |= site_parent_filter(
+                allowed_site_id, modules
+            )
+        queryset = queryset.filter(allowed)
 
     total = queryset.count()
     activities = list(

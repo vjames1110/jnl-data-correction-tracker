@@ -7,6 +7,7 @@ export const USER_ROLES = Object.freeze({
   EMPLOYEE: "EMPLOYEE",
   STORE_HO: "STORE_HO",
   PROJECT_MANAGER: "PROJECT_MANAGER",
+  PROJECT_INCHARGE: "PROJECT_INCHARGE",
 });
 
 export const ADMIN_ROLES = Object.freeze([
@@ -42,12 +43,23 @@ export function isStoreRole(role) {
   ].includes(role);
 }
 
-export function isProjectManagerRole(role) {
-  return [
-    USER_ROLES.PROJECT_MANAGER,
-    USER_ROLES.ADMIN,
-    USER_ROLES.SUPER_ADMIN,
-  ].includes(role);
+/**
+ * People who work in the Project Management portal (entries limited
+ * to their own sites, enforced by the backend): the Project Incharge
+ * - who makes the entries - and the Project Manager, kept for now.
+ */
+export function usesProjectPortal(role) {
+  return (
+    role === USER_ROLES.PROJECT_MANAGER ||
+    role === USER_ROLES.PROJECT_INCHARGE
+  );
+}
+
+/** Roles that may enter Project Monitor data (Director only views). */
+export function isProjectEntryRole(role) {
+  return (
+    usesProjectPortal(role) || isAdminRole(role)
+  );
 }
 
 export function reconciliationOverviewPath(role) {
@@ -57,7 +69,7 @@ export function reconciliationOverviewPath(role) {
 }
 
 export function projectMonitorDashboardPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/projects";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -67,7 +79,7 @@ export function projectMonitorDashboardPath(role) {
 }
 
 export function projectMonitorOverviewPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/dashboard";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -77,7 +89,7 @@ export function projectMonitorOverviewPath(role) {
 }
 
 export function projectMonitorStructuresPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/structures";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -87,7 +99,7 @@ export function projectMonitorStructuresPath(role) {
 }
 
 export function projectMonitorBuildingsPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/buildings";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -97,7 +109,7 @@ export function projectMonitorBuildingsPath(role) {
 }
 
 export function projectMonitorGirdersPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/girders";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -109,7 +121,7 @@ export function projectMonitorGirdersPath(role) {
 export function projectMonitorActionItemsPath(
   role,
 ) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/action-items";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -121,7 +133,7 @@ export function projectMonitorActionItemsPath(
 export function projectMonitorLinearWorksPath(
   role,
 ) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/linear-works";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -131,7 +143,7 @@ export function projectMonitorLinearWorksPath(
 }
 
 export function projectMonitorDprBillsPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/dpr-bills";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -141,7 +153,7 @@ export function projectMonitorDprBillsPath(role) {
 }
 
 export function projectMonitorHrPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/hr";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -151,7 +163,7 @@ export function projectMonitorHrPath(role) {
 }
 
 export function projectMonitorMachineryPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/machinery";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -161,7 +173,7 @@ export function projectMonitorMachineryPath(role) {
 }
 
 export function projectMonitorReportsPath(role) {
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager/reports";
   }
   if (role === USER_ROLES.DIRECTOR) {
@@ -187,7 +199,7 @@ export function portalBasePath(role) {
     return "/store";
   }
 
-  if (role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(role)) {
     return "/project-manager";
   }
 

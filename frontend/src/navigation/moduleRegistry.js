@@ -486,6 +486,9 @@ const ROLE_MODULES = Object.freeze({
   [USER_ROLES.PROJECT_MANAGER]: [
     MODULE_KEYS.PROJECT,
   ],
+  [USER_ROLES.PROJECT_INCHARGE]: [
+    MODULE_KEYS.PROJECT,
+  ],
 });
 
 const ALL_MODULES = Object.freeze([
@@ -524,6 +527,7 @@ function rawNav(role, moduleKey) {
     case USER_ROLES.STORE_HO:
       return storeNav(moduleKey);
     case USER_ROLES.PROJECT_MANAGER:
+    case USER_ROLES.PROJECT_INCHARGE:
       return projectManagerNav(moduleKey);
     default:
       return [];

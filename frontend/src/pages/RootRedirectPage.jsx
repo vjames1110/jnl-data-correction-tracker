@@ -5,6 +5,7 @@ import {
 } from "../constants/auth";
 import {
   isAdminRole,
+  usesProjectPortal,
   USER_ROLES,
 } from "../constants/roles";
 import { AppLoader } from "../components/common/AppLoader";
@@ -82,7 +83,7 @@ export function RootRedirectPage() {
     );
   }
 
-  if (user?.role === USER_ROLES.PROJECT_MANAGER) {
+  if (usesProjectPortal(user?.role)) {
     return (
       <Navigate
         to={AUTH_ROUTES.PROJECT_MANAGER_DASHBOARD}

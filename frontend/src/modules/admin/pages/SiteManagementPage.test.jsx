@@ -29,6 +29,12 @@ const hooks = vi.hoisted(() => ({
   useSitesMock: vi.fn(),
   useUpdateSiteMock: vi.fn(),
   useUsersDropdownMock: vi.fn(),
+  useEmployeeDropdownMock: vi.fn(),
+}));
+
+vi.mock("../../../hooks/useEmployees", () => ({
+  useEmployeeDropdown: (...args) =>
+    hooks.useEmployeeDropdownMock(...args),
 }));
 
 vi.mock("../../../hooks/useOrganization", () => ({
@@ -132,6 +138,11 @@ describe("SiteManagementPage", () => {
           id: "pm-1",
           label: "PM001 - Project Manager",
         },
+      ],
+    });
+    hooks.useEmployeeDropdownMock.mockReturnValue({
+      data: [
+        { id: "pm-1", label: "PM001 - Project Manager" },
       ],
     });
     mockMutations();

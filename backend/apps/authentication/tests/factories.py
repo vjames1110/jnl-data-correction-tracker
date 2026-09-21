@@ -79,3 +79,12 @@ def ProjectManagerUserFactory(**kwargs):
     kwargs.setdefault("must_change_password", False)
 
     return UserFactory(**kwargs)
+
+
+def ProjectInchargeUserFactory(**kwargs):
+    kwargs.setdefault(
+        "role", UserRole.PROJECT_INCHARGE
+    )
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)

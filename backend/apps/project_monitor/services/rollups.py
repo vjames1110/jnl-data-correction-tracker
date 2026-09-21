@@ -86,14 +86,18 @@ def parent_index():
     return index
 
 
-def site_parent_filter(site_id):
+def site_parent_filter(site_id, modules=None):
     """
     A ``Q`` matching every Activity whose parent belongs to
     ``site_id`` - built from subqueries (not id lists) so it stays
-    valid however many parents a site has.
+    valid however many parents a site has. ``modules`` (a set of
+    module keys) restricts it to those activity modules; ``None``
+    means all of them.
     """
     query = Q(pk__in=[])
-    for model, _module, site_lookup in _parent_models():
+    for model, module, site_lookup in _parent_models():
+        if modules is not None and module not in modules:
+            continue
         content_type_id = (
             ContentType.objects.get_for_model(
                 model
@@ -253,10 +257,12 @@ def site_linear_rollups():
     return totals
 
 
-def overdue_counts_for_site(site_id):
+def overdue_counts_for_site(site_id, modules=None):
     """
     Overdue open activities for one site, split into the four
     activity-based modules - drives the per-tab overdue badges.
+    ``modules`` limits the count to the modules the caller may see
+    (the others stay 0).
     """
     index_by_ct = {
         ContentType.objects.get_for_model(model).id: (
@@ -266,7 +272,7 @@ def overdue_counts_for_site(site_id):
     }
     rows = (
         Activity.objects.filter(
-            site_parent_filter(site_id)
+            site_parent_filter(site_id, modules)
         )
         .exclude(status__in=CLOSED_STATUSES)
         .annotate(latest_due=_latest_due_subquery())

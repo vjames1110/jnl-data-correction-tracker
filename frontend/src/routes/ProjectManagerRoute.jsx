@@ -8,7 +8,7 @@ import {
   AUTH_ROUTES,
 } from "../constants/auth";
 import {
-  isProjectManagerRole,
+  isProjectEntryRole,
 } from "../constants/roles";
 import { useAuth } from "../hooks/useAuth";
 
@@ -28,7 +28,7 @@ export function ProjectManagerRoute() {
     );
   }
 
-  if (!isProjectManagerRole(user?.role)) {
+  if (!isProjectEntryRole(user?.role)) {
     return (
       <Navigate
         to={AUTH_ROUTES.FORBIDDEN}

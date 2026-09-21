@@ -13,7 +13,10 @@ import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+} from "../../../hooks/useProjectMonitor";
 import {
   useCreateDprItem,
   useDeleteDprItem,
@@ -67,7 +70,7 @@ export function DprBillsPage() {
   const [itemPanel, setItemPanel] = useState(null);
   const [itemError, setItemError] = useState(null);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const accessQuery = useDprAccess(selectedSite);
   const access = accessQuery.data;
   const canView = Boolean(access?.can_view);
@@ -93,6 +96,12 @@ export function DprBillsPage() {
     setSelectedSite(value);
     setSearchParams(value ? { site: value } : {});
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleSaveItem = async (payload) => {
     setItemError(null);

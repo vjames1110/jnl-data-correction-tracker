@@ -21,6 +21,7 @@ const {
 }));
 
 vi.mock("../../../hooks/useProjectMonitor", () => ({
+  useVisibleTasks: () => ({ isLoading: false, has: () => true }),
   useProjectDashboard: (...args) =>
     useProjectDashboardMock(...args),
   useDueTracker: (...args) =>

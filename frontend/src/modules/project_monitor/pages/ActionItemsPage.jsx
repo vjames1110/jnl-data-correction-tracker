@@ -6,9 +6,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useActionItems,
   useCreateActionItem,
@@ -19,6 +23,7 @@ import {
 } from "../../../hooks/useProjectMonitor";
 import { ActionItemTable } from "../components/ActionItemTable";
 import { AddActionItemForm } from "../components/AddActionItemForm";
+import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
@@ -34,13 +39,17 @@ export function ActionItemsPage() {
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const actionItemsQuery = useActionItems(
     selectedSite,
   );
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const lacksTask =
+    Boolean(selectedSite) &&
+    !siteTasks.isLoading &&
+    !siteTasks.has("ACTION_ITEMS");
+  const canEdit =
+    isProjectEntryRole(user?.role) && !lacksTask;
 
   const createActionItem = useCreateActionItem(
     selectedSite,
@@ -65,6 +74,12 @@ export function ActionItemsPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleCreateActionItem = (
     payload,
@@ -219,6 +234,8 @@ export function ActionItemsPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to see its action items."
         />
+      ) : lacksTask ? (
+        <NoTaskAccess task="Action Items" />
       ) : actionItemsQuery.isLoading ? (
         <AppLoader label="Loading action items..." />
       ) : actionItemsQuery.isError ? (

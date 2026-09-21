@@ -1,48 +1,30 @@
 """
-Per-site permissions for the finance tier (DPR and RA bills, HR and
-Machinery). Everything else in Project Monitor stays
-role-wide - only finance data is scoped to the sites a Project
-Manager has been assigned to.
+The finance tier (DPR and RA bills, HR, Machinery) as tasks of the
+task-wise site access in ``services.project_scope``. These are thin
+wrappers that keep the names the finance views and importers already
+use; the rules are the same for every task:
 
-Rules (confirmed with the user, 2026-09-19):
-- View: Director, Admin and Super Admin see every site; a Project
-  Manager only sees sites they are assigned to.
-- Enter: an assigned Project Manager, plus Admin/Super Admin as the
-  usual backup. Director is read-only.
+- Director, Admin and Super Admin see every site (Director is
+  read-only, Admin/Super Admin can also enter data).
+- A Project Incharge or Project Manager needs the task granted on the
+  site by an Admin (Site Access page) - view and enter together.
 - Unlock a locked DPR day: Admin/Super Admin only.
-
-HR (labour and staff cost - salaries are sensitive) follows the same
-shape with its own assignment: Director/Admin/Super Admin see every
-site, only a Project Manager holding the HR role for a site sees or
-enters that site's HR data, and Director stays read-only.
 """
 
 from rest_framework.exceptions import PermissionDenied
 
-from apps.authentication.models import (
-    AccountStatus,
-    UserRole,
-)
 from apps.project_monitor.models import (
     ProjectSiteAccess,
     ProjectSiteAccessRole,
 )
-
-ALWAYS_VIEW_ROLES = {
-    UserRole.DIRECTOR,
-    UserRole.ADMIN,
-    UserRole.SUPER_ADMIN,
-}
-ADMIN_ROLES = {UserRole.ADMIN, UserRole.SUPER_ADMIN}
-
-
-def _is_active(user) -> bool:
-    return bool(
-        user
-        and user.is_authenticated
-        and user.is_active
-        and user.account_status == AccountStatus.ACTIVE
-    )
+from apps.project_monitor.services import project_scope
+from apps.project_monitor.services.project_scope import (
+    ADMIN_ROLES,
+    ALL_SITE_ROLES as ALWAYS_VIEW_ROLES,
+)
+from apps.project_monitor.services.project_scope import (
+    is_active_account as _is_active,
+)
 
 
 def is_assigned(
@@ -65,46 +47,24 @@ def assigned_site_ids(
     )
 
 
+def can_view_feed(user, site, task) -> bool:
+    """View a finance task (DPR & bills, HR, Machinery) for a site."""
+    return project_scope.can_view_task(user, site, task)
+
+
+def can_enter_feed(user, site, task) -> bool:
+    return project_scope.can_enter_task(user, site, task)
+
+
 def can_view_finance(user, site) -> bool:
-    if not _is_active(user):
-        return False
-    if user.role in ALWAYS_VIEW_ROLES:
-        return True
-    return (
-        user.role == UserRole.PROJECT_MANAGER
-        and is_assigned(user, site.id)
+    return can_view_feed(
+        user, site, ProjectSiteAccessRole.DPR_BILLS
     )
 
 
 def can_enter_dpr_bills(user, site) -> bool:
-    if not _is_active(user):
-        return False
-    if user.role in ADMIN_ROLES:
-        return True
-    return (
-        user.role == UserRole.PROJECT_MANAGER
-        and is_assigned(user, site.id)
-    )
-
-
-def can_view_feed(user, site, role) -> bool:
-    """View a role-assigned feed (HR, Machinery) for one site."""
-    if not _is_active(user):
-        return False
-    if user.role in ALWAYS_VIEW_ROLES:
-        return True
-    return user.role == UserRole.PROJECT_MANAGER and is_assigned(
-        user, site.id, role
-    )
-
-
-def can_enter_feed(user, site, role) -> bool:
-    if not _is_active(user):
-        return False
-    if user.role in ADMIN_ROLES:
-        return True
-    return user.role == UserRole.PROJECT_MANAGER and is_assigned(
-        user, site.id, role
+    return can_enter_feed(
+        user, site, ProjectSiteAccessRole.DPR_BILLS
     )
 
 
@@ -139,17 +99,24 @@ def can_manage_access(user) -> bool:
 def visible_site_ids(user):
     """
     ``None`` means every site (Director/Admin/Super Admin);
-    otherwise the set of site ids a Project Manager may see finance
-    figures for. Used to fill the dashboard's ``money`` slot without
-    ever leaking a site the user is not assigned to.
+    otherwise the set of site ids the user may see finance figures
+    for (they hold the DPR & Bills task there). Used to fill the
+    dashboard's ``money`` slot without ever leaking a site the user
+    has no finance access to.
     """
     if not _is_active(user):
         return set()
     if user.role in ALWAYS_VIEW_ROLES:
         return None
-    if user.role == UserRole.PROJECT_MANAGER:
-        return assigned_site_ids(user)
-    return set()
+    if not project_scope._is_grantable(user):
+        return set()
+    return {
+        site_id
+        for site_id, tasks in project_scope._grants_by_site(
+            user
+        ).items()
+        if ProjectSiteAccessRole.DPR_BILLS.value in tasks
+    }
 
 
 def ensure_can_view(user, site) -> None:

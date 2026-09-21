@@ -7,7 +7,10 @@ import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+} from "../../../hooks/useProjectMonitor";
 import {
   useMachineryAccess,
   useMachinerySummary,
@@ -46,7 +49,7 @@ export function MachineryPage() {
   );
   const [subTab, setSubTab] = useState("cost");
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const accessQuery = useMachineryAccess(selectedSite);
   const canView = Boolean(accessQuery.data?.can_view);
   const canEnter = Boolean(accessQuery.data?.can_enter);
@@ -60,6 +63,12 @@ export function MachineryPage() {
     setSelectedSite(value);
     setSearchParams(value ? { site: value } : {});
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   return (
     <div className="organization-page">

@@ -1,10 +1,22 @@
 """
-RA (running-account) bills. A bill's gross value is always computed
-from its lines (quantity x the contract rate snapshotted on the
-line); nothing here keeps a running total, so deleting or correcting
-a bill can never leave a stale figure behind. Cumulative billed =
-the site's ``opening_billed_value`` (billed before this system) plus
-the gross of every recorded bill.
+RA (running-account) bills, of two kinds:
+
+- **Item bills**: the gross value is computed from the lines
+  (quantity x the contract rate snapshotted on the line).
+- **Amount bills**: a lump sum received against the total project
+  value, tied to no item or quantity; the gross value is the stated
+  amount. It counts as billed AND (by default) as received on the
+  bill date, so it reduces the project's balance value and shows as
+  a payment.
+
+Nothing here keeps a running total, so deleting or correcting a bill
+can never leave a stale figure behind. Cumulative billed = the
+site's ``opening_billed_value`` (billed before this system) plus the
+gross of every recorded bill.
+
+Only item bills mark the "last bill" that the DPR window starts from:
+an amount bill is not tied to executed quantities, so it must not
+swallow the DPR value executed since the last item bill.
 """
 
 from datetime import date
@@ -16,6 +28,7 @@ from rest_framework.exceptions import ValidationError
 from apps.project_monitor.models import (
     DprItem,
     RaBill,
+    RaBillKind,
     RaBillLine,
 )
 from apps.project_monitor.services import dpr
@@ -24,6 +37,8 @@ ZERO = Decimal("0")
 
 
 def bill_gross(bill: RaBill) -> Decimal:
+    if bill.kind == RaBillKind.AMOUNT:
+        return bill.amount or ZERO
     return sum(
         (line.qty * line.rate for line in bill.lines.all()),
         ZERO,
@@ -59,17 +74,24 @@ def create_bill(
     site,
     bill_no,
     bill_date,
-    lines,
+    lines=None,
+    kind=RaBillKind.ITEMS,
+    amount=None,
     received_amount=None,
     received_on=None,
     remarks="",
     actor=None,
 ) -> RaBill:
     """
-    ``lines`` is a list of ``{"item": DprItem, "qty": Decimal}``.
-    Items with a zero quantity are ignored; at least one item with
-    a quantity above zero is required.
+    ``ITEMS``: ``lines`` is a list of ``{"item": DprItem, "qty":
+    Decimal}``. Items with a zero quantity are ignored; at least one
+    item with a quantity above zero is required.
+
+    ``AMOUNT``: ``amount`` (above zero) and no lines. Unless said
+    otherwise the whole amount is recorded as received on the bill
+    date.
     """
+    lines = lines or []
     bill_no = (bill_no or "").strip()
     if not bill_no:
         raise ValidationError(
@@ -86,20 +108,48 @@ def create_bill(
                 )
             }
         )
-    _validate_receipt(received_amount, received_on)
-
     billable = [
         line for line in lines if line["qty"] > 0
     ]
-    if not billable:
-        raise ValidationError(
-            {
-                "lines": (
-                    "Add a quantity against at least one "
-                    "item."
-                )
-            }
-        )
+
+    if kind == RaBillKind.AMOUNT:
+        if amount is None or amount <= 0:
+            raise ValidationError(
+                {"amount": "Enter the bill amount."}
+            )
+        if billable:
+            raise ValidationError(
+                {
+                    "lines": (
+                        "An amount bill is not tied to items - "
+                        "remove the quantities or make it an "
+                        "item bill."
+                    )
+                }
+            )
+        if received_amount is None:
+            received_amount = amount
+        if received_amount and received_on is None:
+            received_on = bill_date
+    else:
+        if amount is not None:
+            raise ValidationError(
+                {
+                    "amount": (
+                        "Only an amount bill has an amount."
+                    )
+                }
+            )
+        if not billable:
+            raise ValidationError(
+                {
+                    "lines": (
+                        "Add a quantity against at least one "
+                        "item."
+                    )
+                }
+            )
+    _validate_receipt(received_amount, received_on)
     seen = set()
     for line in billable:
         item: DprItem = line["item"]
@@ -122,6 +172,8 @@ def create_bill(
         site=site,
         bill_no=bill_no,
         bill_date=bill_date,
+        kind=kind,
+        amount=amount if kind == RaBillKind.AMOUNT else None,
         received_amount=received_amount,
         received_on=received_on,
         remarks=remarks,
@@ -175,17 +227,41 @@ def cumulative_billed(site) -> Decimal:
 
 def last_bill(site):
     """
-    ``(bill_no, bill_date)`` of the latest recorded bill, else the
-    site's opening (pre-system) bill figures, else ``("", None)``.
+    ``(bill_no, bill_date)`` of the latest recorded ITEM bill, else
+    the site's opening (pre-system) bill figures, else ``("", None)``.
+    Amount bills are skipped: they do not cover executed quantities,
+    so they must not move the point the DPR window starts from.
     """
     latest = (
-        RaBill.objects.filter(site=site)
+        RaBill.objects.filter(site=site, kind=RaBillKind.ITEMS)
         .order_by("-bill_date", "-created_at")
         .first()
     )
     if latest is not None:
         return latest.bill_no, latest.bill_date
     return site.opening_bill_no, site.opening_bill_date
+
+
+def payment_totals(site) -> dict:
+    """
+    Lump-sum billed, and payments received / still outstanding
+    across the bills recorded here (what was received on bills raised
+    before this system is not known).
+    """
+    lump_sum = ZERO
+    gross = ZERO
+    received = ZERO
+    for bill in _bills(site):
+        bill_value = bill_gross(bill)
+        gross += bill_value
+        received += bill_received(bill)
+        if bill.kind == RaBillKind.AMOUNT:
+            lump_sum += bill_value
+    return {
+        "lump_sum_billed": lump_sum,
+        "received_total": received,
+        "outstanding_total": gross - received,
+    }
 
 
 def bill_rows(site) -> dict:
@@ -202,6 +278,8 @@ def bill_rows(site) -> dict:
                 "id": bill.id,
                 "bill_no": bill.bill_no,
                 "bill_date": bill.bill_date,
+                "kind": bill.kind,
+                "amount": bill.amount,
                 "gross": gross,
                 "received_amount": bill.received_amount,
                 "received_on": bill.received_on,

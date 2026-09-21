@@ -6,9 +6,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useBuildings,
   useCreateBuilding,
@@ -20,6 +24,7 @@ import {
 import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
 import { AddBuildingForm } from "../components/AddBuildingForm";
 import { ItemGroupSection } from "../components/ItemGroupSection";
+import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
@@ -39,13 +44,17 @@ export function BuildingsPage() {
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const buildingsQuery = useBuildings(
     selectedSite,
   );
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const lacksTask =
+    Boolean(selectedSite) &&
+    !siteTasks.isLoading &&
+    !siteTasks.has("BUILDINGS");
+  const canEdit =
+    isProjectEntryRole(user?.role) && !lacksTask;
 
   const createBuilding = useCreateBuilding(
     selectedSite,
@@ -71,6 +80,12 @@ export function BuildingsPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleCreateBuilding = (
     payload,
@@ -222,6 +237,8 @@ export function BuildingsPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to see its buildings."
         />
+      ) : lacksTask ? (
+        <NoTaskAccess task="Buildings" />
       ) : buildingsQuery.isLoading ? (
         <AppLoader label="Loading buildings..." />
       ) : buildingsQuery.isError ? (

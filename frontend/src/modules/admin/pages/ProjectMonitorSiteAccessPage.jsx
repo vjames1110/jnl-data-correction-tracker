@@ -5,67 +5,223 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { useSitesDropdown } from "../../../hooks/useOrganization";
 import {
-  useSitesDropdown,
-  useUsersDropdown,
-} from "../../../hooks/useOrganization";
-import {
-  useGrantSiteAccess,
-  useRevokeSiteAccess,
+  useSetSiteAccess,
   useSiteAccess,
+  useSiteScope,
 } from "../../../hooks/useProjectMonitor";
 import { apiErrorMessage } from "../../project_monitor/utils/finance";
 
-const ROLE_LABELS = {
-  DPR_BILLS: "DPR & Bills entry",
-  HR: "HR entry",
-  MACHINERY: "Machinery entry",
-};
+function sameSet(a, b) {
+  return a.size === b.size && [...a].every((v) => b.has(v));
+}
+
+/** Column groups (Progress / Finance / Reports) from the task list. */
+function groupTasks(tasks) {
+  const groups = [];
+  tasks.forEach((task) => {
+    const last = groups[groups.length - 1];
+    if (last && last.key === task.group) {
+      last.tasks.push(task);
+    } else {
+      groups.push({
+        key: task.group,
+        label: task.group_label,
+        tasks: [task],
+      });
+    }
+  });
+  return groups;
+}
 
 /**
- * Admin page: which Project Managers own each finance feed (DPR &
- * Bills, HR) for which site. A Project Manager sees and enters a site's DPR/billing
- * figures only while assigned here; Director and Admins always see
- * every site.
+ * One person's row: a checkbox per task. Ticking is local until
+ * Save, which replaces the person's tasks on this site in one step.
+ */
+function PersonRow({
+  person,
+  tasks,
+  isNew,
+  isSaving,
+  onSave,
+  onRemove,
+  onCancel,
+}) {
+  const [draft, setDraft] = useState(
+    () => new Set(person.tasks),
+  );
+  const saved = new Set(person.tasks);
+  const changed = !sameSet(draft, saved);
+
+  const toggle = (key) =>
+    setDraft((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  const pick = (group) =>
+    setDraft(
+      new Set(
+        tasks
+          .filter((task) => !group || task.group === group)
+          .map((task) => task.key),
+      ),
+    );
+
+  return (
+    <tr>
+      <td className="pm-access-person">
+        <strong>{person.user_name}</strong>
+        <span className="sub">
+          {" "}
+          ({person.user_employee_id})
+        </span>
+        <span className="pm-access-role">
+          {person.role_label}
+        </span>
+        <span className="pm-access-presets">
+          <button type="button" onClick={() => pick(null)}>
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => pick("progress")}
+          >
+            Progress
+          </button>
+          <button
+            type="button"
+            onClick={() => pick("finance")}
+          >
+            Finance
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraft(new Set())}
+          >
+            None
+          </button>
+        </span>
+      </td>
+      {tasks.map((task) => (
+        <td key={task.key} className="pm-access-cell">
+          <input
+            type="checkbox"
+            checked={draft.has(task.key)}
+            onChange={() => toggle(task.key)}
+            aria-label={`${person.user_name}: ${task.label}`}
+          />
+        </td>
+      ))}
+      <td className="pm-access-actions">
+        <button
+          type="button"
+          className="button button--primary button--sm"
+          disabled={
+            isSaving ||
+            !changed ||
+            (isNew && draft.size === 0)
+          }
+          onClick={() =>
+            onSave(person.user, [...draft])
+          }
+        >
+          Save
+        </button>
+        {isNew ? (
+          <button
+            type="button"
+            className="button button--tertiary button--sm"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="icon-button icon-button--danger"
+            aria-label={`Remove ${person.user_name} from this site`}
+            title="Remove from this site"
+            disabled={isSaving}
+            onClick={() => onRemove(person)}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * Admin page: for one site, which Project Incharges and Project
+ * Managers may use which task. Several people can hold tasks on the
+ * same site, and each person can hold any mix - everything, a single
+ * task such as DPR & Bills or HR, or a combination. Director and
+ * Admins always see every task on every site.
  */
 export function ProjectMonitorSiteAccessPage() {
   const [siteId, setSiteId] = useState("");
-  const [userId, setUserId] = useState("");
-  const [role, setRole] = useState("DPR_BILLS");
+  const [pickedUser, setPickedUser] = useState("");
+  const [adding, setAdding] = useState(null);
 
   const sitesQuery = useSitesDropdown();
-  const managersQuery = useUsersDropdown({
-    role: "PROJECT_MANAGER",
-  });
   const accessQuery = useSiteAccess(siteId);
-  const grantAccess = useGrantSiteAccess();
-  const revokeAccess = useRevokeSiteAccess();
+  const scopeQuery = useSiteScope();
+  const setAccess = useSetSiteAccess();
 
-  const assigned = (accessQuery.data ?? []).filter(
-    (row) => !siteId || row.site === siteId,
-  );
-  const assignedIds = new Set(
-    assigned
-      .filter((row) => row.role === role)
-      .map((row) => row.user),
-  );
-  const managers = (managersQuery.data ?? []).filter(
-    (manager) => !assignedIds.has(manager.id),
-  );
+  const data = accessQuery.data;
+  const tasks = data?.tasks ?? [];
+  const groups = groupTasks(tasks);
 
-  const handleGrant = async (event) => {
-    event.preventDefault();
+  const handleSave = async (userId, taskKeys) => {
     try {
-      await grantAccess.mutateAsync({
+      await setAccess.mutateAsync({
         site: siteId,
         user: userId,
-        role,
+        tasks: taskKeys,
       });
-      setUserId("");
+      setAdding(null);
     } catch {
       // Shown by the inline alert.
     }
   };
+
+  const handleRemove = (person) => {
+    if (
+      window.confirm(
+        `Remove ${person.user_name} from this site? They lose every task they hold on it.`,
+      )
+    ) {
+      handleSave(person.user, []);
+    }
+  };
+
+  const startAdding = () => {
+    const chosen = (data?.eligible ?? []).find(
+      (candidate) => candidate.id === pickedUser,
+    );
+    if (!chosen) {
+      return;
+    }
+    setAdding({
+      user: chosen.id,
+      user_name: chosen.name,
+      user_employee_id: chosen.employee_id,
+      role_label: chosen.role_label,
+      tasks: [],
+    });
+    setPickedUser("");
+  };
+
+  const eligible = (data?.eligible ?? []).filter(
+    (candidate) => candidate.id !== adding?.user,
+  );
 
   return (
     <div className="organization-page">
@@ -76,10 +232,15 @@ export function ProjectMonitorSiteAccessPage() {
           </span>
           <h1>Site Access</h1>
           <p>
-            Choose which Project Managers own each data feed for a
-            site: DPR quantities and RA bills, or HR (labour and
-            staff salaries). Director and Admins always see every
-            site.
+            Choose a site, then tick what each Project Incharge
+            and Project Manager may do on it - all tasks, one
+            task such as DPR &amp; Bills or HR, or any mix.
+            Several people can work on the same site. Setting a
+            person&apos;s site in User Management, or making them a
+            site&apos;s Project Manager in Organization Setup, gives
+            them a starting set of tasks here - trim or extend it as
+            you need. Director and Admins always see every task on
+            every site.
           </p>
         </div>
         <div className="page-actions">
@@ -89,10 +250,11 @@ export function ProjectMonitorSiteAccessPage() {
               value={siteId}
               onChange={(event) => {
                 setSiteId(event.target.value);
-                setUserId("");
+                setAdding(null);
+                setPickedUser("");
               }}
             >
-              <option value="">All sites</option>
+              <option value="">Select a site</option>
               {(sitesQuery.data ?? []).map((site) => (
                 <option key={site.id} value={site.id}>
                   {site.code} - {site.label}
@@ -103,77 +265,12 @@ export function ProjectMonitorSiteAccessPage() {
         </div>
       </div>
 
-      {siteId ? (
-        <SurfaceCard>
-          <div className="surface-card__header">
-            <h2>Assign a Project Manager</h2>
-          </div>
-          <form
-            className="pm-inline-row"
-            onSubmit={handleGrant}
-          >
-            <label className="form-field">
-              <span>Feed</span>
-              <select
-                value={role}
-                onChange={(event) => {
-                  setRole(event.target.value);
-                  setUserId("");
-                }}
-              >
-                {Object.entries(ROLE_LABELS).map(
-                  ([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ),
-                )}
-              </select>
-            </label>
-            <label
-              className="form-field"
-              style={{ minWidth: 300 }}
-            >
-              <span>Project Manager</span>
-              <select
-                value={userId}
-                onChange={(event) =>
-                  setUserId(event.target.value)
-                }
-                required
-              >
-                <option value="">
-                  Select a Project Manager
-                </option>
-                {managers.map((manager) => (
-                  <option
-                    key={manager.id}
-                    value={manager.id}
-                  >
-                    {manager.label ||
-                      manager.full_name ||
-                      manager.employee_id}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              className="button button--primary"
-              disabled={grantAccess.isPending || !userId}
-            >
-              <UserPlus size={16} /> Assign
-            </button>
-          </form>
-          {grantAccess.isError ? (
-            <div className="inline-alert inline-alert--error">
-              {apiErrorMessage(grantAccess.error)}
-            </div>
-          ) : null}
-        </SurfaceCard>
-      ) : null}
-
-      {accessQuery.isLoading ? (
+      {!siteId ? (
+        <EmptyState
+          title="Pick a site"
+          message="Choose a project/site above to see and change who can work on it."
+        />
+      ) : accessQuery.isLoading ? (
         <AppLoader label="Loading site access..." />
       ) : accessQuery.isError ? (
         <ErrorState
@@ -181,63 +278,194 @@ export function ProjectMonitorSiteAccessPage() {
           message={apiErrorMessage(accessQuery.error)}
           onRetry={() => accessQuery.refetch()}
         />
-      ) : assigned.length === 0 ? (
-        <EmptyState
-          title="Nobody is assigned yet"
-          message={
-            siteId
-              ? "Assign a Project Manager above to let them enter DPR and bills for this site."
-              : "No Project Manager has been assigned to any site yet."
-          }
-        />
       ) : (
         <SurfaceCard>
+          <div className="surface-card__header">
+            <h2>People on this site</h2>
+          </div>
+
+          <form
+            className="pm-inline-row print-hidden"
+            onSubmit={(event) => {
+              event.preventDefault();
+              startAdding();
+            }}
+          >
+            <label
+              className="form-field"
+              style={{ minWidth: 340 }}
+            >
+              <span>Add a person</span>
+              <select
+                value={pickedUser}
+                onChange={(event) =>
+                  setPickedUser(event.target.value)
+                }
+              >
+                <option value="">
+                  Select a Project Incharge or Manager
+                </option>
+                {eligible.map((candidate) => (
+                  <option
+                    key={candidate.id}
+                    value={candidate.id}
+                  >
+                    {candidate.employee_id} - {candidate.name}{" "}
+                    ({candidate.role_label})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="button button--secondary"
+              disabled={!pickedUser}
+            >
+              <UserPlus size={16} /> Add
+            </button>
+          </form>
+
+          {setAccess.isError ? (
+            <div className="inline-alert inline-alert--error">
+              {apiErrorMessage(setAccess.error)}
+            </div>
+          ) : null}
+
+          {data.people.length === 0 && !adding ? (
+            <p className="pm-timeline-empty">
+              Nobody has been given a task on this site yet.
+              Add a person above.
+            </p>
+          ) : (
+            <div className="pm-table-wrap">
+              <table className="pm-access-grid">
+                <thead>
+                  <tr>
+                    <th rowSpan={2}>Person</th>
+                    {groups.map((group) => (
+                      <th
+                        key={group.key}
+                        colSpan={group.tasks.length}
+                        className="pm-access-group"
+                      >
+                        {group.label}
+                      </th>
+                    ))}
+                    <th rowSpan={2} />
+                  </tr>
+                  <tr>
+                    {tasks.map((task) => (
+                      <th
+                        key={task.key}
+                        className="pm-access-task"
+                      >
+                        {task.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.people.map((person) => (
+                    <PersonRow
+                      // A saved change refreshes the row's draft.
+                      key={`${person.user}:${person.tasks.join(",")}`}
+                      person={person}
+                      tasks={tasks}
+                      isSaving={setAccess.isPending}
+                      onSave={handleSave}
+                      onRemove={handleRemove}
+                    />
+                  ))}
+                  {adding ? (
+                    <PersonRow
+                      key={`new:${adding.user}`}
+                      person={adding}
+                      tasks={tasks}
+                      isNew
+                      isSaving={setAccess.isPending}
+                      onSave={handleSave}
+                      onCancel={() => setAdding(null)}
+                    />
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SurfaceCard>
+      )}
+
+      <SurfaceCard>
+        <div className="surface-card__header pm-scope-header">
+          <div>
+            <h2>People and their sites</h2>
+            <p className="sub">
+              Every Project Incharge and Project Manager, and the
+              sites they hold tasks on. Someone with no site
+              cannot see or enter anything in Project Monitor.
+            </p>
+          </div>
+        </div>
+        {scopeQuery.isLoading ? (
+          <AppLoader label="Loading assignments..." />
+        ) : scopeQuery.isError ? (
+          <ErrorState
+            title="Assignments unavailable"
+            message={apiErrorMessage(scopeQuery.error)}
+            onRetry={() => scopeQuery.refetch()}
+          />
+        ) : (scopeQuery.data ?? []).length === 0 ? (
+          <p className="pm-timeline-empty">
+            No Project Incharge or Project Manager accounts
+            yet.
+          </p>
+        ) : (
           <div className="pm-table-wrap">
             <table className="pm-activity-table">
               <thead>
                 <tr>
-                  <th>Site</th>
-                  <th>Project Manager</th>
-                  <th>Employee ID</th>
+                  <th>Person</th>
                   <th>Role</th>
-                  <th />
+                  <th>Sites they can work on</th>
                 </tr>
               </thead>
               <tbody>
-                {assigned.map((row) => (
-                  <tr key={row.id}>
+                {scopeQuery.data.map((person) => (
+                  <tr key={person.id}>
                     <td>
-                      {row.site_code} - {row.site_name}
+                      {person.name}
+                      <span className="sub">
+                        {" "}
+                        ({person.employee_id})
+                      </span>
                     </td>
-                    <td>{row.user_name}</td>
-                    <td>{row.user_employee_id}</td>
-                    <td>{ROLE_LABELS[row.role] ?? row.role}</td>
+                    <td>{person.role_label}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="icon-button icon-button--danger"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Remove ${row.user_name} (${ROLE_LABELS[row.role] ?? row.role}) from ${row.site_code}? They will lose that access.`,
-                            )
-                          ) {
-                            revokeAccess.mutate(row.id);
-                          }
-                        }}
-                        aria-label="Remove access"
-                        title="Remove access"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {person.sites.length === 0 ? (
+                        <span className="pm-scope-warning">
+                          No site - cannot see or enter
+                          anything
+                        </span>
+                      ) : (
+                        person.sites.map((site) => (
+                          <span
+                            key={site.id}
+                            className="pm-scope-chip"
+                          >
+                            {site.code} ·{" "}
+                            {site.all_tasks
+                              ? "all tasks"
+                              : `${site.task_count} task${site.task_count === 1 ? "" : "s"}`}
+                          </span>
+                        ))
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </SurfaceCard>
-      )}
+        )}
+      </SurfaceCard>
     </div>
   );
 }

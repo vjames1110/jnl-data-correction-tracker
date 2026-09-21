@@ -293,6 +293,8 @@ class RaBillAdmin(admin.ModelAdmin):
         "bill_no",
         "site",
         "bill_date",
+        "kind",
+        "amount",
         "received_amount",
     ]
     list_filter = ["site"]

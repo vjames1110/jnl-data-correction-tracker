@@ -36,6 +36,7 @@ import {
   useUpdateSite,
   useUsersDropdown,
 } from "../../../hooks/useOrganization";
+import { useEmployeeDropdown } from "../../../hooks/useEmployees";
 
 const emptyForm = {
   company: "",
@@ -873,7 +874,9 @@ export function SiteManagementPage() {
     useUsersDropdown({
     designation: "director",
   });
-  const pmUsersQuery = useUsersDropdown();
+  // Site.site_hod points at an employee PROFILE (which need not have
+  // a login), so the picker lists employees - not user accounts.
+  const pmUsersQuery = useEmployeeDropdown();
   const exportQuery =
     useSiteExport(exportParams);
   const createSite = useCreateSite();

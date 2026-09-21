@@ -22,6 +22,10 @@ class UserRole(models.TextChoices):
         "PROJECT_MANAGER",
         "Project Manager",
     )
+    PROJECT_INCHARGE = (
+        "PROJECT_INCHARGE",
+        "Project Incharge",
+    )
 
 
 class AccountStatus(models.TextChoices):

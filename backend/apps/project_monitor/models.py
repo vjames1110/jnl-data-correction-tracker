@@ -1302,15 +1302,31 @@ class ProgressEntry(
 # --------------------------------------------------------------------
 
 
+# People who can be granted tasks on a site.
+GRANTABLE_USER_ROLES = (
+    UserRole.PROJECT_MANAGER,
+    UserRole.PROJECT_INCHARGE,
+)
+
+
 class ProjectSiteAccessRole(models.TextChoices):
     """
-    Which daily feed a Project Manager owns for one site. DPR & Bills,
-    HR and Machinery - each a separate assignment on this one table.
+    A task in Project Monitor that an Admin can grant, per site, to a
+    Project Incharge or Project Manager. (The model field is still
+    called ``role``; its value is one of these task keys.) Declared in
+    the order the Site Access page shows them.
     """
 
-    DPR_BILLS = "DPR_BILLS", "DPR & Bills entry"
-    HR = "HR", "HR entry"
-    MACHINERY = "MACHINERY", "Machinery entry"
+    OVERVIEW = "OVERVIEW", "Project details & extensions"
+    STRUCTURES = "STRUCTURES", "Structures"
+    BUILDINGS = "BUILDINGS", "Buildings"
+    GIRDERS = "GIRDERS", "Girders, bearings & EJ"
+    ACTION_ITEMS = "ACTION_ITEMS", "Action items"
+    LINEAR_WORKS = "LINEAR_WORKS", "Linear works"
+    DPR_BILLS = "DPR_BILLS", "DPR & Bills"
+    HR = "HR", "HR (labour & staff)"
+    MACHINERY = "MACHINERY", "Machinery & fuel"
+    REPORTS = "REPORTS", "Reports"
 
 
 class ProjectSiteAccess(
@@ -1319,11 +1335,12 @@ class ProjectSiteAccess(
     UserTrackingModel,
 ):
     """
-    "This Project Manager owns this feed for this site" - the
-    per-site permission finance data needs (contract rates and
-    billing must not be visible to every Project Manager, unlike the
-    role-wide access the rest of Project Monitor uses). Assigned by
-    an Admin; only Project Manager accounts can hold it.
+    "This person may use this task on this site" - one row per
+    (site, person, task). Granted by an Admin on the Site Access
+    page; only Project Incharge and Project Manager accounts can hold
+    one. It is the single source of Project Monitor access for those
+    roles (Director/Admin see everything without any row). A grant
+    means view and enter.
     """
 
     site = models.ForeignKey(
@@ -1370,14 +1387,14 @@ class ProjectSiteAccess(
 
         if (
             self.user_id
-            and self.user.role
-            != UserRole.PROJECT_MANAGER
+            and self.user.role not in GRANTABLE_USER_ROLES
         ):
             raise ValidationError(
                 {
                     "user": (
-                        "Only Project Manager accounts "
-                        "can be given site access."
+                        "Only Project Incharge and Project "
+                        "Manager accounts can be given site "
+                        "access."
                     )
                 }
             )
@@ -1589,16 +1606,26 @@ class DprDayUnlock(
         return f"{self.site_id} - {self.date}"
 
 
+class RaBillKind(models.TextChoices):
+    ITEMS = "ITEMS", "Item bill"
+    AMOUNT = "AMOUNT", "Amount against project value"
+
+
 class RaBill(
     UUIDPrimaryKeyModel,
     TimeStampedModel,
     UserTrackingModel,
 ):
     """
-    One running-account bill. Its gross value is computed from its
-    lines (qty x the rate snapshotted on each line) - never stored -
-    so a deleted or corrected bill can never leave a stale running
-    total behind.
+    One running-account bill, of one of two kinds:
+
+    - ``ITEMS``: its gross value is computed from its lines (qty x
+      the rate snapshotted on each line) - never stored - so a
+      deleted or corrected bill can never leave a stale running
+      total behind.
+    - ``AMOUNT``: a lump sum received against the total project
+      value, not tied to any item, quantity or progress. It has no
+      lines; ``amount`` is its gross value.
     """
 
     site = models.ForeignKey(
@@ -1608,6 +1635,18 @@ class RaBill(
     )
     bill_no = models.CharField(max_length=50)
     bill_date = models.DateField()
+    kind = models.CharField(
+        max_length=10,
+        choices=RaBillKind.choices,
+        default=RaBillKind.ITEMS,
+    )
+    amount = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Gross value of an AMOUNT bill only.",
+    )
     received_amount = models.DecimalField(
         max_digits=16,
         decimal_places=2,
@@ -1630,6 +1669,17 @@ class RaBill(
             models.UniqueConstraint(
                 fields=["site", "bill_no"],
                 name="pm_ra_bill_no_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(kind="ITEMS", amount__isnull=True)
+                    | models.Q(
+                        kind="AMOUNT",
+                        amount__isnull=False,
+                        amount__gt=0,
+                    )
+                ),
+                name="pm_ra_bill_kind_amount",
             ),
         ]
 

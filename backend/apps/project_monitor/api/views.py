@@ -15,6 +15,11 @@ from rest_framework.views import APIView
 
 from apps.core.api.responses import success_response
 from apps.organization.models import Site
+from apps.project_monitor.services import project_scope
+from apps.project_monitor.services.notifications import (
+    resolve_activity_site,
+    resolve_activity_task,
+)
 from apps.project_monitor.api.permissions import (
     HasProjectMonitorMasterAccess,
     HasProjectMonitorPortalAccess,
@@ -260,7 +265,31 @@ def _linear_counts_for_site(site):
     }
 
 
-def _get_site_from_query(request):
+TASK = project_scope.Task
+
+
+def _authorize_site(request, site, task=None, *, write=False):
+    """
+    Site Access: Director/Admin see every task on every site; a
+    Project Incharge or Project Manager only the tasks an Admin
+    granted on that site. ``task=None`` means "any task on this site"
+    (the Overview summary); writes always name their task.
+    """
+    if write:
+        project_scope.ensure_can_enter_task(
+            request.user, site, task
+        )
+    elif task is None:
+        project_scope.ensure_can_view_site(
+            request.user, site
+        )
+    else:
+        project_scope.ensure_can_view_task(
+            request.user, site, task
+        )
+
+
+def _get_site_from_query(request, task=None, *, write=False):
     site_id = request.query_params.get("site")
     if not site_id:
         raise ValidationError(
@@ -268,7 +297,7 @@ def _get_site_from_query(request):
         )
 
     try:
-        return Site.objects.get(pk=site_id)
+        site = Site.objects.get(pk=site_id)
     except (
         Site.DoesNotExist,
         ValueError,
@@ -277,6 +306,9 @@ def _get_site_from_query(request):
         raise ValidationError(
             {"site": "Site not found."}
         ) from exc
+
+    _authorize_site(request, site, task, write=write)
+    return site
 
 
 class ProjectOverviewAPIView(APIView):
@@ -299,7 +331,7 @@ class ProjectOverviewAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, None)
 
         counts = {
             "structures": _structure_counts_for_site(
@@ -333,7 +365,7 @@ class ProjectOverviewAPIView(APIView):
         )
 
     def patch(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.OVERVIEW.value, write=True)
 
         serializer = ProjectSiteDetailsUpdateSerializer(
             site,
@@ -375,7 +407,7 @@ class ProjectExtensionListCreateAPIView(
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, None)
         extensions = ProjectExtension.objects.filter(
             site=site
         ).select_related("created_by")
@@ -391,7 +423,7 @@ class ProjectExtensionListCreateAPIView(
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.OVERVIEW.value, write=True)
 
         serializer = (
             ProjectExtensionCreateSerializer(
@@ -446,6 +478,13 @@ class ProjectExtensionDetailAPIView(APIView):
                 "Project extension not found."
             ) from exc
 
+        _authorize_site(
+            request,
+            extension.site,
+            TASK.OVERVIEW.value,
+            write=True,
+        )
+
         extension.delete()
 
         return success_response(
@@ -472,7 +511,7 @@ class StructureListCreateAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.STRUCTURES.value)
         structure_type = request.query_params.get(
             "structure_type"
         )
@@ -499,7 +538,7 @@ class StructureListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.STRUCTURES.value, write=True)
 
         serializer = StructureCreateSerializer(
             data=request.data
@@ -569,6 +608,12 @@ class StructureDetailAPIView(APIView):
 
     def get(self, request, pk, *args, **kwargs):
         structure = self._get_structure(pk)
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=False,
+        )
         return success_response(
             message=(
                 "Structure retrieved successfully."
@@ -578,6 +623,12 @@ class StructureDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         structure = self._get_structure(pk)
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=True,
+        )
         structure.delete()
         return success_response(
             message=(
@@ -612,6 +663,13 @@ class StructureReviewAPIView(APIView):
             raise NotFound(
                 "Structure not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=False,
+        )
 
         serializer = ReviewInputSerializer(
             data=request.data
@@ -667,7 +725,7 @@ class BuildingListCreateAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.BUILDINGS.value)
 
         queryset = Building.objects.filter(
             site=site
@@ -685,7 +743,7 @@ class BuildingListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.BUILDINGS.value, write=True)
 
         serializer = BuildingCreateSerializer(
             data=request.data
@@ -750,6 +808,12 @@ class BuildingDetailAPIView(APIView):
 
     def get(self, request, pk, *args, **kwargs):
         building = self._get_building(pk)
+        _authorize_site(
+            request,
+            building.site,
+            TASK.BUILDINGS.value,
+            write=False,
+        )
         return success_response(
             message=(
                 "Building retrieved successfully."
@@ -759,6 +823,12 @@ class BuildingDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         building = self._get_building(pk)
+        _authorize_site(
+            request,
+            building.site,
+            TASK.BUILDINGS.value,
+            write=True,
+        )
         building.delete()
         return success_response(
             message=(
@@ -789,6 +859,13 @@ class BuildingReviewAPIView(APIView):
             raise NotFound(
                 "Building not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            building.site,
+            TASK.BUILDINGS.value,
+            write=False,
+        )
 
         serializer = ReviewInputSerializer(
             data=request.data
@@ -851,7 +928,7 @@ class GirderJobListCreateAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.GIRDERS.value)
 
         queryset = _girder_job_queryset().filter(
             site=site
@@ -868,7 +945,7 @@ class GirderJobListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.GIRDERS.value, write=True)
 
         serializer = GirderJobCreateSerializer(
             data=request.data
@@ -934,6 +1011,12 @@ class GirderJobDetailAPIView(APIView):
 
     def get(self, request, pk, *args, **kwargs):
         job = self._get_job(pk)
+        _authorize_site(
+            request,
+            job.site,
+            TASK.GIRDERS.value,
+            write=False,
+        )
         return success_response(
             message=(
                 "Girder job retrieved "
@@ -944,6 +1027,12 @@ class GirderJobDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         job = self._get_job(pk)
+        _authorize_site(
+            request,
+            job.site,
+            TASK.GIRDERS.value,
+            write=True,
+        )
         job.delete()
         return success_response(
             message=(
@@ -979,6 +1068,13 @@ class GirderJobReviewAPIView(APIView):
             raise NotFound(
                 "Girder job not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            job.site,
+            TASK.GIRDERS.value,
+            write=False,
+        )
 
         serializer = ReviewInputSerializer(
             data=request.data
@@ -1048,6 +1144,13 @@ class GirderSpanUpdateAPIView(APIView):
                 "Girder span not found."
             ) from exc
 
+        _authorize_site(
+            request,
+            span.job.site,
+            TASK.GIRDERS.value,
+            write=True,
+        )
+
         serializer = GirderSpanUpdateSerializer(
             data=request.data,
             partial=True,
@@ -1104,7 +1207,7 @@ class ActionItemListCreateAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.ACTION_ITEMS.value)
         queryset = _action_item_queryset().filter(
             site=site
         )
@@ -1120,7 +1223,7 @@ class ActionItemListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.ACTION_ITEMS.value, write=True)
 
         serializer = ActionItemCreateSerializer(
             data=request.data
@@ -1189,6 +1292,12 @@ class ActionItemDetailAPIView(APIView):
 
     def get(self, request, pk, *args, **kwargs):
         item = self._get_item(pk)
+        _authorize_site(
+            request,
+            item.site,
+            TASK.ACTION_ITEMS.value,
+            write=False,
+        )
         return success_response(
             message=(
                 "Action item retrieved "
@@ -1201,6 +1310,12 @@ class ActionItemDetailAPIView(APIView):
 
     def patch(self, request, pk, *args, **kwargs):
         item = self._get_item(pk)
+        _authorize_site(
+            request,
+            item.site,
+            TASK.ACTION_ITEMS.value,
+            write=True,
+        )
 
         serializer = ActionItemUpdateSerializer(
             data=request.data,
@@ -1232,6 +1347,12 @@ class ActionItemDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         item = self._get_item(pk)
+        _authorize_site(
+            request,
+            item.site,
+            TASK.ACTION_ITEMS.value,
+            write=True,
+        )
         item.delete()
         return success_response(
             message=(
@@ -1263,7 +1384,7 @@ class LinearItemListCreateAPIView(APIView):
         return [HasProjectMonitorReportingAccess()]
 
     def get(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.LINEAR_WORKS.value)
         queryset = _linear_item_queryset().filter(
             site=site
         )
@@ -1279,7 +1400,7 @@ class LinearItemListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
-        site = _get_site_from_query(request)
+        site = _get_site_from_query(request, TASK.LINEAR_WORKS.value, write=True)
 
         serializer = LinearItemCreateSerializer(
             data=request.data
@@ -1336,6 +1457,12 @@ class LinearItemDetailAPIView(APIView):
 
     def get(self, request, pk, *args, **kwargs):
         item = self._get_item(pk)
+        _authorize_site(
+            request,
+            item.site,
+            TASK.LINEAR_WORKS.value,
+            write=False,
+        )
         return success_response(
             message=(
                 "Linear item retrieved "
@@ -1348,6 +1475,12 @@ class LinearItemDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         item = self._get_item(pk)
+        _authorize_site(
+            request,
+            item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
         item.delete()
         return success_response(
             message=(
@@ -1385,6 +1518,13 @@ class ScopePatchListCreateAPIView(APIView):
             raise NotFound(
                 "Linear item not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            linear_item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
 
         serializer = ScopePatchCreateSerializer(
             data=request.data
@@ -1449,6 +1589,13 @@ class ScopePatchDetailAPIView(APIView):
                 "Scope patch not found."
             ) from exc
 
+        _authorize_site(
+            request,
+            patch.linear_item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
+
         patch.delete()
 
         return success_response(
@@ -1489,6 +1636,13 @@ class ProgressEntryListCreateAPIView(APIView):
             raise NotFound(
                 "Linear item not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            linear_item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
 
         serializer = (
             ProgressEntryCreateSerializer(
@@ -1568,6 +1722,12 @@ class ProgressEntryDetailAPIView(APIView):
 
     def patch(self, request, pk, *args, **kwargs):
         entry = self._get_entry(pk)
+        _authorize_site(
+            request,
+            entry.linear_item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
 
         serializer = (
             ProgressEntryUpdateSerializer(
@@ -1612,6 +1772,12 @@ class ProgressEntryDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         entry = self._get_entry(pk)
+        _authorize_site(
+            request,
+            entry.linear_item.site,
+            TASK.LINEAR_WORKS.value,
+            write=True,
+        )
         entry.delete()
         return success_response(
             message=(
@@ -1648,6 +1814,12 @@ class ActivityUpdateAPIView(APIView):
 
     def patch(self, request, pk, *args, **kwargs):
         activity = self._get_activity(pk)
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=True,
+        )
 
         serializer = ActivityUpdateSerializer(
             data=request.data
@@ -1734,6 +1906,13 @@ class ActivityReviewAPIView(APIView):
             raise NotFound(
                 "Activity not found."
             ) from exc
+
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=False,
+        )
 
         serializer = ReviewInputSerializer(
             data=request.data

@@ -6,9 +6,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useCreateLinearItem,
   useCreateProgressEntry,
@@ -24,6 +28,7 @@ import { AddLinearItemForm } from "../components/AddLinearItemForm";
 import { DayWisePivot } from "../components/DayWisePivot";
 import { LinearItemPanel } from "../components/LinearItemPanel";
 import { LinearRegisters } from "../components/LinearRegisters";
+import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { WorkspaceSwitch } from "../components/WorkspaceSwitch";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
@@ -41,16 +46,20 @@ export function LinearWorksPage() {
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
 
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const overviewQuery = useProjectOverview(
     selectedSite,
   );
   const linearItemsQuery = useLinearItems(
     selectedSite,
   );
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const lacksTask =
+    Boolean(selectedSite) &&
+    !siteTasks.isLoading &&
+    !siteTasks.has("LINEAR_WORKS");
+  const canEdit =
+    isProjectEntryRole(user?.role) && !lacksTask;
 
   const createLinearItem = useCreateLinearItem(
     selectedSite,
@@ -78,6 +87,12 @@ export function LinearWorksPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   const handleCreateLinearItem = (
     payload,
@@ -213,6 +228,8 @@ export function LinearWorksPage() {
           title="Pick a project to get started"
           message="Choose a project/site above to see its linear works."
         />
+      ) : lacksTask ? (
+        <NoTaskAccess task="Linear Works" />
       ) : isLoading ? (
         <AppLoader label="Loading linear works..." />
       ) : isError ? (

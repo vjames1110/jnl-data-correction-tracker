@@ -21,10 +21,11 @@ def _is_active_authenticated(user) -> bool:
 
 class HasProjectMonitorPortalAccess(BasePermission):
     """
-    Project Manager (and Admin/Super Admin as a backup) can enter
-    and edit Project Monitor data - no per-site account restriction,
-    the same "pick whichever site you're working on" convention
-    Store HO already uses for Production Reconciliation.
+    Project Incharge and Project Manager (and Admin/Super Admin as
+    a backup) can enter and edit Project Monitor data. This is only
+    the role gate - which SITES a person may work on is enforced per
+    request by ``services.project_scope`` (Project Incharge and
+    Project Manager are limited to their own sites).
     """
 
     message = (
@@ -38,6 +39,7 @@ class HasProjectMonitorPortalAccess(BasePermission):
 
         return user.role in {
             UserRole.PROJECT_MANAGER,
+            UserRole.PROJECT_INCHARGE,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
@@ -64,6 +66,7 @@ class HasProjectMonitorReportingAccess(BasePermission):
         return user.role in {
             UserRole.DIRECTOR,
             UserRole.PROJECT_MANAGER,
+            UserRole.PROJECT_INCHARGE,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
@@ -93,6 +96,7 @@ class HasProjectMonitorMasterAccess(BasePermission):
             return user.role in {
                 UserRole.DIRECTOR,
                 UserRole.PROJECT_MANAGER,
+                UserRole.PROJECT_INCHARGE,
                 UserRole.ADMIN,
                 UserRole.SUPER_ADMIN,
             }
@@ -122,6 +126,7 @@ class HasFinanceRoleAccess(BasePermission):
         return user.role in {
             UserRole.DIRECTOR,
             UserRole.PROJECT_MANAGER,
+            UserRole.PROJECT_INCHARGE,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }

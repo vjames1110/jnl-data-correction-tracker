@@ -21,14 +21,43 @@ const SUMMARY = {
   seven_day_average: "90000.00",
   pace: "ON_PACE",
   shortfall: null,
+  lump_sum_billed: "0.00",
+  received_total: "1800000.00",
+  outstanding_total: "700000.00",
 };
 
 describe("FinancialTiles", () => {
+  it("shows billed, received and outstanding payments", () => {
+    render(<FinancialTiles summary={SUMMARY} />);
+
+    expect(
+      screen.getByText("Payments received"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("₹18.00 L")).toBeInTheDocument();
+    expect(screen.getByText("₹7.00 L")).toBeInTheDocument();
+    expect(
+      screen.getByText("Billed but not yet received"),
+    ).toBeInTheDocument();
+  });
+
+  it("mentions a lump sum inside the billed figure", () => {
+    render(
+      <FinancialTiles
+        summary={{ ...SUMMARY, lump_sum_billed: "1000000.00" }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Includes lump sum ₹10.00 L"),
+    ).toBeInTheDocument();
+  });
+
   it("shows the contract position in compact rupees", () => {
     render(<FinancialTiles summary={SUMMARY} />);
 
     expect(screen.getByText("₹1.00 Cr")).toBeInTheDocument();
-    expect(screen.getByText("₹25.00 L")).toBeInTheDocument();
+    // Shown on both the contract-status and the payments tiles.
+    expect(screen.getAllByText("₹25.00 L").length).toBeGreaterThan(0);
     expect(screen.getByText("₹70.00 L")).toBeInTheDocument();
     expect(screen.getByText("RA-3 · 01-09-2026")).toBeInTheDocument();
     expect(

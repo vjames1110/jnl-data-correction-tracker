@@ -13,9 +13,10 @@ from apps.project_monitor.api.permissions import (
 from apps.project_monitor.api.serializers import (
     ProjectSiteSerializer,
 )
-from apps.project_monitor.models import DprItem
+from apps.project_monitor.models import DprItem, RaBill
 from apps.project_monitor.services import (
     contract_finance,
+    project_scope,
     site_access,
 )
 from apps.project_monitor.services.due_tracker import (
@@ -32,12 +33,12 @@ from apps.project_monitor.services.rollups import (
 TRUTHY = {"1", "true", "yes"}
 
 
-def _money_for(site, visible_ids, sites_with_dpr):
+def _money_for(site, visible_ids, sites_with_finance):
     """
     Finance headline for one project, or ``None`` when the caller may
-    not see this site's money or it has no DPR items yet.
+    not see this site's money or it has no DPR items or bills yet.
     """
-    if site.id not in sites_with_dpr:
+    if site.id not in sites_with_finance:
         return None
     if visible_ids is not None and site.id not in visible_ids:
         return None
@@ -105,7 +106,7 @@ class ProjectDashboardAPIView(APIView):
         )
 
         sites = list(
-            Site.objects.filter(is_active=True)
+            project_scope.project_sites_queryset(request.user)
             .select_related("site_director", "site_hod")
             .prefetch_related("extensions")
         )
@@ -119,8 +120,12 @@ class ProjectDashboardAPIView(APIView):
         visible_ids = site_access.visible_site_ids(
             request.user
         )
-        sites_with_dpr = set(
+        sites_with_finance = set(
             DprItem.objects.values_list(
+                "site_id", flat=True
+            ).distinct()
+        ) | set(
+            RaBill.objects.values_list(
                 "site_id", flat=True
             ).distinct()
         )
@@ -132,7 +137,7 @@ class ProjectDashboardAPIView(APIView):
                 site, activity_rollups, linear_rollups
             )
             rollup["money"] = _money_for(
-                site, visible_ids, sites_with_dpr
+                site, visible_ids, sites_with_finance
             )
             if not include_empty and not _is_monitored(
                 site, rollup
@@ -256,7 +261,12 @@ class DueTrackerAPIView(APIView):
 
         site_id = request.query_params.get("site") or None
         if site_id:
-            get_site_or_400(site_id)
+            project_scope.ensure_can_view_site(
+                request.user, get_site_or_400(site_id)
+            )
+        # Someone granted only some tasks sees due items of those
+        # tasks' modules only (None = Director/Admin: everything).
+        access = project_scope.module_access(request.user)
 
         return success_response(
             message="Due tracker retrieved successfully.",
@@ -264,6 +274,7 @@ class DueTrackerAPIView(APIView):
                 mode=mode,
                 on_date=on_date,
                 site_id=site_id,
+                access=access,
             ),
         )
 
@@ -284,11 +295,17 @@ class OverdueCountsAPIView(APIView):
             raise ValidationError(
                 {"site": "Site is required."}
             )
-        get_site_or_400(site_id)
+        site = get_site_or_400(site_id)
+        project_scope.ensure_can_view_site(request.user, site)
 
         return success_response(
             message=(
                 "Overdue counts retrieved successfully."
             ),
-            data=overdue_counts_for_site(site_id),
+            data=overdue_counts_for_site(
+                site_id,
+                project_scope.granted_modules(
+                    request.user, site
+                ),
+            ),
         )

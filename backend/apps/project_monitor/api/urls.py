@@ -46,9 +46,14 @@ from apps.project_monitor.api.machinery_views import (
     UsageDetailAPIView,
     UsageListCreateAPIView,
 )
+from apps.project_monitor.api.scope_views import (
+    ProjectSitesAPIView,
+    SiteScopeAPIView,
+)
 from apps.project_monitor.api.site_access_views import (
     SiteAccessDetailAPIView,
     SiteAccessListCreateAPIView,
+    SiteAccessSetAPIView,
 )
 from apps.project_monitor.api.views import (
     ActionItemDetailAPIView,
@@ -260,9 +265,24 @@ urlpatterns = [
         name="machinery-upload",
     ),
     path(
+        "sites/",
+        ProjectSitesAPIView.as_view(),
+        name="project-sites",
+    ),
+    path(
+        "site-scope/",
+        SiteScopeAPIView.as_view(),
+        name="site-scope",
+    ),
+    path(
         "site-access/",
         SiteAccessListCreateAPIView.as_view(),
         name="site-access-list",
+    ),
+    path(
+        "site-access/set/",
+        SiteAccessSetAPIView.as_view(),
+        name="site-access-set",
     ),
     path(
         "site-access/<uuid:pk>/",

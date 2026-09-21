@@ -1,6 +1,23 @@
 import { apiClient } from "./apiClient";
 
 export const projectMonitorService = {
+  // The sites the caller may pick: all for Director/Admin, only their
+  // own for a Project Incharge or Project Manager.
+  async getProjectSites() {
+    const response = await apiClient.get(
+      "/project-monitor/sites/",
+    );
+    return response.data.data;
+  },
+
+  // Admin: every Incharge/Manager and the sites they are assigned to.
+  async getSiteScope() {
+    const response = await apiClient.get(
+      "/project-monitor/site-scope/",
+    );
+    return response.data.data;
+  },
+
   async getDprAccess(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/dpr/access/",
@@ -449,18 +466,14 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
-  async grantSiteAccess(payload) {
-    const response = await apiClient.post(
-      "/project-monitor/site-access/",
+  // Replace one person's tasks on one site (an empty list removes
+  // them from the site).
+  async setSiteAccess(payload) {
+    const response = await apiClient.put(
+      "/project-monitor/site-access/set/",
       payload,
     );
     return response.data.data;
-  },
-
-  async revokeSiteAccess(accessId) {
-    await apiClient.delete(
-      `/project-monitor/site-access/${accessId}/`,
-    );
   },
 
   async getDashboard(params = {}) {

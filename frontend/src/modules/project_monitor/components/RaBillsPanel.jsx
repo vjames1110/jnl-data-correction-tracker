@@ -20,6 +20,8 @@ import {
 
 function AddBillForm({ siteId, items, onDone }) {
   const createBill = useCreateRaBill();
+  const [kind, setKind] = useState("ITEMS");
+  const [amount, setAmount] = useState("");
   const [billNo, setBillNo] = useState("");
   const [billDate, setBillDate] = useState(todayIso());
   const [received, setReceived] = useState("");
@@ -28,21 +30,29 @@ function AddBillForm({ siteId, items, onDone }) {
   const [quantities, setQuantities] = useState({});
 
   const activeItems = items.filter((item) => item.is_active);
+  const isAmountBill = kind === "AMOUNT";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const lines = Object.entries(quantities)
-      .map(([item, qty]) => ({
-        item,
-        qty: parseNumber(qty) ?? 0,
-      }))
-      .filter((line) => line.qty > 0);
+    const lines = isAmountBill
+      ? []
+      : Object.entries(quantities)
+          .map(([item, qty]) => ({
+            item,
+            qty: parseNumber(qty) ?? 0,
+          }))
+          .filter((line) => line.qty > 0);
     try {
       await createBill.mutateAsync({
         site: siteId,
         bill_no: billNo,
         bill_date: billDate,
-        lines,
+        kind,
+        ...(isAmountBill
+          ? { amount: parseNumber(amount) }
+          : { lines }),
+        // Blank on an amount bill = the whole amount, received on
+        // the bill date (the server fills both in).
         received_amount: parseNumber(received),
         received_on: receivedOn || null,
         remarks,
@@ -58,6 +68,37 @@ function AddBillForm({ siteId, items, onDone }) {
       className="pm-bill-form print-hidden"
       onSubmit={handleSubmit}
     >
+      <div
+        className="pm-workspace"
+        role="radiogroup"
+        aria-label="Kind of bill"
+      >
+        {[
+          ["ITEMS", "Item bill"],
+          ["AMOUNT", "Amount against project value"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={kind === value}
+            className={
+              kind === value
+                ? "pm-workspace__item pm-workspace__item--active"
+                : "pm-workspace__item"
+            }
+            onClick={() => setKind(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="pm-dpr-toolbar__help">
+        {isAmountBill
+          ? "A lump sum against the total project value, not tied to any item or quantity. It reduces the balance value and is recorded as received on the bill date."
+          : "Bill the quantities executed against the contract items."}
+      </p>
+
       <div className="form-grid">
         <label className="form-field">
           <span>Bill no.</span>
@@ -81,8 +122,27 @@ function AddBillForm({ siteId, items, onDone }) {
             required
           />
         </label>
+        {isAmountBill ? (
+          <label className="form-field">
+            <span>Bill amount (₹)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={amount}
+              onChange={(event) =>
+                setAmount(event.target.value)
+              }
+              required
+            />
+          </label>
+        ) : null}
         <label className="form-field">
-          <span>Amount received (₹, optional)</span>
+          <span>
+            {isAmountBill
+              ? "Amount received (₹)"
+              : "Amount received (₹, optional)"}
+          </span>
           <input
             type="number"
             step="0.01"
@@ -91,6 +151,7 @@ function AddBillForm({ siteId, items, onDone }) {
             onChange={(event) =>
               setReceived(event.target.value)
             }
+            placeholder={isAmountBill ? amount : ""}
           />
         </label>
         <label className="form-field">
@@ -101,6 +162,7 @@ function AddBillForm({ siteId, items, onDone }) {
             onChange={(event) =>
               setReceivedOn(event.target.value)
             }
+            placeholder={isAmountBill ? billDate : ""}
           />
         </label>
         <label
@@ -118,6 +180,8 @@ function AddBillForm({ siteId, items, onDone }) {
         </label>
       </div>
 
+      {isAmountBill ? null : (
+        <>
       <h3>Quantities billed in this bill</h3>
       <div className="pm-table-wrap">
         <table className="pm-report__table">
@@ -166,6 +230,8 @@ function AddBillForm({ siteId, items, onDone }) {
           </tbody>
         </table>
       </div>
+        </>
+      )}
 
       <div className="pm-inline-row">
         <button
@@ -262,10 +328,12 @@ function ReceiptEditor({ bill, onDone }) {
 }
 
 /**
- * RA bills and payments. A bill's gross is computed on the server
- * from the rate each line was billed at; outstanding is gross minus
- * what has been received. Bills raised before this system are
- * summarised by the "billed before" line, not entered one by one.
+ * RA bills and payments. An item bill's gross is computed on the
+ * server from the rate each line was billed at; an amount bill is a
+ * lump sum against the total project value with no items. Outstanding
+ * is gross minus what has been received. Bills raised before this
+ * system are summarised by the "billed before" line, not entered one
+ * by one.
  */
 export function RaBillsPanel({ siteId, items, canEnter }) {
   const billsQuery = useRaBills(siteId, true);
@@ -341,12 +409,14 @@ export function RaBillsPanel({ siteId, items, canEnter }) {
                   <td>{bill.bill_no}</td>
                   <td>{formatDate(bill.bill_date)}</td>
                   <td className="pm-report__col-remark">
-                    {bill.lines
-                      .map(
-                        (line) =>
-                          `${line.item_no || line.description}: ${formatQty(line.qty)}`,
-                      )
-                      .join(", ")}
+                    {bill.kind === "AMOUNT"
+                      ? "Lump sum against project value"
+                      : bill.lines
+                          .map(
+                            (line) =>
+                              `${line.item_no || line.description}: ${formatQty(line.qty)}`,
+                          )
+                          .join(", ")}
                   </td>
                   <td>{formatCurrency(bill.gross)}</td>
                   <td>
@@ -400,7 +470,9 @@ export function RaBillsPanel({ siteId, items, canEnter }) {
                         onClick={() => {
                           if (
                             window.confirm(
-                              `Delete bill ${bill.bill_no}? Its quantities become unbilled again.`,
+                              bill.kind === "AMOUNT"
+                                ? `Delete bill ${bill.bill_no}? The amount is added back to the balance value and its payment is removed.`
+                                : `Delete bill ${bill.bill_no}? Its quantities become unbilled again.`,
                             )
                           ) {
                             deleteBill.mutate(bill.id);

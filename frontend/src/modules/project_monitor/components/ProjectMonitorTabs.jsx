@@ -1,7 +1,10 @@
 import clsx from "clsx";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { useOverdueCounts } from "../../../hooks/useProjectMonitor";
+import {
+  useOverdueCounts,
+  useVisibleTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   projectMonitorActionItemsPath,
   projectMonitorBuildingsPath,
@@ -22,6 +25,7 @@ export function ProjectMonitorTabs({ role, active }) {
   const query = site ? `?site=${site}` : "";
   const overdueQuery = useOverdueCounts(site);
   const overdue = overdueQuery.data ?? {};
+  const visible = useVisibleTasks(site);
 
   const tabs = [
     {
@@ -37,24 +41,28 @@ export function ProjectMonitorTabs({ role, active }) {
     },
     {
       key: "structures",
+      task: "STRUCTURES",
       overdueKey: "structures",
       label: "Structures",
       path: projectMonitorStructuresPath(role),
     },
     {
       key: "buildings",
+      task: "BUILDINGS",
       overdueKey: "buildings",
       label: "Buildings",
       path: projectMonitorBuildingsPath(role),
     },
     {
       key: "girders",
+      task: "GIRDERS",
       overdueKey: "girders",
       label: "Girders",
       path: projectMonitorGirdersPath(role),
     },
     {
       key: "action-items",
+      task: "ACTION_ITEMS",
       overdueKey: "action_items",
       label: "Action Items",
       path: projectMonitorActionItemsPath(
@@ -63,6 +71,7 @@ export function ProjectMonitorTabs({ role, active }) {
     },
     {
       key: "linear-works",
+      task: "LINEAR_WORKS",
       label: "Linear Works",
       path: projectMonitorLinearWorksPath(
         role,
@@ -70,29 +79,47 @@ export function ProjectMonitorTabs({ role, active }) {
     },
     {
       key: "dpr-bills",
+      task: "DPR_BILLS",
       label: "DPR & Bills",
       path: projectMonitorDprBillsPath(role),
     },
     {
       key: "hr",
+      task: "HR",
       label: "HR",
       path: projectMonitorHrPath(role),
     },
     {
       key: "machinery",
+      task: "MACHINERY",
       label: "Machinery",
       path: projectMonitorMachineryPath(role),
     },
     {
       key: "reports",
+      task: "REPORTS",
       label: "Reports",
       path: projectMonitorReportsPath(role),
     },
   ];
 
+  // All Projects and Overview are open to anyone with a grant on
+  // the site; every other tab needs its own task.
+  const shownTabs = tabs.filter(
+    (tab) => !tab.task || visible.has(tab.task),
+  );
+
   return (
-    <div className="pm-tabs">
-      {tabs.map((tab) => (
+    <>
+      {visible.noSites ? (
+        <div className="inline-alert print-hidden">
+          You have not been given access to any project yet.
+          Ask an Admin to give you tasks on a site (Site
+          Access), or to set your site in User Management.
+        </div>
+      ) : null}
+      <div className="pm-tabs">
+      {shownTabs.map((tab) => (
         <Link
           key={tab.key}
           to={`${tab.path}${
@@ -116,5 +143,6 @@ export function ProjectMonitorTabs({ role, active }) {
         </Link>
       ))}
     </div>
+    </>
   );
 }

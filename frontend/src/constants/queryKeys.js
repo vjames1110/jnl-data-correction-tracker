@@ -434,6 +434,11 @@ export const queryKeys = Object.freeze({
     "notifications",
     "preferences",
   ],
+  projectMonitorSites: () => ["project-monitor", "sites"],
+  projectMonitorSiteScope: () => [
+    "project-monitor",
+    "site-scope",
+  ],
   projectMonitorFinance: (name, params) => [
     "project-monitor",
     "finance",

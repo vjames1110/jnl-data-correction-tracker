@@ -12,9 +12,13 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectManagerRole } from "../../../constants/roles";
+import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
-import { useSitesDropdown } from "../../../hooks/useOrganization";
+import {
+  useAutoSelectSite,
+  useProjectSites,
+  useSiteTasks,
+} from "../../../hooks/useProjectMonitor";
 import {
   useCreateProjectExtension,
   useDeleteProjectExtension,
@@ -336,13 +340,14 @@ export function ProjectOverviewPage() {
   const [selectedSite, setSelectedSite] = useState(
     () => searchParams.get("site") || "",
   );
-  const sitesQuery = useSitesDropdown();
+  const sitesQuery = useProjectSites();
   const overviewQuery = useProjectOverview(
     selectedSite,
   );
-  const canEdit = isProjectManagerRole(
-    user?.role,
-  );
+  const siteTasks = useSiteTasks(selectedSite);
+  const canEdit =
+    isProjectEntryRole(user?.role) &&
+    siteTasks.has("OVERVIEW");
   const financeAccess = useDprAccess(selectedSite);
   const financeSummary = useFinancialSummary(
     selectedSite,
@@ -359,6 +364,12 @@ export function ProjectOverviewPage() {
       value ? { site: value } : {},
     );
   };
+
+  useAutoSelectSite(
+    sitesQuery.data,
+    selectedSite,
+    handleSiteChange,
+  );
 
   return (
     <div className="organization-page">
