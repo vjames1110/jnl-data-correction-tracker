@@ -8,6 +8,8 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
+  useHrSummary,
+  useMachinerySummary,
   useProjectSites,
   useSiteTasks,
 } from "../../../hooks/useProjectMonitor";
@@ -24,6 +26,7 @@ import {
 import { ProjectMonitorReportSheet } from "../components/ProjectMonitorReportSheet";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ReportCustomizationPanel } from "../components/ReportCustomizationPanel";
+import { todayIso } from "../utils/finance";
 
 const DEFAULT_SECTIONS = {
   details: true,
@@ -33,6 +36,8 @@ const DEFAULT_SECTIONS = {
   actionItems: true,
   linearWorks: true,
   financial: true,
+  hr: true,
+  machinery: true,
 };
 
 /**
@@ -53,6 +58,10 @@ export function ProjectMonitorReportPage() {
   const [sections, setSections] = useState(
     DEFAULT_SECTIONS,
   );
+  // HR and machinery are monthly figures, so they report on a month.
+  const [month, setMonth] = useState(() =>
+    todayIso().slice(0, 7),
+  );
 
   const sitesQuery = useProjectSites();
   // A person granted only some tasks reports on those tasks only:
@@ -66,6 +75,8 @@ export function ProjectMonitorReportPage() {
     girders: canReport && siteTasks.has("GIRDERS"),
     actionItems: canReport && siteTasks.has("ACTION_ITEMS"),
     linearWorks: canReport && siteTasks.has("LINEAR_WORKS"),
+    hr: canReport && siteTasks.has("HR"),
+    machinery: canReport && siteTasks.has("MACHINERY"),
   };
   const overviewQuery = useProjectOverview(
     canReport ? selectedSite : "",
@@ -84,6 +95,16 @@ export function ProjectMonitorReportPage() {
   );
   const linearItemsQuery = useLinearItems(
     canSee.linearWorks ? selectedSite : "",
+  );
+  const hrQuery = useHrSummary(
+    selectedSite,
+    month,
+    canSee.hr && sections.hr,
+  );
+  const machineryQuery = useMachinerySummary(
+    selectedSite,
+    month,
+    canSee.machinery && sections.machinery,
   );
   const financeAccess = useDprAccess(selectedSite);
   const canViewFinance = Boolean(
@@ -136,6 +157,8 @@ export function ProjectMonitorReportPage() {
     actionItems: sections.actionItems && canSee.actionItems,
     linearWorks: sections.linearWorks && canSee.linearWorks,
     financial: sections.financial && canViewFinance,
+    hr: sections.hr && canSee.hr,
+    machinery: sections.machinery && canSee.machinery,
   };
   const hiddenSections = [
     ...(canViewFinance ? [] : ["financial"]),
@@ -187,6 +210,20 @@ export function ProjectMonitorReportPage() {
               )}
             </select>
           </label>
+          {canSee.hr || canSee.machinery ? (
+            <label className="filter-control">
+              <span>HR / machinery month</span>
+              <input
+                type="month"
+                value={month}
+                max={todayIso().slice(0, 7)}
+                onChange={(event) =>
+                  event.target.value &&
+                  setMonth(event.target.value)
+                }
+              />
+            </label>
+          ) : null}
           {selectedSite &&
           !isLoading &&
           !isError ? (
@@ -264,6 +301,8 @@ export function ProjectMonitorReportPage() {
                 actionItems: false,
                 linearWorks: false,
                 financial: false,
+                hr: false,
+                machinery: false,
               })
             }
           />
@@ -289,6 +328,17 @@ export function ProjectMonitorReportPage() {
                 ? financialQuery.data
                 : null
             }
+            hr={{
+              summary: hrQuery.data,
+              isLoading: hrQuery.isLoading,
+              isError: hrQuery.isError,
+            }}
+            machinery={{
+              summary: machineryQuery.data,
+              isLoading: machineryQuery.isLoading,
+              isError: machineryQuery.isError,
+            }}
+            reportMonth={month}
             sections={heldSections}
           />
         </>

@@ -149,7 +149,310 @@ const DEFAULT_SECTIONS = {
   actionItems: true,
   linearWorks: true,
   financial: true,
+  hr: false,
+  machinery: false,
 };
+
+
+const SOURCE_LABELS = { MARKET: "Market", HO: "In-house" };
+
+function monthLabel(month) {
+  const [year, number] = (month || "").split("-").map(Number);
+  if (!year || !number) {
+    return month || "";
+  }
+  return new Date(year, number - 1, 1).toLocaleDateString(
+    "en-IN",
+    { month: "long", year: "numeric" },
+  );
+}
+
+function SectionState({ state, children }) {
+  if (state.isLoading) {
+    return <p className="pm-report__empty">Loading...</p>;
+  }
+  if (state.isError || !state.summary) {
+    return (
+      <p className="pm-report__empty">
+        This section could not be loaded.
+      </p>
+    );
+  }
+  return children(state.summary);
+}
+
+/** Month cost of labour and staff, days with something to show. */
+function HrReportSection({ state, month }) {
+  return (
+    <section className="pm-report__section">
+      <h2>Human resource - {monthLabel(month)}</h2>
+      <SectionState state={state}>
+        {(summary) => {
+          const days = summary.days.filter(
+            (day) => Number(day.total) > 0,
+          );
+          return (
+            <>
+              <table className="pm-report__table pm-report__totals">
+                <thead>
+                  <tr>
+                    <th>Labour (man-days)</th>
+                    <th>Labour cost</th>
+                    <th>Staff cost</th>
+                    <th>Total HR cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      {formatQty(summary.totals.labour_man_days)}
+                    </td>
+                    <td>{formatCurrency(summary.totals.labour_cost)}</td>
+                    <td>{formatCurrency(summary.totals.staff_cost)}</td>
+                    <td>
+                      <strong>
+                        {formatCurrency(summary.totals.total)}
+                      </strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {days.length === 0 ? (
+                <p className="pm-report__empty">
+                  No labour or staff cost recorded this month.
+                </p>
+              ) : (
+                <table className="pm-report__table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Labour (nos)</th>
+                      <th>Labour cost</th>
+                      <th>Staff cost</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {days.map((day) => (
+                      <tr key={day.date}>
+                        <td>{formatDate(day.date)}</td>
+                        <td className="pm-report__num">
+                          {Number(day.labour_nos)
+                            ? formatQty(day.labour_nos)
+                            : "-"}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.labour_cost)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.staff_cost)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {summary.labour_by_category.length ? (
+                <>
+                  <h3 className="pm-report__subheading">
+                    Labour by category
+                  </h3>
+                  <table className="pm-report__table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Man-days</th>
+                        <th>Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.labour_by_category.map((row) => (
+                        <tr key={row.category}>
+                          <td>{row.category}</td>
+                          <td className="pm-report__num">
+                            {formatQty(row.man_days)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.cost)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : null}
+            </>
+          );
+        }}
+      </SectionState>
+    </section>
+  );
+}
+
+/** Month cost of machines, fuel and upkeep. */
+function MachineryReportSection({ state, month }) {
+  return (
+    <section className="pm-report__section">
+      <h2>Machinery - {monthLabel(month)}</h2>
+      <SectionState state={state}>
+        {(summary) => {
+          const days = summary.days.filter(
+            (day) => Number(day.total) > 0,
+          );
+          const t = summary.totals;
+          return (
+            <>
+              <table className="pm-report__table pm-report__totals">
+                <thead>
+                  <tr>
+                    <th>Market hire</th>
+                    <th>In-house hire</th>
+                    <th>Fuel</th>
+                    <th>Maintenance</th>
+                    <th>Other</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{formatCurrency(t.market_hire)}</td>
+                    <td>{formatCurrency(t.ho_hire)}</td>
+                    <td>{formatCurrency(t.fuel)}</td>
+                    <td>{formatCurrency(t.maintenance)}</td>
+                    <td>{formatCurrency(t.other)}</td>
+                    <td>
+                      <strong>{formatCurrency(t.total)}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {days.length === 0 ? (
+                <p className="pm-report__empty">
+                  No machinery cost recorded this month.
+                </p>
+              ) : (
+                <table className="pm-report__table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Market hire</th>
+                      <th>In-house hire</th>
+                      <th>Fuel</th>
+                      <th>Maintenance</th>
+                      <th>Other</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {days.map((day) => (
+                      <tr key={day.date}>
+                        <td>{formatDate(day.date)}</td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.market_hire)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.ho_hire)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.fuel)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.maintenance)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.other)}
+                        </td>
+                        <td className="pm-report__num">
+                          {formatCurrency(day.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {summary.by_machine.length ||
+              Number(summary.site_fuel) > 0 ? (
+                <>
+                  <h3 className="pm-report__subheading">
+                    By machine
+                  </h3>
+                  <table className="pm-report__table">
+                    <thead>
+                      <tr>
+                        <th>Machine</th>
+                        <th>Source</th>
+                        <th>Days / hrs</th>
+                        <th>Hire</th>
+                        <th>Fuel</th>
+                        <th>Maintenance</th>
+                        <th>Other</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.by_machine.map((row) => (
+                        <tr key={row.machine}>
+                          <td>
+                            {row.name}
+                            {row.reg_no ? ` (${row.reg_no})` : ""}
+                          </td>
+                          <td>
+                            {SOURCE_LABELS[row.source] ?? row.source}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatQty(row.qty)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.hire)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.fuel)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.maintenance)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.other)}
+                          </td>
+                          <td className="pm-report__num">
+                            {formatCurrency(row.total)}
+                          </td>
+                        </tr>
+                      ))}
+                      {Number(summary.site_fuel) > 0 ? (
+                        <tr>
+                          <td>Site fuel (no machine)</td>
+                          <td>-</td>
+                          <td className="pm-report__num">-</td>
+                          <td className="pm-report__num">-</td>
+                          <td className="pm-report__num">
+                            {formatCurrency(summary.site_fuel)}
+                          </td>
+                          <td className="pm-report__num">-</td>
+                          <td className="pm-report__num">-</td>
+                          <td className="pm-report__num">
+                            {formatCurrency(summary.site_fuel)}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </>
+              ) : null}
+            </>
+          );
+        }}
+      </SectionState>
+    </section>
+  );
+}
 
 export function ProjectMonitorReportSheet({
   site,
@@ -159,6 +462,9 @@ export function ProjectMonitorReportSheet({
   actionItems = [],
   linearItems = [],
   financialReport = null,
+  hr = { summary: null, isLoading: false, isError: false },
+  machinery = { summary: null, isLoading: false, isError: false },
+  reportMonth = "",
   sections = DEFAULT_SECTIONS,
 }) {
   return (
@@ -628,6 +934,17 @@ export function ProjectMonitorReportSheet({
             title="DPR & bills"
           />
         </section>
+      ) : null}
+
+      {sections.hr ? (
+        <HrReportSection state={hr} month={reportMonth} />
+      ) : null}
+
+      {sections.machinery ? (
+        <MachineryReportSection
+          state={machinery}
+          month={reportMonth}
+        />
       ) : null}
     </div>
   );

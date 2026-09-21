@@ -1,66 +1,34 @@
 import {
   Banknote,
   Building2,
-  CheckCheck,
+  Check,
   FileText,
+  HardHat,
   Landmark,
   Link2,
   ListChecks,
   Route,
-  X,
+  Truck,
 } from "lucide-react";
 
 const SECTION_DEFS = [
-  {
-    key: "details",
-    label: "Project details",
-    description: "Value, dates, extensions & countdown",
-    icon: FileText,
-  },
-  {
-    key: "structures",
-    label: "Structures",
-    description: "Bridges, RUB, ROB task sheets",
-    icon: Landmark,
-  },
-  {
-    key: "buildings",
-    label: "Buildings",
-    description: "Floor-wise construction progress",
-    icon: Building2,
-  },
-  {
-    key: "girders",
-    label: "Girders & bearings",
-    description: "Span-wise girder, bearing & EJ chains",
-    icon: Link2,
-  },
-  {
-    key: "actionItems",
-    label: "Action items",
-    description: "Open & completed follow-ups",
-    icon: ListChecks,
-  },
-  {
-    key: "linearWorks",
-    label: "Linear works",
-    description: "Chainage scope & progress register",
-    icon: Route,
-  },
-  {
-    key: "financial",
-    label: "DPR & bills",
-    description: "Executed value, billing & balance",
-    icon: Banknote,
-  },
+  { key: "details", label: "Project details", icon: FileText },
+  { key: "structures", label: "Structures", icon: Landmark },
+  { key: "buildings", label: "Buildings", icon: Building2 },
+  { key: "girders", label: "Girders & bearings", icon: Link2 },
+  { key: "actionItems", label: "Action items", icon: ListChecks },
+  { key: "linearWorks", label: "Linear works", icon: Route },
+  { key: "financial", label: "DPR & bills", icon: Banknote },
+  { key: "hr", label: "HR", icon: HardHat },
+  { key: "machinery", label: "Machinery", icon: Truck },
 ];
 
 /**
  * Print-hidden control surface that decides which sections
- * ``ProjectMonitorReportSheet`` renders below it. Purely a set of
- * booleans keyed the same as the sheet's own ``sections`` prop - no
- * data shape of its own, so adding a future section only means
- * appending to ``SECTION_DEFS`` here and to the sheet's switch.
+ * ``ProjectMonitorReportSheet`` renders below it: one small chip per
+ * section, named and nothing more. Purely a set of booleans keyed the
+ * same as the sheet's own ``sections`` prop - adding a section means
+ * appending to ``SECTION_DEFS`` here and to the sheet.
  */
 export function ReportCustomizationPanel({
   sections,
@@ -79,42 +47,29 @@ export function ReportCustomizationPanel({
 
   return (
     <div className="pm-report-customize print-hidden">
-      <div className="pm-report-customize__head">
-        <div>
-          <h2>Customize this report</h2>
-          <p>
-            Choose which sections to include -
-            the preview below updates instantly.
-          </p>
-        </div>
-        <div className="pm-report-customize__bulk">
-          <span className="pm-report-customize__count">
-            {activeCount} of{" "}
-            {defs.length} included
-          </span>
-          <button
-            type="button"
-            className="button button--tertiary"
-            onClick={onSelectAll}
-          >
-            <CheckCheck size={14} /> Select all
+      <div className="pm-report-customize__bar">
+        <h2>Customize report</h2>
+        <span className="pm-report-customize__count">
+          {activeCount} of {defs.length} included
+        </span>
+        <span className="pm-report-customize__bulk">
+          <button type="button" onClick={onSelectAll}>
+            Select all
           </button>
-          <button
-            type="button"
-            className="button button--tertiary"
-            onClick={onClearAll}
-          >
-            <X size={14} /> Clear all
+          <button type="button" onClick={onClearAll}>
+            Clear all
           </button>
-        </div>
+        </span>
       </div>
 
-      <div className="pm-report-customize__grid">
+      <div
+        className="pm-report-chips"
+        role="group"
+        aria-label="Report sections"
+      >
         {defs.map((def) => {
           const Icon = def.icon;
-          const isOn = Boolean(
-            sections[def.key],
-          );
+          const isOn = Boolean(sections[def.key]);
           const count = counts?.[def.key];
           return (
             <button
@@ -122,34 +77,23 @@ export function ReportCustomizationPanel({
               key={def.key}
               className={
                 isOn
-                  ? "pm-report-toggle pm-report-toggle--on"
-                  : "pm-report-toggle"
+                  ? "pm-report-chip pm-report-chip--on"
+                  : "pm-report-chip"
               }
               onClick={() => onToggle(def.key)}
               aria-pressed={isOn}
             >
-              <span className="pm-report-toggle__icon">
-                <Icon size={18} />
-              </span>
-              <span className="pm-report-toggle__body">
-                <span className="pm-report-toggle__label">
-                  {def.label}
-                  {typeof count === "number" ? (
-                    <span className="pm-report-toggle__badge">
-                      {count}
-                    </span>
-                  ) : null}
+              {isOn ? (
+                <Check size={13} strokeWidth={3} />
+              ) : (
+                <Icon size={13} />
+              )}
+              <span>{def.label}</span>
+              {typeof count === "number" ? (
+                <span className="pm-report-chip__count">
+                  {count}
                 </span>
-                <span className="pm-report-toggle__description">
-                  {def.description}
-                </span>
-              </span>
-              <span
-                className="pm-report-toggle__switch"
-                aria-hidden="true"
-              >
-                <span className="pm-report-toggle__knob" />
-              </span>
+              ) : null}
             </button>
           );
         })}
