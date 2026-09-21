@@ -14,11 +14,13 @@ const {
   useProjectDashboardMock,
   useDueTrackerMock,
   useOverdueCountsMock,
+  authRole,
 } = vi.hoisted(() => ({
   useProjectDashboardMock: vi.fn(),
   useDueTrackerMock: vi.fn(),
   useOverdueCountsMock: vi.fn(),
-}));
+  authRole: { current: "DIRECTOR" },
+}))
 
 vi.mock("../../../hooks/useProjectMonitor", () => ({
   useVisibleTasks: () => ({ isLoading: false, has: () => true }),
@@ -32,7 +34,7 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
 
 vi.mock("../../../hooks/useAuth", () => ({
   useAuth: () => ({
-    user: { role: "DIRECTOR" },
+    user: { role: authRole.current },
   }),
 }));
 
@@ -112,6 +114,7 @@ function renderPage() {
 
 describe("ProjectDashboardPage", () => {
   beforeEach(() => {
+    authRole.current = "DIRECTOR";
     useProjectDashboardMock.mockReset();
     useDueTrackerMock.mockReset();
     useOverdueCountsMock.mockReset();
@@ -200,6 +203,76 @@ describe("ProjectDashboardPage", () => {
 
     expect(
       screen.getByText("Dashboard unavailable"),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["DIRECTOR", "ADMIN", "SUPER_ADMIN"])(
+    "words the page as every project for %s",
+    (role) => {
+      authRole.current = role;
+      useProjectDashboardMock.mockReturnValue({
+        isLoading: false,
+        isError: false,
+        data: DASHBOARD,
+      });
+
+      renderPage();
+
+      expect(
+        screen.getByRole("heading", { name: "All Projects" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Showing all 1 monitored project"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Due tracker - all projects"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each(["PROJECT_MANAGER", "PROJECT_INCHARGE"])(
+    "words the page as only their assigned projects for %s",
+    (role) => {
+      authRole.current = role;
+      useProjectDashboardMock.mockReturnValue({
+        isLoading: false,
+        isError: false,
+        data: DASHBOARD,
+      });
+
+      renderPage();
+
+      expect(
+        screen.getByRole("heading", { name: "My Projects" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Showing your 1 assigned project"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Due tracker - my projects"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Project Monitoring - My Projects"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Project Monitoring - All Projects"),
+      ).toBeNull();
+    },
+  );
+
+  it("draws the three charts from the same data", () => {
+    useProjectDashboardMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: DASHBOARD,
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Progress by project")).toBeInTheDocument();
+    expect(screen.getByText("Overall status")).toBeInTheDocument();
+    expect(
+      screen.getByText("Progress by kind of work"),
     ).toBeInTheDocument();
   });
 });

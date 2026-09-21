@@ -13,11 +13,15 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { projectMonitorOverviewPath } from "../../../constants/roles";
+import {
+  projectMonitorOverviewPath,
+  seesEveryProject,
+} from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import { useProjectDashboard } from "../../../hooks/useProjectMonitor";
 import { KpiCard } from "../../admin/components/KpiCard";
 import {
+  ModuleProgressChart,
   OverallStatusChart,
   ProjectProgressChart,
 } from "../components/DashboardCharts";
@@ -51,6 +55,8 @@ export function ProjectDashboardPage() {
   const dashboardQuery =
     useProjectDashboard(includeEmpty);
   const data = dashboardQuery.data;
+  const everyProject = seesEveryProject(user?.role);
+  const projectCount = data?.totals.projects ?? 0;
 
   return (
     <div className="organization-page">
@@ -59,13 +65,23 @@ export function ProjectDashboardPage() {
           <span className="page-eyebrow">
             Project Monitor
           </span>
-          <h1>All Projects</h1>
+          <h1>
+            {everyProject
+              ? "All Projects"
+              : "My Projects"}
+          </h1>
           <p>
-            Every project at a glance - progress,
-            what is overdue, and how much time is
-            left - with a printable combined
-            statement.
+            {everyProject
+              ? "Every project at a glance - progress, what is overdue, and how much time is left - with a printable combined statement."
+              : "The projects you are assigned to at a glance - progress, what is overdue, and how much time is left - with a printable statement."}
           </p>
+          {data ? (
+            <span className="pm-dashboard-scope">
+              {everyProject
+                ? `Showing all ${projectCount} monitored ${projectCount === 1 ? "project" : "projects"}`
+                : `Showing your ${projectCount} assigned ${projectCount === 1 ? "project" : "projects"}`}
+            </span>
+          ) : null}
         </div>
 
         <div className="page-actions">
@@ -77,7 +93,9 @@ export function ProjectDashboardPage() {
                 setIncludeEmpty(event.target.checked)
               }
             />
-            Include sites with no data
+            {everyProject
+              ? "Include sites with no data"
+              : "Include my sites with no data"}
           </label>
           {data ? (
             <button
@@ -168,12 +186,20 @@ export function ProjectDashboardPage() {
                   projects={data.projects}
                 />
               </SurfaceCard>
-              <SurfaceCard>
+              <SurfaceCard className="pm-dashboard-charts__tall">
                 <div className="surface-card__header">
                   <h2>Overall status</h2>
                 </div>
                 <OverallStatusChart
                   activities={data.totals.activities}
+                />
+              </SurfaceCard>
+              <SurfaceCard>
+                <div className="surface-card__header">
+                  <h2>Progress by kind of work</h2>
+                </div>
+                <ModuleProgressChart
+                  projects={data.projects}
                 />
               </SurfaceCard>
             </div>
@@ -313,13 +339,24 @@ export function ProjectDashboardPage() {
 
             <SurfaceCard>
               <div className="surface-card__header">
-                <h2>Due tracker - all projects</h2>
+                <h2>
+                  {everyProject
+                    ? "Due tracker - all projects"
+                    : "Due tracker - my projects"}
+                </h2>
               </div>
               <DueTracker showSite />
             </SurfaceCard>
           </div>
 
-          <MultiProjectPack data={data} />
+          <MultiProjectPack
+            data={data}
+            title={
+              everyProject
+                ? "Project Monitoring - All Projects"
+                : "Project Monitoring - My Projects"
+            }
+          />
         </>
       )}
     </div>

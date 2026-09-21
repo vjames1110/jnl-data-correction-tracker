@@ -19,14 +19,17 @@ const MODULES = [
  * only). Printed/saved as PDF via the browser print dialog, the same
  * convention as the single-project report.
  */
-export function MultiProjectPack({ data }) {
+export function MultiProjectPack({
+  data,
+  title = "Project Monitoring - All Projects",
+}) {
   const { totals, projects } = data;
 
   return (
     <div className="pm-report pm-pack print-only">
       <header className="pm-report__header">
         <h1 className="pm-report__title">
-          Project Monitoring - All Projects
+          {title}
         </h1>
         <p className="pm-report__subtitle">
           {totals.projects} project(s) - overall{" "}

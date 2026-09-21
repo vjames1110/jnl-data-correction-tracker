@@ -9,6 +9,7 @@ import {
   projectMonitorOverviewPath,
   projectMonitorStructuresPath,
   USER_ROLES,
+  seesEveryProject,
   usesProjectPortal,
 } from "./roles";
 
@@ -66,5 +67,21 @@ describe("Project Incharge role", () => {
         /^\/project-manager\//,
       );
     });
+  });
+});
+
+describe("seesEveryProject", () => {
+  it("is true for Admin, Super Admin and Director only", () => {
+    [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SUPER_ADMIN,
+      USER_ROLES.DIRECTOR,
+    ].forEach((role) => expect(seesEveryProject(role)).toBe(true));
+    [
+      USER_ROLES.PROJECT_MANAGER,
+      USER_ROLES.PROJECT_INCHARGE,
+      USER_ROLES.STORE_HO,
+      USER_ROLES.USER,
+    ].forEach((role) => expect(seesEveryProject(role)).toBe(false));
   });
 });

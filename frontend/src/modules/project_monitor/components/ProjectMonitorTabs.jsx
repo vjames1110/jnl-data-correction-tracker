@@ -17,6 +17,7 @@ import {
   projectMonitorOverviewPath,
   projectMonitorReportsPath,
   projectMonitorStructuresPath,
+  seesEveryProject,
 } from "../../../constants/roles";
 
 export function ProjectMonitorTabs({ role, active }) {
@@ -30,7 +31,9 @@ export function ProjectMonitorTabs({ role, active }) {
   const tabs = [
     {
       key: "dashboard",
-      label: "All Projects",
+      label: seesEveryProject(role)
+        ? "All Projects"
+        : "My Projects",
       path: projectMonitorDashboardPath(role),
       keepSite: false,
     },

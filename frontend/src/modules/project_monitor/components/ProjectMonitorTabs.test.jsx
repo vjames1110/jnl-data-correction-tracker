@@ -11,7 +11,7 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useVisibleTasks: (...args) => hooks.visible(...args),
 }));
 
-function renderTabs(held, noSites = false) {
+function renderTabs(held, noSites = false, role = "PROJECT_INCHARGE") {
   hooks.visible.mockReturnValue({
     isLoading: false,
     noSites,
@@ -19,7 +19,7 @@ function renderTabs(held, noSites = false) {
   });
   render(
     <MemoryRouter initialEntries={["/project-manager/hr?site=s1"]}>
-      <ProjectMonitorTabs role="PROJECT_INCHARGE" active="hr" />
+      <ProjectMonitorTabs role={role} active="hr" />
     </MemoryRouter>,
   );
 }
@@ -32,17 +32,17 @@ describe("ProjectMonitorTabs", () => {
     renderTabs(["DPR_BILLS", "HR"]);
 
     expect(names()).toEqual([
-      "All Projects",
+      "My Projects",
       "Overview",
       "DPR & Bills",
       "HR",
     ]);
   });
 
-  it("always keeps All Projects and Overview", () => {
+  it("always keeps My Projects and Overview", () => {
     renderTabs([]);
 
-    expect(names()).toEqual(["All Projects", "Overview"]);
+    expect(names()).toEqual(["My Projects", "Overview"]);
   });
 
   it("shows every tab to someone holding every task", () => {
@@ -59,7 +59,7 @@ describe("ProjectMonitorTabs", () => {
     ]);
 
     expect(names()).toEqual([
-      "All Projects",
+      "My Projects",
       "Overview",
       "Structures",
       "Buildings",
@@ -96,4 +96,13 @@ describe("ProjectMonitorTabs", () => {
       screen.queryByText(/not been given access/i),
     ).toBeNull();
   });
+
+  it.each(["ADMIN", "SUPER_ADMIN", "DIRECTOR"])(
+    "calls the first tab All Projects for %s",
+    (role) => {
+      renderTabs([], false, role);
+
+      expect(names()[0]).toBe("All Projects");
+    },
+  );
 });

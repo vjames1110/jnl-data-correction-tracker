@@ -55,6 +55,15 @@ export function usesProjectPortal(role) {
   );
 }
 
+/**
+ * Who sees every project on All Projects: Admin, Super Admin and
+ * Director. Everyone else sees only the sites they were assigned
+ * (the backend enforces it; this only words the page).
+ */
+export function seesEveryProject(role) {
+  return isAdminRole(role) || role === USER_ROLES.DIRECTOR;
+}
+
 /** Roles that may enter Project Monitor data (Director only views). */
 export function isProjectEntryRole(role) {
   return (

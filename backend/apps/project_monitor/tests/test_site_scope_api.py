@@ -377,6 +377,47 @@ def test_dashboard_lists_the_projects_where_the_person_holds_a_task(world, site,
     assert _project_codes(client_for(ProjectManagerUserFactory()).get(url("dashboard"), query)) == []
 
 
+def test_dashboard_totals_only_count_the_projects_the_person_may_see(world, site, other_site):
+    """
+    "My Projects" must be a true subset: the headline numbers (projects,
+    activities, overdue) and the per-kind-of-work rollups for a person
+    on site A must equal site A alone, while Admin and Director get
+    the sum over every site.
+    """
+    query = {"include_empty": "1"}
+
+    def totals(user):
+        return client_for(user).get(url("dashboard"), query).data["data"]
+
+    only_a = grant(ProjectManagerUserFactory(), site, "STRUCTURES")
+    incharge_b = grant(ProjectInchargeUserFactory(), other_site, "STRUCTURES")
+
+    a = totals(only_a)
+    b = totals(incharge_b)
+    everyone = totals(AdminUserFactory())
+    director = totals(DirectorUserFactory())
+
+    assert a["totals"]["projects"] == 1
+    assert b["totals"]["projects"] == 1
+    assert everyone["totals"]["projects"] == 2
+    assert director["totals"]["projects"] == 2
+
+    # The two scoped views add up to the unscoped one - nothing leaks
+    # in either direction.
+    for field in ("total", "done", "in_progress", "hold", "not_started"):
+        assert (
+            a["totals"]["activities"][field] + b["totals"]["activities"][field]
+            == everyone["totals"]["activities"][field]
+        )
+        assert director["totals"]["activities"][field] == everyone["totals"]["activities"][field]
+    assert a["totals"]["overdue"] + b["totals"]["overdue"] == everyone["totals"]["overdue"]
+    assert a["totals"]["activities"]["total"] > 0
+
+    # The per-project rollup a scoped person gets is for their site only.
+    assert [p["site"]["site_code"] for p in a["projects"]] == ["CHK"]
+    assert [p["site"]["site_code"] for p in b["projects"]] == ["OTH"]
+
+
 def test_dashboard_money_needs_the_dpr_task(world, site, admin_api):
     # Give site A a bill so it has money figures.
     admin_api.post(

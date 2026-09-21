@@ -55,9 +55,41 @@ export function ProjectTimelineRows({ projects }) {
 
   return (
     <div className="pm-gantt">
+      <ul className="pm-viz__legend pm-gantt__legend">
+        <li>
+          <span className="pm-viz__key pm-viz__key--complete" />
+          More than 30 days left
+        </li>
+        <li>
+          <span className="pm-viz__key pm-viz__key--hold" />
+          15 to 30 days left
+        </li>
+        <li>
+          <span className="pm-viz__key pm-viz__key--critical" />
+          Under 15 days or overdue
+        </li>
+        <li>
+          <span className="pm-viz__key pm-viz__key--idle" />
+          No end date
+        </li>
+      </ul>
       <div className="pm-gantt__axis">
-        <span>{formatDate(new Date(axisMin).toISOString().slice(0, 10))}</span>
-        <span>{formatDate(new Date(axisMax).toISOString().slice(0, 10))}</span>
+        <span>
+          {formatDate(
+            new Date(axisMin).toISOString().slice(0, 10),
+          )}
+        </span>
+        <span
+          className="pm-gantt__axis-today"
+          style={{ left: `${todayLeft}%` }}
+        >
+          Today
+        </span>
+        <span>
+          {formatDate(
+            new Date(axisMax).toISOString().slice(0, 10),
+          )}
+        </span>
       </div>
       {dated.map(({ project, start, end }) => {
         const progress =
@@ -98,14 +130,14 @@ export function ProjectTimelineRows({ projects }) {
                   className="pm-gantt__fill"
                   style={{ width: `${progress}%` }}
                 />
-                <span className="pm-gantt__pct">
-                  {progress}%
-                </span>
               </div>
               <div
                 className="pm-gantt__today"
                 style={{ left: `${todayLeft}%` }}
               />
+            </div>
+            <div className="pm-gantt__pct">
+              {progress}%
             </div>
           </div>
         );
