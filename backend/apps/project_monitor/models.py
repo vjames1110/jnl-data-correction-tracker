@@ -897,6 +897,89 @@ class ActivityComment(
         return super().save(*args, **kwargs)
 
 
+class ChainageSegment(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One stretch of a project's chainage, optionally naming who is
+    working it - a site can hand different stretches to different
+    vendors, so this is a list, not a single field. Kept separate
+    from ``Site.chainage_start_km``/``chainage_end_km`` (the
+    project's overall span, unchanged by this) - same "project-
+    tracking behaviour lives here, not on Site" convention as
+    ``ProjectExtension``.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="chainage_segments",
+    )
+    from_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    to_chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+    )
+    vendor = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text=(
+            "Who is working this stretch - "
+            "optional, a stretch can go "
+            "unassigned."
+        ),
+    )
+
+    class Meta:
+        db_table = (
+            "project_monitor_chainage_segment"
+        )
+        ordering = ["from_chainage_km"]
+        verbose_name = "Chainage Segment"
+        verbose_name_plural = (
+            "Chainage Segments"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site.site_code} - "
+            f"{self.from_chainage_km} to "
+            f"{self.to_chainage_km} km"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if self.vendor:
+            self.vendor = normalize_whitespace(
+                self.vendor
+            )
+
+        if (
+            self.from_chainage_km is not None
+            and self.to_chainage_km is not None
+            and self.to_chainage_km
+            < self.from_chainage_km
+        ):
+            raise ValidationError(
+                {
+                    "to_chainage_km": (
+                        "Chainage end cannot be "
+                        "before chainage start."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class ProjectExtension(
     UUIDPrimaryKeyModel,
     TimeStampedModel,
@@ -2107,3 +2190,138 @@ class FuelEntry(
 
     def __str__(self) -> str:
         return f"{self.site_id} - {self.date} - {self.litres} L"
+
+
+class MaterialKind(models.TextChoices):
+    CONCRETE = "CONCRETE", "Concrete"
+    TMT = "TMT", "TMT steel"
+
+
+class MaterialRate(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A w.e.f. rate for a costed material, one site at a time: concrete
+    cost per cum, or TMT cost per MT. Costing always uses the latest
+    row with ``effective_from`` on or before the day being costed -
+    the same "append a new dated row, never edit history" convention
+    Reconciliation's ``ItemStandard``/``SiteItemConfig`` already use.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="material_rates",
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=MaterialKind.choices,
+    )
+    effective_from = models.DateField()
+    rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    class Meta:
+        db_table = "project_monitor_material_rate"
+        ordering = ["-effective_from"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "kind", "effective_from"],
+                name="pm_material_rate_unique",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rate__gt=0),
+                name="pm_material_rate_positive",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["site", "kind", "effective_from"],
+                name="pm_material_rate_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site_id} - {self.kind} @ {self.rate} "
+            f"w.e.f. {self.effective_from}"
+        )
+
+
+class ConcreteProduction(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    The stores-recorded actual cost of concrete produced/poured on
+    one day, optionally by grade. When a row exists for a day it
+    REPLACES that day's estimated cost (DPR-executed cum at the
+    w.e.f. rate) - it never adds to it, per the "stores figure wins"
+    rule ported from the director's prototype.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="concrete_production",
+    )
+    date = models.DateField(db_index=True)
+    grade = models.CharField(max_length=50, blank=True)
+    cum = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+    )
+    cement_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    aggregate_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    sand_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    other_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    remarks = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "project_monitor_concrete_production"
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["site", "date"],
+                name="pm_concrete_prod_site_date_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(cum__gt=0),
+                name="pm_concrete_prod_positive_cum",
+            ),
+        ]
+
+    @property
+    def total_cost(self):
+        return (
+            self.cement_cost
+            + self.aggregate_cost
+            + self.sand_cost
+            + self.other_cost
+        )
+
+    def __str__(self) -> str:
+        return f"{self.site_id} - {self.date} - {self.cum} cum"

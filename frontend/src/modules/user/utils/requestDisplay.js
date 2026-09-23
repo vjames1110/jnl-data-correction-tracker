@@ -1,3 +1,5 @@
+import { formatDateTime as formatDateTimeDMY } from "../../../utils/dateFormat";
+
 export const REQUEST_STATUS_LABELS = {
   DRAFT: "Draft",
   SUBMITTED: "Submitted",
@@ -53,22 +55,9 @@ export function statusTone(status) {
 }
 
 export function formatDate(value) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-  }).format(new Date(value));
+  return formatDateTimeDMY(value, { dateOnly: true }) ?? "-";
 }
 
 export function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return formatDateTimeDMY(value) ?? "-";
 }

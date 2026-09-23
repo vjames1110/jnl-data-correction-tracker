@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { AppLoader } from "../../../components/common/AppLoader";
+import { formatDateTime as formatDateTimeDMY } from "../../../utils/dateFormat";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
@@ -256,9 +257,7 @@ function downloadBlob(filename, blob) {
 }
 
 function formatDateTime(value) {
-  return value
-    ? new Date(value).toLocaleString()
-    : "-";
+  return formatDateTimeDMY(value) ?? "-";
 }
 
 function DetailItem({ label, value }) {
@@ -1906,11 +1905,9 @@ export function EmployeeManagementPage() {
                       />
                     </td>
                     <td>
-                      {profile.user_detail?.last_login
-                        ? new Date(
-                            profile.user_detail.last_login,
-                          ).toLocaleString()
-                        : "-"}
+                      {formatDateTime(
+                        profile.user_detail?.last_login,
+                      )}
                     </td>
                     <td>
                       <div className="table-actions">

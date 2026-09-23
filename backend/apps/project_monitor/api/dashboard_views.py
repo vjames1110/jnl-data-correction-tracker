@@ -108,7 +108,9 @@ class ProjectDashboardAPIView(APIView):
         sites = list(
             project_scope.project_sites_queryset(request.user)
             .select_related("site_director", "site_hod")
-            .prefetch_related("extensions")
+            .prefetch_related(
+                "extensions", "chainage_segments"
+            )
         )
         site_data = ProjectSiteSerializer(
             sites, many=True

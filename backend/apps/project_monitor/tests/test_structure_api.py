@@ -235,6 +235,152 @@ def test_structure_detail_and_delete(
 
 
 @pytest.mark.django_db
+def test_a_structures_name_and_chainage_can_be_edited(
+    api_client, site, minor_type_id
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    create_response = api_client.post(
+        f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
+        _minor_bridge_payload(minor_type_id),
+        format="json",
+    )
+    structure_id = create_response.data["data"]["id"]
+    original_activity_count = len(
+        create_response.data["data"]["groups"]
+    )
+
+    response = api_client.patch(
+        reverse(
+            "project-monitor-api:structure-detail",
+            args=[structure_id],
+        ),
+        {"name": "Br. No. 214-A", "chainage_km": "13.000"},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["data"]["name"] == "Br. No. 214-A"
+    assert (
+        response.data["data"]["chainage_km"] == "13.000"
+    )
+    # The activity sheet is untouched by editing metadata.
+    assert (
+        len(response.data["data"]["groups"])
+        == original_activity_count
+    )
+
+    structure = Structure.objects.get(pk=structure_id)
+    assert structure.name == "Br. No. 214-A"
+
+
+@pytest.mark.django_db
+def test_editing_a_structure_needs_a_name(
+    api_client, site, minor_type_id
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    create_response = api_client.post(
+        f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
+        _minor_bridge_payload(minor_type_id),
+        format="json",
+    )
+    structure_id = create_response.data["data"]["id"]
+
+    response = api_client.patch(
+        reverse(
+            "project-monitor-api:structure-detail",
+            args=[structure_id],
+        ),
+        {"name": "   "},
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_400_BAD_REQUEST
+    )
+
+
+@pytest.mark.django_db
+def test_editing_the_config_regenerates_the_sheet(
+    api_client, site, minor_type_id
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    create_response = api_client.post(
+        f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
+        _minor_bridge_payload(minor_type_id),
+        format="json",
+    )
+    structure_id = create_response.data["data"]["id"]
+
+    response = api_client.patch(
+        reverse(
+            "project-monitor-api:structure-detail",
+            args=[structure_id],
+        ),
+        {
+            "config": {
+                "w": 3,
+                "h": 3,
+                "cells": 1,
+                "barrel": 12,
+                "returns": 2,
+                "stairs": 2,
+                "apron": True,
+            }
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    box_group = next(
+        group
+        for group in response.data["data"]["groups"]
+        if group["group_title"] == "Box structure"
+    )
+    rw3 = next(
+        row
+        for row in box_group["rows"]
+        if row["name"] == "R/W 3"
+    )
+    assert rw3["status"] == "NOT_APPLICABLE"
+    # Still the same rows - none deleted.
+    assert len(box_group["rows"]) == 18
+
+
+@pytest.mark.django_db
+def test_a_director_cannot_edit_a_structure(
+    api_client, site, minor_type_id
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    create_response = api_client.post(
+        f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
+        _minor_bridge_payload(minor_type_id),
+        format="json",
+    )
+    structure_id = create_response.data["data"]["id"]
+
+    director = DirectorUserFactory()
+    api_client.force_authenticate(user=director)
+    response = api_client.patch(
+        reverse(
+            "project-monitor-api:structure-detail",
+            args=[structure_id],
+        ),
+        {"name": "Renamed"},
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_403_FORBIDDEN
+    )
+
+
+@pytest.mark.django_db
 def test_updating_an_activity_composes_one_log_line(
     api_client, site, minor_type_id
 ):

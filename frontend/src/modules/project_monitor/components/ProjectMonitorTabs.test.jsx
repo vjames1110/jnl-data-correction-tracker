@@ -105,4 +105,39 @@ describe("ProjectMonitorTabs", () => {
       expect(names()[0]).toBe("All Projects");
     },
   );
+
+  it.each(["ADMIN", "SUPER_ADMIN", "DIRECTOR"])(
+    "adds a Costing tab for %s, right before Reports",
+    (role) => {
+      renderTabs(["REPORTS"], false, role);
+
+      const list = names();
+      expect(list.indexOf("Costing")).toBe(
+        list.indexOf("Reports") - 1,
+      );
+    },
+  );
+
+  it.each(["PROJECT_MANAGER", "PROJECT_INCHARGE"])(
+    "never shows Costing to %s, even holding every task",
+    (role) => {
+      renderTabs(
+        [
+          "STRUCTURES",
+          "BUILDINGS",
+          "GIRDERS",
+          "ACTION_ITEMS",
+          "LINEAR_WORKS",
+          "DPR_BILLS",
+          "HR",
+          "MACHINERY",
+          "REPORTS",
+        ],
+        false,
+        role,
+      );
+
+      expect(names()).not.toContain("Costing");
+    },
+  );
 });

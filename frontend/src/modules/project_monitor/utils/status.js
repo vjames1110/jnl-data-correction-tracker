@@ -1,3 +1,5 @@
+import { formatCalendarDate } from "../../../utils/dateFormat";
+
 export const STATUS_LABELS = {
   NOT_STARTED: "Not Taken Up",
   IN_PROGRESS: "In Progress",
@@ -42,11 +44,7 @@ export function formatQty(value) {
 }
 
 export function formatDate(value) {
-  if (!value) {
-    return "-";
-  }
-  const [year, month, day] = value.split("-");
-  return `${day}-${month}-${year}`;
+  return formatCalendarDate(value) ?? "-";
 }
 
 export function activityProgressPercent(activity) {

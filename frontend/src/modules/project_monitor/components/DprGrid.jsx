@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiErrorMessage } from "../utils/finance";
 import {
   formatCurrency,
+  formatDate,
   formatQty,
 } from "../utils/status";
 
@@ -150,10 +151,10 @@ export function DprGrid({
                     }
                     title={
                       day.editable
-                        ? day.date
+                        ? formatDate(day.date)
                         : day.unlocked_by_admin
-                          ? `${day.date} - unlocked by an Admin`
-                          : `${day.date} - locked`
+                          ? `${formatDate(day.date)} - unlocked by an Admin`
+                          : `${formatDate(day.date)} - locked`
                     }
                   >
                     {dayLabel(day.date)}
@@ -229,7 +230,7 @@ export function DprGrid({
                             type="number"
                             step="0.001"
                             min="0"
-                            aria-label={`${item.description} on ${day.date}`}
+                            aria-label={`${item.description} on ${formatDate(day.date)}`}
                             value={
                               key in pending
                                 ? pending[key]

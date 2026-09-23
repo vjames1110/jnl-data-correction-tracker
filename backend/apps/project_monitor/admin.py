@@ -6,6 +6,8 @@ from apps.project_monitor.models import (
     ActivityComment,
     ActivityDateEntry,
     Building,
+    ChainageSegment,
+    ConcreteProduction,
     DprDayUnlock,
     DprEntry,
     DprItem,
@@ -13,6 +15,7 @@ from apps.project_monitor.models import (
     LabourEntry,
     Machine,
     MachineUsage,
+    MaterialRate,
     GirderJob,
     GirderSpan,
     LinearItem,
@@ -187,6 +190,18 @@ class ProjectExtensionAdmin(admin.ModelAdmin):
     ]
     list_filter = ["site"]
     search_fields = ["reason"]
+
+
+@admin.register(ChainageSegment)
+class ChainageSegmentAdmin(admin.ModelAdmin):
+    list_display = [
+        "site",
+        "from_chainage_km",
+        "to_chainage_km",
+        "vendor",
+    ]
+    list_filter = ["site"]
+    search_fields = ["vendor"]
 
 
 @admin.register(ActionItem)
@@ -366,5 +381,25 @@ class MachineUsageAdmin(admin.ModelAdmin):
 @admin.register(FuelEntry)
 class FuelEntryAdmin(admin.ModelAdmin):
     list_display = ["date", "site", "machine", "litres", "amount"]
+    list_filter = ["site"]
+    date_hierarchy = "date"
+
+
+@admin.register(MaterialRate)
+class MaterialRateAdmin(admin.ModelAdmin):
+    list_display = ["site", "kind", "effective_from", "rate"]
+    list_filter = ["site", "kind"]
+    date_hierarchy = "effective_from"
+
+
+@admin.register(ConcreteProduction)
+class ConcreteProductionAdmin(admin.ModelAdmin):
+    list_display = [
+        "date",
+        "site",
+        "grade",
+        "cum",
+        "total_cost",
+    ]
     list_filter = ["site"]
     date_hierarchy = "date"

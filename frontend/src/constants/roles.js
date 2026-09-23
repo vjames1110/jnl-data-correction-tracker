@@ -191,6 +191,18 @@ export function projectMonitorReportsPath(role) {
   return "/admin/project-monitor/reports";
 }
 
+/**
+ * Costing has no Project Manager/Incharge branch: only Director and
+ * Admin/Super Admin ever hold this task (see ``seesEveryProject``,
+ * the same role set), so there is no "/project-manager/costing".
+ */
+export function projectMonitorCostingPath(role) {
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/costing";
+  }
+  return "/admin/project-monitor/costing";
+}
+
 export function portalBasePath(role) {
   if (isAdminRole(role)) {
     return "/admin";

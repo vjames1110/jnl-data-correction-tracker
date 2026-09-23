@@ -16,6 +16,7 @@ import {
 import { Link } from "react-router-dom";
 
 import { AppLoader } from "../../../components/common/AppLoader";
+import { formatCalendarDate } from "../../../utils/dateFormat";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
@@ -718,7 +719,7 @@ export function StoreItemStandardManagementPage() {
                       {standard.mix_ratio ?? "-"}
                     </td>
                     <td>
-                      {standard.effective_from}
+                      {formatCalendarDate(standard.effective_from)}
                     </td>
                     <td>
                       <StatusChip

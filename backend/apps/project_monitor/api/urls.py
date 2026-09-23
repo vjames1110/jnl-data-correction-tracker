@@ -1,5 +1,14 @@
 from django.urls import path
 
+from apps.project_monitor.api.costing_views import (
+    ConcreteProductionDetailAPIView,
+    ConcreteProductionListCreateAPIView,
+    CostingAccessAPIView,
+    CostingGlanceAPIView,
+    CostingTableAPIView,
+    MaterialRateDetailAPIView,
+    MaterialRateListCreateAPIView,
+)
 from apps.project_monitor.api.dashboard_views import (
     DueTrackerAPIView,
     OverdueCountsAPIView,
@@ -63,6 +72,8 @@ from apps.project_monitor.api.views import (
     BuildingDetailAPIView,
     BuildingListCreateAPIView,
     BuildingReviewAPIView,
+    ChainageSegmentDetailAPIView,
+    ChainageSegmentListCreateAPIView,
     GirderJobDetailAPIView,
     GirderJobListCreateAPIView,
     GirderJobReviewAPIView,
@@ -265,6 +276,41 @@ urlpatterns = [
         name="machinery-upload",
     ),
     path(
+        "costing/access/",
+        CostingAccessAPIView.as_view(),
+        name="costing-access",
+    ),
+    path(
+        "costing/glance/",
+        CostingGlanceAPIView.as_view(),
+        name="costing-glance",
+    ),
+    path(
+        "costing/table/",
+        CostingTableAPIView.as_view(),
+        name="costing-table",
+    ),
+    path(
+        "costing/rates/",
+        MaterialRateListCreateAPIView.as_view(),
+        name="costing-rate-list",
+    ),
+    path(
+        "costing/rates/<uuid:pk>/",
+        MaterialRateDetailAPIView.as_view(),
+        name="costing-rate-detail",
+    ),
+    path(
+        "costing/production/",
+        ConcreteProductionListCreateAPIView.as_view(),
+        name="costing-production-list",
+    ),
+    path(
+        "costing/production/<uuid:pk>/",
+        ConcreteProductionDetailAPIView.as_view(),
+        name="costing-production-detail",
+    ),
+    path(
         "sites/",
         ProjectSitesAPIView.as_view(),
         name="project-sites",
@@ -318,6 +364,16 @@ urlpatterns = [
         "extensions/<uuid:pk>/",
         ProjectExtensionDetailAPIView.as_view(),
         name="extension-detail",
+    ),
+    path(
+        "chainage-segments/",
+        ChainageSegmentListCreateAPIView.as_view(),
+        name="chainage-segment-list",
+    ),
+    path(
+        "chainage-segments/<uuid:pk>/",
+        ChainageSegmentDetailAPIView.as_view(),
+        name="chainage-segment-detail",
     ),
     path(
         "structure-types/",

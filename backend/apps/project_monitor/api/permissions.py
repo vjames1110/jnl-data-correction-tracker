@@ -132,6 +132,39 @@ class HasFinanceRoleAccess(BasePermission):
         }
 
 
+class HasProjectMonitorCostingAccess(BasePermission):
+    """
+    Costing (expense vs value of work done, "Today at a glance") is
+    the one Project Monitor feed with no per-site Project Manager or
+    Incharge grant at all - project margin is materially more
+    sensitive than progress or even billing figures. Director may
+    view every site (read-only, as everywhere else); only
+    Admin/Super Admin may view AND enter material rates and the
+    stores concrete-production figures.
+    """
+
+    message = (
+        "Project Monitor costing access is required."
+    )
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not _is_active_authenticated(user):
+            return False
+
+        if request.method in SAFE_METHODS:
+            return user.role in {
+                UserRole.DIRECTOR,
+                UserRole.ADMIN,
+                UserRole.SUPER_ADMIN,
+            }
+
+        return user.role in {
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        }
+
+
 class IsProjectMonitorAdmin(BasePermission):
     """Admin/Super Admin only (site assignments, day unlocks)."""
 

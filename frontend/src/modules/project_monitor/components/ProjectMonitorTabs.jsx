@@ -8,6 +8,7 @@ import {
 import {
   projectMonitorActionItemsPath,
   projectMonitorBuildingsPath,
+  projectMonitorCostingPath,
   projectMonitorDashboardPath,
   projectMonitorDprBillsPath,
   projectMonitorGirdersPath,
@@ -98,6 +99,18 @@ export function ProjectMonitorTabs({ role, active }) {
       label: "Machinery",
       path: projectMonitorMachineryPath(role),
     },
+    // Costing has no per-site grant at all - only Director/Admin
+    // ever see it (the same role set ``seesEveryProject`` already
+    // names). It sits just before Reports.
+    ...(seesEveryProject(role)
+      ? [
+          {
+            key: "costing",
+            label: "Costing",
+            path: projectMonitorCostingPath(role),
+          },
+        ]
+      : []),
     {
       key: "reports",
       task: "REPORTS",

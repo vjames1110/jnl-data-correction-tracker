@@ -84,7 +84,7 @@ describe("DprGrid", () => {
     ).toHaveLength(2);
     expect(
       screen.getByLabelText(
-        "Earthwork in embankment on 2026-09-19",
+        "Earthwork in embankment on 19-09-2026",
       ),
     ).toHaveValue(40);
     expect(
@@ -114,7 +114,7 @@ describe("DprGrid", () => {
     expect(save).toBeDisabled();
 
     const cell = screen.getByLabelText(
-      "Earthwork in embankment on 2026-09-18",
+      "Earthwork in embankment on 18-09-2026",
     );
     await user.type(cell, "25");
     expect(save).toBeEnabled();
@@ -132,7 +132,7 @@ describe("DprGrid", () => {
     const user = userEvent.setup();
     renderGrid();
     const cell = screen.getByLabelText(
-      "Earthwork in embankment on 2026-09-19",
+      "Earthwork in embankment on 19-09-2026",
     );
 
     await user.clear(cell);

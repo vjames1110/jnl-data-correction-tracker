@@ -210,25 +210,46 @@ function RepeatGroupItemFields({
   );
 }
 
+/**
+ * "Add a structure", and - given ``initialStructure`` - "Edit a
+ * structure": the exact same parametric form, since editing means
+ * re-running the same inputs the sheet was originally generated
+ * from. The type is locked once a structure exists (its schema is
+ * what the current sheet was built against); to change type, delete
+ * the structure and add it again.
+ */
 export function AddStructureForm({
   structureTypes,
+  initialStructure,
   onCreate,
+  onSave,
   onCancel,
   isPending,
   error,
 }) {
+  const isEditing = Boolean(initialStructure);
   const [structureTypeId, setStructureTypeId] =
     useState(
-      structureTypes[0]?.id || "",
+      isEditing
+        ? initialStructure.structure_type
+        : structureTypes[0]?.id || "",
     );
-  const [name, setName] = useState("");
-  const [chainageKm, setChainageKm] =
-    useState("");
-  const [config, setConfig] = useState(() =>
-    structureTypes[0]
-      ? buildDefaultConfig(structureTypes[0])
-      : {},
+  const [name, setName] = useState(
+    isEditing ? initialStructure.name : "",
   );
+  const [chainageKm, setChainageKm] = useState(
+    isEditing
+      ? (initialStructure.chainage_km ?? "")
+      : "",
+  );
+  const [config, setConfig] = useState(() => {
+    if (isEditing) {
+      return { ...initialStructure.config };
+    }
+    return structureTypes[0]
+      ? buildDefaultConfig(structureTypes[0])
+      : {};
+  });
 
   const definition = structureTypes.find(
     (item) => item.id === structureTypeId,
@@ -242,6 +263,9 @@ export function AddStructureForm({
     countFieldKeysFor(definition);
 
   const handleTypeChange = (value) => {
+    if (isEditing) {
+      return;
+    }
     const next = structureTypes.find(
       (item) => item.id === value,
     );
@@ -285,6 +309,14 @@ export function AddStructureForm({
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (isEditing) {
+      onSave({
+        name,
+        chainage_km: chainageKm || null,
+        config,
+      });
+      return;
+    }
     onCreate(
       {
         structure_type: structureTypeId,
@@ -305,9 +337,15 @@ export function AddStructureForm({
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
         <label className="form-field">
-          <span>Type</span>
+          <span>
+            Type
+            {isEditing
+              ? " (cannot be changed - delete and re-add to change it)"
+              : ""}
+          </span>
           <select
             value={structureTypeId}
+            disabled={isEditing}
             onChange={(event) =>
               handleTypeChange(
                 event.target.value,
@@ -387,7 +425,9 @@ export function AddStructureForm({
           className="button button--primary"
           disabled={isPending}
         >
-          Generate sheet
+          {isEditing
+            ? "Save changes"
+            : "Generate sheet"}
         </button>
         <button
           type="button"

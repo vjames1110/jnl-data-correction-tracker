@@ -1,3 +1,5 @@
+import { formatDate } from "../utils/status";
+
 const STATUS_DRAW_ORDER = {
   IN_PROGRESS: 0,
   HOLD: 1,
@@ -98,7 +100,7 @@ export function RollingDiagram({
               c0,
               c1,
             )}
-            title={`${entry.date}: ${entry.from_chainage_km}-${entry.to_chainage_km} km (${entry.status})`}
+            title={`${formatDate(entry.date)}: ${entry.from_chainage_km}-${entry.to_chainage_km} km (${entry.status})`}
           />
         ))}
       </div>

@@ -20,7 +20,9 @@ import {
   useSiteTasks,
 } from "../../../hooks/useProjectMonitor";
 import {
+  useCreateChainageSegment,
   useCreateProjectExtension,
+  useDeleteChainageSegment,
   useDeleteProjectExtension,
   useDprAccess,
   useFinancialSummary,
@@ -28,6 +30,7 @@ import {
   useUpdateProjectSiteDetails,
 } from "../../../hooks/useProjectMonitor";
 import { KpiCard } from "../../admin/components/KpiCard";
+import { ChainageSegmentsList } from "../components/ChainageSegmentsList";
 import { DueTracker } from "../components/DueTracker";
 import { FinancialTiles } from "../components/FinancialTiles";
 import { ProjectCountdownBadge } from "../components/ProjectCountdownBadge";
@@ -357,6 +360,10 @@ export function ProjectOverviewPage() {
     useCreateProjectExtension(selectedSite);
   const deleteExtension =
     useDeleteProjectExtension(selectedSite);
+  const createChainageSegment =
+    useCreateChainageSegment(selectedSite);
+  const deleteChainageSegment =
+    useDeleteChainageSegment(selectedSite);
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -471,6 +478,25 @@ export function ProjectOverviewPage() {
               }
               onDeleteExtension={
                 deleteExtension.mutate
+              }
+            />
+          </SurfaceCard>
+
+          <SurfaceCard className="print-hidden">
+            <ChainageSegmentsList
+              segments={
+                overviewQuery.data.site
+                  .chainage_segments
+              }
+              canEdit={canEdit}
+              onAddSegment={
+                createChainageSegment.mutate
+              }
+              addSegmentStatus={
+                createChainageSegment
+              }
+              onDeleteSegment={
+                deleteChainageSegment.mutate
               }
             />
           </SurfaceCard>

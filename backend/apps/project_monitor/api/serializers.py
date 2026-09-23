@@ -12,6 +12,7 @@ from apps.project_monitor.models import (
     ActivityDateEntry,
     ActivityStatus,
     Building,
+    ChainageSegment,
     GirderJob,
     GirderScope,
     GirderSpan,
@@ -40,6 +41,37 @@ from apps.project_monitor.services.timeline import (
 
 COUNTDOWN_GREEN_THRESHOLD_DAYS = 30
 COUNTDOWN_ORANGE_THRESHOLD_DAYS = 15
+
+
+class ChainageSegmentSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = ChainageSegment
+        fields = [
+            "id",
+            "from_chainage_km",
+            "to_chainage_km",
+            "vendor",
+        ]
+        read_only_fields = fields
+
+
+class ChainageSegmentCreateSerializer(
+    serializers.Serializer
+):
+    from_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    to_chainage_km = serializers.DecimalField(
+        max_digits=8, decimal_places=3
+    )
+    vendor = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=150,
+    )
 
 
 class ProjectExtensionSerializer(
@@ -95,6 +127,9 @@ class ProjectSiteSerializer(serializers.ModelSerializer):
     extensions = ProjectExtensionSerializer(
         many=True, read_only=True
     )
+    chainage_segments = ChainageSegmentSerializer(
+        many=True, read_only=True
+    )
     effective_end_date = (
         serializers.SerializerMethodField()
     )
@@ -119,6 +154,7 @@ class ProjectSiteSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
             "extensions",
+            "chainage_segments",
             "effective_end_date",
             "days_remaining",
             "countdown_status",
@@ -544,6 +580,39 @@ class StructureCreateSerializer(serializers.Serializer):
         allow_null=True,
     )
     config = serializers.DictField(required=False)
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError(
+                "Give the structure an ID / name."
+            )
+        return value
+
+
+class StructureUpdateSerializer(serializers.Serializer):
+    """
+    Everything about a structure that "Add a structure" itself
+    collects - name, chainage, and the parametric ``config`` -
+    editable after the fact. When ``config`` is included, the view
+    re-runs ``structure_generator.update_structure`` to reconcile the
+    activity sheet against it (see that function's docstring for
+    the reconciliation rule); when it is left out, this is a plain
+    name/chainage edit that never touches the activity sheet.
+    """
+
+    name = serializers.CharField(
+        max_length=150, required=False
+    )
+    chainage_km = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    config = serializers.DictField(
+        required=False
+    )
 
     def validate_name(self, value):
         value = value.strip()

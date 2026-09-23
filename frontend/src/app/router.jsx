@@ -38,6 +38,7 @@ import { BuildingsPage } from "../modules/project_monitor/pages/BuildingsPage";
 import { GirdersPage } from "../modules/project_monitor/pages/GirdersPage";
 import { ActionItemsPage } from "../modules/project_monitor/pages/ActionItemsPage";
 import { ProjectDashboardPage } from "../modules/project_monitor/pages/ProjectDashboardPage";
+import { CostingPage } from "../modules/project_monitor/pages/CostingPage";
 import { HrPage } from "../modules/project_monitor/pages/HrPage";
 import { MachineryPage } from "../modules/project_monitor/pages/MachineryPage";
 import { DprBillsPage } from "../modules/project_monitor/pages/DprBillsPage";
@@ -438,6 +439,10 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "/director/project-monitor/costing",
+                element: <CostingPage />,
+              },
+              {
                 path: "/director/export",
                 element:
                   <DirectorExportPage />,
@@ -613,6 +618,10 @@ export const router = createBrowserRouter([
                 element: (
                   <ProjectMonitorReportPage />
                 ),
+              },
+              {
+                path: "/admin/project-monitor/costing",
+                element: <CostingPage />,
               },
               {
                 path: "/admin/project-monitor/structure-types",

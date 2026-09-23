@@ -150,6 +150,20 @@ export function useCreateStructure(siteId) {
   });
 }
 
+export function useUpdateStructure(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ structureId, payload }) =>
+      projectMonitorService.updateStructure(
+        structureId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateStructures(queryClient, siteId),
+  });
+}
+
 export function useDeleteStructure(siteId) {
   const queryClient = useQueryClient();
 
@@ -545,6 +559,47 @@ export function useDeleteProjectExtension(
     mutationFn: (extensionId) =>
       projectMonitorService.deleteProjectExtension(
         extensionId,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.projectMonitorOverview({
+            site: siteId,
+          }),
+      }),
+  });
+}
+
+export function useCreateChainageSegment(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) =>
+      projectMonitorService.createChainageSegment(
+        siteId,
+        payload,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.projectMonitorOverview({
+            site: siteId,
+          }),
+      }),
+  });
+}
+
+export function useDeleteChainageSegment(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (segmentId) =>
+      projectMonitorService.deleteChainageSegment(
+        segmentId,
       ),
     onSuccess: () =>
       queryClient.invalidateQueries({
@@ -1367,4 +1422,99 @@ export function useVisibleTasks(siteId) {
     noSites: sitesQuery.data.length === 0,
     has: (task) => held.has(task),
   };
+}
+
+// ---------------------------------------------------------------
+// Costing: material rates, concrete production, cost table,
+// "Today at a glance" (Director/Admin only - no per-site grant)
+// ---------------------------------------------------------------
+
+export function useCostingAccess(siteId) {
+  return useFinanceQuery(
+    "costing-access",
+    { site: siteId },
+    () =>
+      projectMonitorService.getCostingAccess({
+        site: siteId,
+      }),
+    Boolean(siteId),
+  );
+}
+
+export function useCostingGlance(siteId, enabled = true) {
+  return useFinanceQuery(
+    "costing-glance",
+    { site: siteId },
+    () =>
+      projectMonitorService.getCostingGlance({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCostingTable(siteId, range, enabled = true) {
+  return useFinanceQuery(
+    "costing-table",
+    { site: siteId, ...range },
+    () =>
+      projectMonitorService.getCostingTable({
+        site: siteId,
+        ...range,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useMaterialRates(siteId, enabled = true) {
+  return useFinanceQuery(
+    "costing-rates",
+    { site: siteId },
+    () =>
+      projectMonitorService.listMaterialRates({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateMaterialRate() {
+  return useFinanceMutation(
+    projectMonitorService.createMaterialRate,
+  );
+}
+
+export function useDeleteMaterialRate() {
+  return useFinanceMutation(
+    projectMonitorService.deleteMaterialRate,
+  );
+}
+
+export function useConcreteProduction(
+  siteId,
+  range,
+  enabled = true,
+) {
+  return useFinanceQuery(
+    "costing-production",
+    { site: siteId, ...range },
+    () =>
+      projectMonitorService.listConcreteProduction({
+        site: siteId,
+        ...range,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateConcreteProduction() {
+  return useFinanceMutation(
+    projectMonitorService.createConcreteProduction,
+  );
+}
+
+export function useDeleteConcreteProduction() {
+  return useFinanceMutation(
+    projectMonitorService.deleteConcreteProduction,
+  );
 }

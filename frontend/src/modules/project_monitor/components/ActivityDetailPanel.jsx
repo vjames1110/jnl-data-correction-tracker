@@ -147,10 +147,7 @@ export function ActivityDetailPanel({
             Reviewed by{" "}
             {activity.reviewed_by_name ||
               "someone"}{" "}
-            on{" "}
-            {new Date(
-              activity.reviewed_at,
-            ).toLocaleString()}
+            on {formatDate(activity.reviewed_at)}
             {activity.review_remarks
               ? ` - "${activity.review_remarks}"`
               : ""}

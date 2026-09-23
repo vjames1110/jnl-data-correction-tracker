@@ -17,6 +17,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { AppLoader } from "../../../components/common/AppLoader";
+import { formatDateTime } from "../../../utils/dateFormat";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { OfflineQueueBanner } from "../../../components/common/OfflineQueueBanner";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
@@ -2000,9 +2001,9 @@ export function StoreEntryPage() {
                 You&rsquo;re offline, so this is
                 the data last loaded on this
                 device (
-                {new Date(
+                {formatDateTime(
                   period.__offlineCachedAt,
-                ).toLocaleString()}
+                )}
                 ). It may not reflect changes
                 made elsewhere since then.
               </p>

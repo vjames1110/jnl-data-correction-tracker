@@ -552,6 +552,15 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async updateStructure(structureId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/structures/${structureId}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
   async deleteStructure(structureId) {
     await apiClient.delete(
       `/project-monitor/structures/${structureId}/`,
@@ -769,6 +778,25 @@ export const projectMonitorService = {
     );
   },
 
+  async createChainageSegment(
+    siteId,
+    payload,
+  ) {
+    const response = await apiClient.post(
+      "/project-monitor/chainage-segments/",
+      payload,
+      { params: { site: siteId } },
+    );
+
+    return response.data.data;
+  },
+
+  async deleteChainageSegment(segmentId) {
+    await apiClient.delete(
+      `/project-monitor/chainage-segments/${segmentId}/`,
+    );
+  },
+
   async listActionItems(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/action-items/",
@@ -881,6 +909,76 @@ export const projectMonitorService = {
   async deleteProgressEntry(entryId) {
     await apiClient.delete(
       `/project-monitor/progress-entries/${entryId}/`,
+    );
+  },
+
+  // ---- Costing: material rates, concrete production, cost table ----
+
+  async getCostingAccess(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/access/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getCostingGlance(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/glance/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async getCostingTable(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/table/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async listMaterialRates(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/rates/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createMaterialRate(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/costing/rates/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteMaterialRate(rateId) {
+    await apiClient.delete(
+      `/project-monitor/costing/rates/${rateId}/`,
+    );
+  },
+
+  async listConcreteProduction(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/production/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createConcreteProduction(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/costing/production/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteConcreteProduction(rowId) {
+    await apiClient.delete(
+      `/project-monitor/costing/production/${rowId}/`,
     );
   },
 };

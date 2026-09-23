@@ -1,16 +1,19 @@
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 /**
  * A labeled group of Structures/Buildings (grouped by type for
  * Structures, by site/station for Buildings) with a summary row per
- * item - name/chainage, description, progress - and View/Delete
+ * item - name/chainage, description, progress - and View/Edit/Delete
  * actions. Shared because both sections render identically once you
  * have ``{id, name, chainage_km, description, overall_progress}``.
+ * ``onEdit`` is optional - a section that has no edit form yet (e.g.
+ * Buildings, for now) simply omits it and gets no Edit button.
  */
 export function ItemGroupSection({
   label,
   items,
   onView,
+  onEdit,
   onDelete,
   canEdit,
   deleteTitle = "Delete this sheet and all its data",
@@ -57,6 +60,19 @@ export function ItemGroupSection({
               >
                 View
               </button>
+              {canEdit && onEdit ? (
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() =>
+                    onEdit(item)
+                  }
+                  aria-label="Edit"
+                  title="Edit name/chainage"
+                >
+                  <Pencil size={16} />
+                </button>
+              ) : null}
               {canEdit ? (
                 <button
                   type="button"

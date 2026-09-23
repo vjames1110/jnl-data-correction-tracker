@@ -21,6 +21,7 @@ import {
   useStructures,
   useStructureTypes,
   useUpdateActivity,
+  useUpdateStructure,
 } from "../../../hooks/useProjectMonitor";
 import { AddStructureForm } from "../components/AddStructureForm";
 import { NoTaskAccess } from "../components/NoTaskAccess";
@@ -42,6 +43,8 @@ export function StructuresPage() {
     useState(null);
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
+  const [editingStructure, setEditingStructure] =
+    useState(null);
 
   const sitesQuery = useProjectSites();
   const structureTypesQuery =
@@ -58,6 +61,9 @@ export function StructuresPage() {
     isProjectEntryRole(user?.role) && !lacksTask;
 
   const createStructure = useCreateStructure(
+    selectedSite,
+  );
+  const updateStructure = useUpdateStructure(
     selectedSite,
   );
   const deleteStructure = useDeleteStructure(
@@ -123,6 +129,19 @@ export function StructuresPage() {
       ) || null,
     [structuresQuery.data, selectedStructureId],
   );
+
+  const handleSaveEdit = (payload) => {
+    updateStructure.mutate(
+      {
+        structureId: editingStructure.id,
+        payload,
+      },
+      {
+        onSuccess: () =>
+          setEditingStructure(null),
+      },
+    );
+  };
 
   const handleDelete = (structureId) => {
     if (
@@ -242,6 +261,36 @@ export function StructuresPage() {
         </ManagementPanel>
       ) : null}
 
+      {editingStructure ? (
+        <ManagementPanel
+          eyebrow="Structures"
+          title={`Edit ${editingStructure.name}`}
+          onClose={() =>
+            setEditingStructure(null)
+          }
+          closeOnOutsideClick
+        >
+          <AddStructureForm
+            structureTypes={
+              structureTypesQuery.data || []
+            }
+            initialStructure={editingStructure}
+            onSave={handleSaveEdit}
+            onCancel={() =>
+              setEditingStructure(null)
+            }
+            isPending={
+              updateStructure.isPending
+            }
+            error={
+              updateStructure.isError
+                ? updateStructure.error
+                : null
+            }
+          />
+        </ManagementPanel>
+      ) : null}
+
       {!selectedSite ? (
         <EmptyState
           title="Pick a project to get started"
@@ -281,6 +330,7 @@ export function StructuresPage() {
                   setSelectedStructureId(id);
                   setActiveActivityId(null);
                 }}
+                onEdit={setEditingStructure}
                 onDelete={handleDelete}
                 canEdit={canEdit}
                 deleteTitle="Delete this structure sheet and all its data"

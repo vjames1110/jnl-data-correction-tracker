@@ -25,6 +25,7 @@ from apps.project_monitor.models import (
     Activity,
     ActivityDateEntry,
     ActionItem,
+    ChainageSegment,
     GirderSpan,
     LinearItem,
     ProgressEntry,
@@ -113,6 +114,7 @@ def seed(admin_api, site):
     action = post("action-item-list", ACTION_ITEM)
     linear = post("linear-item-list", {"name": "Earthwork", "unit": "M"})
     post("extension-list", {"new_end_date": _future(60), "reason": "x"})
+    post("chainage-segment-list", {"from_chainage_km": "1.000", "to_chainage_km": "2.000", "vendor": "ABC Infra"})
     for path, body in (("scope-patch-list", SCOPE_PATCH), ("progress-entry-list", PROGRESS)):
         response = admin_api.post(url(path, linear["id"]), body, format="json")
         assert response.status_code == OK, (path, response.data)
@@ -130,6 +132,7 @@ def seed(admin_api, site):
         "patch": ScopePatch.objects.get(linear_item_id=linear["id"]).id,
         "entry": ProgressEntry.objects.get(linear_item_id=linear["id"]).id,
         "extension": ProjectExtension.objects.get(site=site).id,
+        "chainage_segment": ChainageSegment.objects.get(site=site).id,
         "activity": Activity.objects.filter(object_id=structure_row.id).first().id,
         "action_activity": Activity.objects.filter(object_id=action["id"]).first().id,
         "span_activity": Activity.objects.filter(object_id=span.id).first().id,
@@ -162,6 +165,7 @@ def read_ops(t):
     return {
         "overview": (None, lambda c: c.get(url("overview"), s)),
         "extensions": (None, lambda c: c.get(url("extension-list"), s)),
+        "chainage segments": (None, lambda c: c.get(url("chainage-segment-list"), s)),
         "structures": ("STRUCTURES", lambda c: c.get(url("structure-list"), s)),
         "structure": ("STRUCTURES", lambda c: c.get(url("structure-detail", t["structure"]))),
         "buildings": ("BUILDINGS", lambda c: c.get(url("building-list"), s)),
@@ -184,7 +188,9 @@ def entry_ops(t):
     return {
         "edit overview": ("OVERVIEW", lambda c: c.patch(url("overview") + q, {"client_or_section": "NCR"}, format="json")),
         "add extension": ("OVERVIEW", lambda c: c.post(url("extension-list") + q, {"new_end_date": _future(90), "reason": "again"}, format="json")),
+        "add chainage segment": ("OVERVIEW", lambda c: c.post(url("chainage-segment-list") + q, {"from_chainage_km": "3.000", "to_chainage_km": "4.000"}, format="json")),
         "add structure": ("STRUCTURES", lambda c: c.post(url("structure-list") + q, {**MINOR_BRIDGE, "name": "New", "structure_type": str(minor.id)}, format="json")),
+        "edit structure": ("STRUCTURES", lambda c: c.patch(url("structure-detail", t["structure"]), {"name": "Renamed"}, format="json")),
         "add building": ("BUILDINGS", lambda c: c.post(url("building-list") + q, {**BUILDING, "name": "New"}, format="json")),
         "add girder job": ("GIRDERS", lambda c: c.post(url("girder-job-list") + q, {**GIRDER_JOB, "bridge_name": "New"}, format="json")),
         "edit girder span": ("GIRDERS", lambda c: c.patch(url("girder-span-update", t["span"]), {"vendor": "V"}, format="json")),
@@ -217,6 +223,7 @@ def delete_ops(t):
         "delete scope patch": ("LINEAR_WORKS", lambda c: c.delete(url("scope-patch-detail", t["patch"]))),
         "delete progress entry": ("LINEAR_WORKS", lambda c: c.delete(url("progress-entry-detail", t["entry"]))),
         "delete extension": ("OVERVIEW", lambda c: c.delete(url("extension-detail", t["extension"]))),
+        "delete chainage segment": ("OVERVIEW", lambda c: c.delete(url("chainage-segment-detail", t["chainage_segment"]))),
         "delete structure": ("STRUCTURES", lambda c: c.delete(url("structure-detail", t["structure"]))),
         "delete building": ("BUILDINGS", lambda c: c.delete(url("building-detail", t["building"]))),
         "delete girder job": ("GIRDERS", lambda c: c.delete(url("girder-job-detail", t["job"]))),
@@ -624,7 +631,8 @@ def test_site_scope_summarises_grants_per_person(site, other_site, admin_api):
 
 # Routes whose task scoping the matrix above exercises.
 TASK_SCOPED_ROUTES = {
-    "overview", "extension-list", "extension-detail", "structure-list", "structure-detail",
+    "overview", "extension-list", "extension-detail",
+    "chainage-segment-list", "chainage-segment-detail", "structure-list", "structure-detail",
     "structure-review", "building-list", "building-detail", "building-review",
     "girder-job-list", "girder-job-detail", "girder-job-review", "girder-span-update",
     "action-item-list", "action-item-detail", "linear-item-list", "linear-item-detail",
@@ -640,6 +648,13 @@ SITE_LESS_ROUTES = {
     "structure-type-list", "structure-type-detail", "rdso-span-library-list",
     "rdso-span-library-detail", "site-access-list", "site-access-detail",
     "site-access-set", "site-scope",
+}
+# Costing: Director/Admin only, no per-site task grant at all (see
+# HasProjectMonitorCostingAccess) - covered by test_costing_api.py.
+COSTING_ROUTES = {
+    "costing-access", "costing-glance", "costing-table",
+    "costing-rate-list", "costing-rate-detail",
+    "costing-production-list", "costing-production-detail",
 }
 
 
@@ -659,6 +674,7 @@ def test_every_route_is_classified_for_task_scoping():
         for name in names
         if name in TASK_SCOPED_ROUTES
         or name in SITE_LESS_ROUTES
+        or name in COSTING_ROUTES
         or name.startswith(FINANCE_ROUTES_PREFIXES)
     }
     assert names - classified == set(), (

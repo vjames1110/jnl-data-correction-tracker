@@ -44,9 +44,7 @@ function reviewedText(activity) {
   if (!activity.reviewed_at) {
     return "Not reviewed";
   }
-  const date = new Date(
-    activity.reviewed_at,
-  ).toLocaleDateString();
+  const date = formatDate(activity.reviewed_at);
   return `${activity.reviewed_by_name || "Someone"} - ${date}`;
 }
 
@@ -477,8 +475,7 @@ export function ProjectMonitorReportSheet({
           {site.site_code} - {site.site_name}
         </p>
         <p className="pm-report__generated">
-          Generated{" "}
-          {new Date().toLocaleDateString()}
+          Generated {formatDate(new Date())}
         </p>
       </header>
 

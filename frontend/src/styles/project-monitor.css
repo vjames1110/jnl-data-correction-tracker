@@ -487,6 +487,25 @@
   padding: var(--space-6);
 }
 
+/*
+ * The on-screen card chrome (border/shadow/radius/padding) is what
+ * misaligned the printed PDF's first page: a border or shadow on a
+ * box that then breaks across a page boundary gets drawn as if the
+ * box closed there, so the first page looked cut off/boxed while
+ * later, section-per-page content did not. Printing is this same
+ * element (there is no separate print-only sheet here, unlike the
+ * multi-project pack), so the reset lives with it, not behind a
+ * print-only class.
+ */
+@media print {
+  .pm-report {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}
+
 .pm-report__header {
   margin-bottom: var(--space-4);
 }
@@ -2103,4 +2122,54 @@ table.pm-report__table td.pm-num {
 
 .pm-bill-form > .pm-dpr-toolbar__help {
   margin: 0 0 14px;
+}
+
+/* ---- Costing: "Today at a glance", cost table, rates ---- */
+.pm-costing-periods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .pm-costing-periods {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pm-costing-period h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.pm-costing-range {
+  gap: 10px;
+}
+
+.pm-costing-row--flagged td {
+  background: var(--color-warning-100);
+}
+
+.pm-costing-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pm-costing-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-neutral-400);
+  background: var(--color-neutral-100);
+  border-radius: 999px;
+}
+
+.pm-costing-dot--on {
+  color: var(--color-white);
+  background: var(--color-success-600);
 }

@@ -1,16 +1,7 @@
-export function formatDisplayDate(
-  date,
-  locale = "en-IN",
-) {
-  if (!date) {
-    return "—";
-  }
+import { formatDateTime as formatDateTimeDMY } from "./dateFormat";
 
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date));
+export function formatDisplayDate(date) {
+  return formatDateTimeDMY(date, { dateOnly: true }) ?? "—";
 }
 
 export function formatDisplayTime(
@@ -29,22 +20,8 @@ export function formatDisplayTime(
   }).format(new Date(date));
 }
 
-export function formatDateTime(
-  date,
-  locale = "en-IN",
-) {
-  if (!date) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(date));
+export function formatDateTime(date) {
+  return formatDateTimeDMY(date) ?? "—";
 }
 
 const RELATIVE_TIME_DIVISIONS = [

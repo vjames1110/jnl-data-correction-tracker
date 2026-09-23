@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from apps.core.api.responses import success_response
 from apps.organization.models import Site
+from apps.project_monitor.api.common import as_drf_validation
 from apps.project_monitor.services import project_scope
 from apps.project_monitor.services.notifications import (
     resolve_activity_site,
@@ -33,6 +34,8 @@ from apps.project_monitor.api.serializers import (
     ActivityUpdateSerializer,
     BuildingCreateSerializer,
     BuildingSerializer,
+    ChainageSegmentCreateSerializer,
+    ChainageSegmentSerializer,
     GirderJobCreateSerializer,
     GirderJobSerializer,
     GirderSpanSerializer,
@@ -53,12 +56,14 @@ from apps.project_monitor.api.serializers import (
     StructureCreateSerializer,
     StructureSerializer,
     StructureTypeSerializer,
+    StructureUpdateSerializer,
 )
 from apps.project_monitor.models import (
     ActionItem,
     Activity,
     ActivityStatus,
     Building,
+    ChainageSegment,
     GirderJob,
     GirderSpan,
     LinearItem,
@@ -102,6 +107,7 @@ from apps.project_monitor.services.review import (
 )
 from apps.project_monitor.services.structure_generator import (
     create_structure,
+    update_structure,
 )
 
 
@@ -496,6 +502,114 @@ class ProjectExtensionDetailAPIView(APIView):
         )
 
 
+class ChainageSegmentListCreateAPIView(APIView):
+    """
+    A site's chainage breakdown - who (if anyone) is working which
+    stretch. GET is Director-and-below read access (also already
+    nested in ``ProjectOverviewAPIView``'s response; this endpoint
+    exists for direct access/refresh); POST records a new segment -
+    entry-role only, same convention as extensions.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def get(self, request, *args, **kwargs):
+        site = _get_site_from_query(request, None)
+        segments = ChainageSegment.objects.filter(
+            site=site
+        )
+
+        return success_response(
+            message=(
+                "Chainage segments retrieved "
+                "successfully."
+            ),
+            data=ChainageSegmentSerializer(
+                segments, many=True
+            ).data,
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = _get_site_from_query(request, TASK.OVERVIEW.value, write=True)
+
+        serializer = (
+            ChainageSegmentCreateSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+
+        with as_drf_validation():
+            segment = ChainageSegment.objects.create(
+                site=site,
+                from_chainage_km=serializer.validated_data[
+                    "from_chainage_km"
+                ],
+                to_chainage_km=serializer.validated_data[
+                    "to_chainage_km"
+                ],
+                vendor=serializer.validated_data[
+                    "vendor"
+                ],
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
+        return success_response(
+            message=(
+                "Chainage segment recorded "
+                "successfully."
+            ),
+            data=ChainageSegmentSerializer(
+                segment
+            ).data,
+        )
+
+
+class ChainageSegmentDetailAPIView(APIView):
+    """
+    Deletes a mistakenly-recorded chainage segment - entry-role only.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            segment = ChainageSegment.objects.get(
+                pk=pk
+            )
+        except (
+            ChainageSegment.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Chainage segment not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            segment.site,
+            TASK.OVERVIEW.value,
+            write=True,
+        )
+
+        segment.delete()
+
+        return success_response(
+            message=(
+                "Chainage segment deleted "
+                "successfully."
+            ),
+            data=None,
+        )
+
+
 class StructureListCreateAPIView(APIView):
     """
     List every Structure (Minor/Major Bridge, RUB, ROB) on a Site
@@ -579,14 +693,16 @@ class StructureListCreateAPIView(APIView):
 class StructureDetailAPIView(APIView):
     """
     One Structure's full detail sheet (GET - Director-and-below
-    read access) or its deletion (DELETE - entry-role only),
-    mirroring the prototype's "Delete this structure sheet and all
-    its data?" action. Deleting cascades to every Activity row via
-    ``Structure.activities`` (a ``GenericRelation``).
+    read access), editing its name/chainage (PATCH - entry-role
+    only; the generated activity sheet is untouched), or its
+    deletion (DELETE - entry-role only), mirroring the prototype's
+    "Delete this structure sheet and all its data?" action. Deleting
+    cascades to every Activity row via ``Structure.activities`` (a
+    ``GenericRelation``).
     """
 
     def get_permissions(self):
-        if self.request.method == "DELETE":
+        if self.request.method in ("PATCH", "DELETE"):
             return [HasProjectMonitorPortalAccess()]
         return [HasProjectMonitorReportingAccess()]
 
@@ -617,6 +733,52 @@ class StructureDetailAPIView(APIView):
         return success_response(
             message=(
                 "Structure retrieved successfully."
+            ),
+            data=StructureSerializer(structure).data,
+        )
+
+    def patch(self, request, pk, *args, **kwargs):
+        structure = self._get_structure(pk)
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=True,
+        )
+
+        serializer = StructureUpdateSerializer(
+            data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        with as_drf_validation():
+            if "config" in data:
+                update_structure(
+                    structure=structure,
+                    config=data["config"],
+                    name=data.get(
+                        "name", structure.name
+                    ),
+                    chainage_km=data.get(
+                        "chainage_km",
+                        structure.chainage_km,
+                    ),
+                    actor=request.user,
+                )
+            else:
+                for field, value in data.items():
+                    setattr(
+                        structure, field, value
+                    )
+                structure.updated_by = request.user
+                structure.full_clean()
+                structure.save()
+
+        structure = self._get_structure(pk)
+        return success_response(
+            message=(
+                "Structure updated successfully."
             ),
             data=StructureSerializer(structure).data,
         )
