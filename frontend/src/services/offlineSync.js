@@ -35,6 +35,26 @@ async function replayAction(action) {
         }
         throw error;
       }
+    case "createMiscUsage":
+      return reconciliationService.createMiscUsage(
+        action.payload,
+      );
+    case "updateMiscUsage":
+      return reconciliationService.updateMiscUsage(
+        action.entityId,
+        action.payload,
+      );
+    case "deleteMiscUsage":
+      try {
+        return await reconciliationService.deleteMiscUsage(
+          action.entityId,
+        );
+      } catch (error) {
+        if (error?.status === 404) {
+          return null;
+        }
+        throw error;
+      }
     default:
       return null;
   }

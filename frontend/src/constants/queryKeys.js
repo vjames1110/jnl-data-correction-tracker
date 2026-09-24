@@ -323,6 +323,11 @@ export const queryKeys = Object.freeze({
     "output-entries",
     params,
   ],
+  reconciliationMiscUsage: (params) => [
+    "reconciliation",
+    "misc-usage",
+    params,
+  ],
   reconciliationPendingApprovals: (params) => [
     "reconciliation",
     "periods",

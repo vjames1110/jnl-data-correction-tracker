@@ -405,6 +405,39 @@ export const reconciliationService = {
     );
   },
 
+  async getMiscUsage(params = {}) {
+    const response = await apiClient.get(
+      "/reconciliation/misc-usage/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async createMiscUsage(payload) {
+    const response = await apiClient.post(
+      "/reconciliation/misc-usage/",
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async updateMiscUsage(id, payload) {
+    const response = await apiClient.patch(
+      `/reconciliation/misc-usage/${id}/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteMiscUsage(id) {
+    await apiClient.delete(
+      `/reconciliation/misc-usage/${id}/`,
+    );
+  },
+
   async getPendingApprovals(params = {}) {
     const response = await apiClient.get(
       "/reconciliation/periods/pending_approvals/",

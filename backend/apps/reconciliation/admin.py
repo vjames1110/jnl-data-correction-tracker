@@ -8,6 +8,7 @@ from apps.reconciliation.models import (
     ReconciliationApprovalStep,
     ReconciliationEntry,
     ReconciliationFlag,
+    ReconciliationMiscUsage,
     ReconciliationOutputEntry,
     ReconciliationPeriod,
     ReconciliationToleranceSettings,
@@ -207,6 +208,21 @@ class ReconciliationOutputEntryAdmin(
     search_fields = [
         "category__category_code",
         "category__category_name",
+    ]
+
+
+@admin.register(ReconciliationMiscUsage)
+class ReconciliationMiscUsageAdmin(
+    admin.ModelAdmin
+):
+    list_display = [
+        "period",
+        "item",
+        "quantity",
+    ]
+    search_fields = [
+        "item__item_code",
+        "item__item_name",
     ]
 
 

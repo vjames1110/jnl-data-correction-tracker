@@ -66,6 +66,7 @@ export function buildStatementCsvRows({
       "Opening/Book",
       "Receipts/Physical",
       "Closing",
+      "Misc. Use",
       "Actual",
     ],
   ];
@@ -79,6 +80,9 @@ export function buildStatementCsvRows({
       entry.opening_stock ?? entry.book_stock ?? "",
       entry.receipts ?? entry.physical_count ?? "",
       entry.closing_stock ?? "",
+      num(entry.miscellaneous_quantity) > 0
+        ? entry.miscellaneous_quantity
+        : "",
       entry.actual_quantity ?? "",
     ]);
   });

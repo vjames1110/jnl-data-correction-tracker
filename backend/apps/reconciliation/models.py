@@ -1065,6 +1065,20 @@ class ReconciliationEntry(
         null=True,
         blank=True,
     )
+    miscellaneous_quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        default=Decimal("0"),
+        help_text=(
+            "Quantity of this material consumed on "
+            "non-production work this month (see "
+            "ReconciliationMiscUsage), snapshotted "
+            "whenever the variance is recomputed. "
+            "It is deducted from the month's "
+            "consumption before variance is worked "
+            "out. Not entered here."
+        ),
+    )
     section = models.CharField(
         max_length=100,
         blank=True,
@@ -1403,6 +1417,140 @@ class ReconciliationOutputEntry(
             period=self.period,
             category_id=self.category_id,
         )
+
+
+class ReconciliationMiscUsage(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    Quantity of a raw material a site consumed on work OTHER than
+    the production it reconciles against (e.g. aggregate, sand or
+    cement used for a boundary wall rather than concrete), for one
+    month. Only the consumed quantity is recorded.
+
+    A norm-based material's actual consumption is
+    ``opening + receipts - closing``, which counts EVERYTHING taken
+    out of stock - so without this, non-production use reads as an
+    unexplained loss against the production output. The month's
+    ``miscellaneous_quantity`` is deducted from that figure by
+    ``services.variance.compute_entry_variance``, so the variance
+    reflects production use only.
+
+    One row per material per month; the material's monthly
+    ``ReconciliationEntry`` is recomputed whenever this changes.
+    """
+
+    period = models.ForeignKey(
+        ReconciliationPeriod,
+        on_delete=models.PROTECT,
+        related_name="misc_usages",
+    )
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.PROTECT,
+        related_name="misc_usages",
+    )
+    quantity = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+    )
+
+    class Meta:
+        db_table = "reconciliation_misc_usage"
+        ordering = ["item__item_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["period", "item"],
+                name="reco_misc_period_item_uniq",
+                violation_error_message=(
+                    "This material already has a "
+                    "miscellaneous use entry for "
+                    "this period - edit it instead "
+                    "of adding another."
+                ),
+            ),
+        ]
+        verbose_name = (
+            "Reconciliation Miscellaneous Use"
+        )
+        verbose_name_plural = (
+            "Reconciliation Miscellaneous Use"
+        )
+
+    def __str__(self) -> str:
+        return (
+            f"{self.period} - "
+            f"{self.item.item_code} - "
+            f"{self.quantity}"
+        )
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if (
+            self.quantity is not None
+            and self.quantity <= Decimal("0")
+        ):
+            errors["quantity"] = (
+                "Consumed quantity must be greater "
+                "than zero."
+            )
+
+        if (
+            self.item_id
+            and self.item.reconciliation_type
+            != ReconciliationType.NORM_BASED
+        ):
+            errors["item"] = (
+                "Miscellaneous use only applies to "
+                "recipe materials (norm-based "
+                "items) - other items are counted "
+                "directly."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        result = super().save(*args, **kwargs)
+        self._refresh_entry()
+        return result
+
+    def delete(self, *args, **kwargs):
+        period_id = self.period_id
+        item_id = self.item_id
+        result = super().delete(*args, **kwargs)
+        _refresh_item_entry(
+            period_id=period_id, item_id=item_id
+        )
+        return result
+
+    def _refresh_entry(self):
+        _refresh_item_entry(
+            period_id=self.period_id,
+            item_id=self.item_id,
+        )
+
+
+def _refresh_item_entry(*, period_id, item_id):
+    """
+    Re-save the one monthly entry for ``item_id`` in ``period_id``
+    (if it has been entered yet) so its actual/variance columns pick
+    up a change to that material's miscellaneous use. Nothing to do
+    when the entry doesn't exist yet - it reads the figure itself
+    when it is first saved.
+    """
+    entry = ReconciliationEntry.objects.filter(
+        period_id=period_id,
+        item_id=item_id,
+    ).first()
+    if entry is not None:
+        entry.save()
 
 
 class ReconciliationFlagType(models.TextChoices):

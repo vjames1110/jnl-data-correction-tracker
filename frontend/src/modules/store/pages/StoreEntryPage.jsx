@@ -33,14 +33,17 @@ import {
   useApproveReconciliationPeriod,
   useCreateReconciliationAttachment,
   useCreateReconciliationEntry,
+  useCreateReconciliationMiscUsage,
   useCreateReconciliationOutputEntry,
   useDeleteReconciliationAttachment,
+  useDeleteReconciliationMiscUsage,
   useDeleteReconciliationOutputEntry,
   useReconciliationAttachments,
   useReconciliationCurrentPeriod,
   useReconciliationEntries,
   useReconciliationItemCategories,
   useReconciliationItems,
+  useReconciliationMiscUsage,
   useReconciliationOutputEntries,
   useReconciliationSiteItemConfigs,
   useRejectReconciliationPeriod,
@@ -48,11 +51,13 @@ import {
   useReturnReconciliationPeriod,
   useSubmitReconciliationPeriod,
   useUpdateReconciliationEntry,
+  useUpdateReconciliationMiscUsage,
   useUpdateReconciliationPeriod,
 } from "../../../hooks/useReconciliation";
 import { offlineOutbox } from "../../../services/offlineOutbox";
 import { isNetworkError } from "../../../services/offlineSync";
 import { varianceCellClass } from "../../../utils/formatters";
+import { MiscUsageCard } from "../components/MiscUsageCard";
 import { ReconciliationStatementSheet } from "../components/ReconciliationStatementSheet";
 import {
   buildStatementCsvRows,
@@ -290,6 +295,13 @@ function QuantityDisplay({
         <span>
           Closing: {entry?.closing_stock ?? "-"}
         </span>
+        {Number(entry?.miscellaneous_quantity) >
+        0 ? (
+          <span>
+            Misc. use:{" "}
+            {entry.miscellaneous_quantity}
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -1353,9 +1365,15 @@ export function StoreEntryPage() {
   const [searchParams] = useSearchParams();
   const [pendingByKey, setPendingByKey] =
     useState(new Map());
+  // Miscellaneous-use changes made offline, by item id - shown
+  // (marked Queued) until the outbox syncs them.
+  const [pendingMisc, setPendingMisc] = useState(
+    new Map(),
+  );
   const offlineQueue = useOfflineQueue({
     onSynced: () => {
       setPendingByKey(new Map());
+      setPendingMisc(new Map());
       queryClient.invalidateQueries({
         queryKey: ["reconciliation"],
       });
@@ -1406,6 +1424,10 @@ export function StoreEntryPage() {
     useReconciliationOutputEntries(
       period ? { period: period.id } : undefined,
     );
+  const miscUsageQuery =
+    useReconciliationMiscUsage(
+      period ? { period: period.id } : undefined,
+    );
   // Two sites can produce the same grade with genuinely different
   // materials (e.g. Site A's M20 uses Loose Cement, Site B's uses
   // Cement OPC) - both items sit in the same category, but only one
@@ -1431,6 +1453,12 @@ export function StoreEntryPage() {
     useCreateReconciliationOutputEntry();
   const deleteOutputEntry =
     useDeleteReconciliationOutputEntry();
+  const createMiscUsage =
+    useCreateReconciliationMiscUsage();
+  const updateMiscUsage =
+    useUpdateReconciliationMiscUsage();
+  const deleteMiscUsage =
+    useDeleteReconciliationMiscUsage();
   const submitPeriod =
     useSubmitReconciliationPeriod();
   const reopenPeriod =
@@ -1516,12 +1544,7 @@ export function StoreEntryPage() {
   // active Site Override for at least one material, the list narrows
   // to only its configured materials; a site that hasn't configured
   // anything yet sees every norm-based item.
-  const materialsAvailableToAdd = useMemo(() => {
-    const materials = itemsAvailableToAdd.filter(
-      (item) =>
-        item.reconciliation_type ===
-        "NORM_BASED",
-    );
+  const siteMaterials = useMemo(() => {
     const allMaterials = items.filter(
       (item) =>
         item.reconciliation_type ===
@@ -1532,15 +1555,74 @@ export function StoreEntryPage() {
         siteConfiguredItemIds.has(item.id),
     );
     return siteConfigured
-      ? materials.filter((item) =>
+      ? allMaterials.filter((item) =>
           siteConfiguredItemIds.has(item.id),
         )
-      : materials;
-  }, [
-    itemsAvailableToAdd,
-    items,
-    siteConfiguredItemIds,
-  ]);
+      : allMaterials;
+  }, [items, siteConfiguredItemIds]);
+  const materialsAvailableToAdd = useMemo(
+    () =>
+      siteMaterials.filter(
+        (item) =>
+          !enteredKeys.has(entryKey(item.id)),
+      ),
+    [siteMaterials, enteredKeys],
+  );
+
+  // Miscellaneous use: server rows, with anything still waiting in
+  // the offline outbox laid over them.
+  const miscRows = useMemo(() => {
+    const server = miscUsageQuery.data ?? [];
+    const rows = [];
+    server.forEach((row) => {
+      const pending = pendingMisc.get(row.item);
+      if (pending?.kind === "delete") {
+        return;
+      }
+      rows.push({
+        ...row,
+        quantity:
+          pending?.kind === "update"
+            ? pending.quantity
+            : row.quantity,
+        queued: Boolean(pending),
+      });
+    });
+    pendingMisc.forEach((pending, itemId) => {
+      if (
+        pending.kind !== "create" ||
+        server.some((row) => row.item === itemId)
+      ) {
+        return;
+      }
+      const item = itemById.get(itemId);
+      if (!item) {
+        return;
+      }
+      rows.push({
+        id: `queued-${itemId}`,
+        item: itemId,
+        item_code: item.item_code,
+        item_name: item.item_name,
+        uom: item.uom,
+        quantity: pending.quantity,
+        queued: true,
+      });
+    });
+    return rows.sort((a, b) =>
+      a.item_name.localeCompare(b.item_name),
+    );
+  }, [miscUsageQuery.data, pendingMisc, itemById]);
+  const miscMaterialsAvailable = useMemo(
+    () =>
+      siteMaterials.filter(
+        (item) =>
+          !miscRows.some(
+            (row) => row.item === item.id,
+          ),
+      ),
+    [siteMaterials, miscRows],
+  );
 
   const otherAvailableToAdd = useMemo(
     () =>
@@ -1813,6 +1895,166 @@ export function StoreEntryPage() {
       }
     }
   };
+
+  // Miscellaneous use. Each handler resolves to whether the change
+  // was accepted (saved, or safely queued offline) so the card keeps
+  // what the person typed when the server rejects it - the reason
+  // is shown from the mutation's own error.
+  const setMiscPending = (itemId, value) =>
+    setPendingMisc((current) => {
+      const next = new Map(current);
+      if (value) {
+        next.set(itemId, value);
+      } else {
+        next.delete(itemId);
+      }
+      return next;
+    });
+
+  const queueMiscCreate = (itemId, quantity) => {
+    const item = itemById.get(itemId);
+    const action = offlineOutbox.enqueue({
+      type: "createMiscUsage",
+      payload: {
+        id: offlineOutbox.generateId(),
+        period: period.id,
+        item: itemId,
+        quantity,
+      },
+      dedupeKey: `create-misc-${period.id}-${itemId}`,
+      label: `${item?.item_code ?? "Item"} (misc use)`,
+    });
+    offlineQueue.refreshQueueCount();
+    setMiscPending(itemId, {
+      kind: "create",
+      quantity,
+      actionId: action.id,
+    });
+  };
+
+  const resetMiscErrors = () => {
+    createMiscUsage.reset();
+    updateMiscUsage.reset();
+    deleteMiscUsage.reset();
+  };
+
+  const handleAddMiscUsage = async ({
+    item,
+    quantity,
+  }) => {
+    resetMiscErrors();
+    if (!offlineQueue.isOnline) {
+      queueMiscCreate(item, quantity);
+      return true;
+    }
+    try {
+      await createMiscUsage.mutateAsync({
+        period: period.id,
+        item,
+        quantity,
+      });
+      return true;
+    } catch (error) {
+      if (isNetworkError(error)) {
+        queueMiscCreate(item, quantity);
+        return true;
+      }
+      return false;
+    }
+  };
+
+  const handleUpdateMiscUsage = async (
+    row,
+    quantity,
+  ) => {
+    resetMiscErrors();
+    const stillQueuedCreate =
+      String(row.id).startsWith("queued-");
+    const queueUpdate = () => {
+      if (stillQueuedCreate) {
+        queueMiscCreate(row.item, quantity);
+        return;
+      }
+      const action = offlineOutbox.enqueue({
+        type: "updateMiscUsage",
+        entityId: row.id,
+        payload: { quantity },
+        dedupeKey: `update-misc-${row.id}`,
+        label: `${row.item_code} (misc use update)`,
+      });
+      offlineQueue.refreshQueueCount();
+      setMiscPending(row.item, {
+        kind: "update",
+        quantity,
+        actionId: action.id,
+      });
+    };
+
+    if (!offlineQueue.isOnline || stillQueuedCreate) {
+      queueUpdate();
+      return true;
+    }
+    try {
+      await updateMiscUsage.mutateAsync({
+        id: row.id,
+        payload: { quantity },
+      });
+      return true;
+    } catch (error) {
+      if (isNetworkError(error)) {
+        queueUpdate();
+        return true;
+      }
+      return false;
+    }
+  };
+
+  const handleDeleteMiscUsage = async (row) => {
+    resetMiscErrors();
+    if (String(row.id).startsWith("queued-")) {
+      // Never reached the server - just drop it from the outbox.
+      const pending = pendingMisc.get(row.item);
+      if (pending?.actionId) {
+        offlineOutbox.remove(pending.actionId);
+        offlineQueue.refreshQueueCount();
+      }
+      setMiscPending(row.item, null);
+      return;
+    }
+
+    const queueDelete = () => {
+      const action = offlineOutbox.enqueue({
+        type: "deleteMiscUsage",
+        entityId: row.id,
+        dedupeKey: `delete-misc-${row.id}`,
+        label: `${row.item_code} (delete misc use)`,
+      });
+      offlineQueue.refreshQueueCount();
+      setMiscPending(row.item, {
+        kind: "delete",
+        actionId: action.id,
+      });
+    };
+
+    if (!offlineQueue.isOnline) {
+      queueDelete();
+      return;
+    }
+    try {
+      await deleteMiscUsage.mutateAsync(row.id);
+    } catch (error) {
+      if (isNetworkError(error)) {
+        queueDelete();
+      }
+    }
+  };
+
+  const miscError = [
+    createMiscUsage,
+    updateMiscUsage,
+    deleteMiscUsage,
+  ].find((mutation) => mutation.isError)?.error
+    ?.message;
 
   const handleCsvUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -2312,6 +2554,23 @@ export function StoreEntryPage() {
               )}
             </div>
           </SurfaceCard>
+
+          {productionTypeCategories.length ? (
+            <MiscUsageCard
+              rows={miscRows}
+              materials={miscMaterialsAvailable}
+              isEditable={isEditable}
+              submitting={
+                createMiscUsage.isPending ||
+                updateMiscUsage.isPending ||
+                deleteMiscUsage.isPending
+              }
+              error={miscError}
+              onAdd={handleAddMiscUsage}
+              onUpdate={handleUpdateMiscUsage}
+              onDelete={handleDeleteMiscUsage}
+            />
+          ) : null}
 
           {productionTypeCategories.length ? (
             <SurfaceCard className="print-hidden">

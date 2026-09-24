@@ -653,6 +653,65 @@ export function useDeleteReconciliationOutputEntry() {
   });
 }
 
+export function useReconciliationMiscUsage(
+  params,
+) {
+  return useQuery({
+    queryKey:
+      queryKeys.reconciliationMiscUsage(params),
+    queryFn: withReadCache(
+      `misc-usage:${params?.period}`,
+      () =>
+        reconciliationService.getMiscUsage(
+          params,
+        ),
+    ),
+    enabled: Boolean(params?.period),
+  });
+}
+
+export function useCreateReconciliationMiscUsage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.createMiscUsage,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useUpdateReconciliationMiscUsage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }) =>
+      reconciliationService.updateMiscUsage(
+        id,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
+export function useDeleteReconciliationMiscUsage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn:
+      reconciliationService.deleteMiscUsage,
+    onSuccess: () =>
+      invalidateReconciliationQueries(
+        queryClient,
+      ),
+  });
+}
+
 export function useReconciliationPendingApprovals(
   params,
 ) {

@@ -14,6 +14,7 @@ from apps.reconciliation.models import (
     ReconciliationApprovalStep,
     ReconciliationEntry,
     ReconciliationFlag,
+    ReconciliationMiscUsage,
     ReconciliationOutputEntry,
     ReconciliationPeriod,
     ReconciliationPeriodAttachment,
@@ -619,6 +620,7 @@ class ReconciliationEntrySerializer(
             "closing_stock",
             "book_stock",
             "physical_count",
+            "miscellaneous_quantity",
             "section",
             "rack",
             "actual_quantity",
@@ -640,6 +642,7 @@ class ReconciliationEntrySerializer(
             "item_name",
             "uom",
             "reconciliation_type",
+            "miscellaneous_quantity",
             "actual_quantity",
             "theoretical_or_book_quantity",
             "variance_quantity",
@@ -733,6 +736,66 @@ class ReconciliationOutputEntrySerializer(
             "created_at",
             "updated_at",
         ]
+
+
+class ReconciliationMiscUsageSerializer(
+    ReconciliationCleanModelSerializer
+):
+    item_code = serializers.CharField(
+        source="item.item_code",
+        read_only=True,
+    )
+    item_name = serializers.CharField(
+        source="item.item_name",
+        read_only=True,
+    )
+    uom = serializers.CharField(
+        source="item.uom",
+        read_only=True,
+    )
+
+    class Meta:
+        model = ReconciliationMiscUsage
+        fields = [
+            "id",
+            "period",
+            "item",
+            "item_code",
+            "item_name",
+            "uom",
+            "quantity",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "item_code",
+            "item_name",
+            "uom",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        # Only the quantity is editable once logged - a different
+        # material or month is a different entry.
+        if self.instance is not None:
+            for field in ("period", "item"):
+                if (
+                    field in attrs
+                    and attrs[field]
+                    != getattr(self.instance, field)
+                ):
+                    raise serializers.ValidationError(
+                        {
+                            field: (
+                                "Cannot be changed - "
+                                "delete this entry and "
+                                "add a new one."
+                            )
+                        }
+                    )
+        return super().validate(attrs)
 
 
 class ReconciliationPeriodAttachmentSerializer(

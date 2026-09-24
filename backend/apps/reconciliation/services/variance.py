@@ -6,6 +6,7 @@ from apps.reconciliation.models import (
     ReconciliationEntryStatus,
     ReconciliationFlag,
     ReconciliationFlagType,
+    ReconciliationMiscUsage,
     ReconciliationOutputEntry,
     ReconciliationToleranceSettings,
     ReconciliationType,
@@ -23,6 +24,29 @@ def _quantize(value: Decimal, quantum: Decimal) -> Decimal:
     return value.quantize(quantum)
 
 
+def _miscellaneous_quantity(entry, item) -> Decimal:
+    """
+    What this material was consumed on OUTSIDE production this
+    month (see ``ReconciliationMiscUsage``). Only a norm-based
+    material's consumption is derived from stock movement, so only
+    it has anything to deduct - a direct-count item is counted, not
+    derived, and always reads ZERO here.
+    """
+    if (
+        item.reconciliation_type
+        != ReconciliationType.NORM_BASED
+        or not entry.period_id
+    ):
+        return ZERO
+    total = ReconciliationMiscUsage.objects.filter(
+        period_id=entry.period_id,
+        item=item,
+    ).aggregate(
+        total=django_models.Sum("quantity")
+    )["total"]
+    return total or ZERO
+
+
 def compute_entry_variance(entry) -> None:
     """
     Resolve the effective rate/mix ratio and populate an entry's
@@ -32,6 +56,11 @@ def compute_entry_variance(entry) -> None:
     is_norm_based = (
         item.reconciliation_type
         == ReconciliationType.NORM_BASED
+    )
+    # Snapshotted even while the entry is still incomplete, so the
+    # figure is visible as soon as it is logged.
+    entry.miscellaneous_quantity = (
+        _miscellaneous_quantity(entry, item)
     )
     is_incomplete = (
         entry.opening_stock is None
@@ -77,7 +106,15 @@ def compute_entry_variance(entry) -> None:
         opening = entry.opening_stock
         receipts = entry.receipts
         closing = entry.closing_stock
-        actual = opening + receipts - closing
+        # Everything that left stock, less what went to non-
+        # production work - what is left is production use, the
+        # only thing the recipe (theoretical) can be compared with.
+        actual = (
+            opening
+            + receipts
+            - closing
+            - entry.miscellaneous_quantity
+        )
     else:
         actual = entry.physical_count
 
@@ -312,9 +349,17 @@ def refresh_entry_flags(entry) -> None:
             (
                 ReconciliationFlagType
                 .NEGATIVE_CONSUMPTION,
-                "Actual consumption is negative "
-                "- check units and entered "
-                "figures.",
+                (
+                    "Actual consumption is negative "
+                    "- the miscellaneous use entered "
+                    "is more than was taken out of "
+                    "stock this month; check the "
+                    "figures."
+                    if entry.miscellaneous_quantity
+                    else "Actual consumption is "
+                    "negative - check units and "
+                    "entered figures."
+                ),
             )
         )
 

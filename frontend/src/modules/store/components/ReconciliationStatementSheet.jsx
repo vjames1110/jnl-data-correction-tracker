@@ -159,6 +159,14 @@ export function ReconciliationStatementSheet({
     (entry) =>
       entry.reconciliation_type === "NORM_BASED",
   );
+  // The "Less: Miscellaneous use" line only appears when some
+  // material actually had non-production use this month - a month
+  // with none prints exactly as it always did.
+  const hasMiscUse = entries.some(
+    (entry) =>
+      (toNumber(entry.miscellaneous_quantity) ??
+        0) > 0,
+  );
 
   function materialLabel(entry) {
     return `${entry.item_name}${
@@ -296,9 +304,30 @@ export function ReconciliationStatementSheet({
                 </td>
               ))}
             </tr>
+            {hasMiscUse ? (
+              <tr>
+                <td className="recon-sheet__col-label">
+                  Less: Miscellaneous Use
+                  (non-production)
+                </td>
+                {entries.map((entry) => (
+                  <td key={entry.id}>
+                    {(toNumber(
+                      entry.miscellaneous_quantity,
+                    ) ?? 0) > 0
+                      ? fmtQty(
+                          entry.miscellaneous_quantity,
+                        )
+                      : "-"}
+                  </td>
+                ))}
+              </tr>
+            ) : null}
             <tr>
               <td className="recon-sheet__col-label">
-                Net Consumption (Actual)
+                {hasMiscUse
+                  ? "Net Consumption for Production (Actual)"
+                  : "Net Consumption (Actual)"}
               </td>
               {entries.map((entry) => (
                 <td

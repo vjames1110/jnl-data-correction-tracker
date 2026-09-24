@@ -38,6 +38,7 @@ from apps.reconciliation.api.serializers import (
     ItemStandardSerializer,
     ReconciliationEntrySerializer,
     ReconciliationFlagSerializer,
+    ReconciliationMiscUsageSerializer,
     ReconciliationOutputEntrySerializer,
     ReconciliationPeriodAttachmentSerializer,
     ReconciliationPeriodSerializer,
@@ -50,6 +51,7 @@ from apps.reconciliation.models import (
     ItemStandard,
     ReconciliationApprovalStep,
     ReconciliationEntry,
+    ReconciliationMiscUsage,
     ReconciliationOutputEntry,
     ReconciliationPeriod,
     ReconciliationPeriodAttachment,
@@ -1433,6 +1435,160 @@ class ReconciliationOutputEntryViewSet(
             message=(
                 "Reconciliation output entry "
                 "deleted successfully."
+            ),
+            data=None,
+        )
+
+
+class ReconciliationMiscUsageViewSet(
+    viewsets.ModelViewSet
+):
+    """
+    Miscellaneous (non-production) use of a recipe material for a
+    period - just the consumed quantity. Same rules as production
+    output: Director reads, Store HO/Admin/Super Admin write, and
+    only while the period is editable. Saving or removing a row
+    recomputes that material's monthly entry (see the model).
+    """
+
+    queryset = (
+        ReconciliationMiscUsage.objects
+        .select_related(
+            "period",
+            "period__site",
+            "item",
+        )
+        .all()
+    )
+    serializer_class = (
+        ReconciliationMiscUsageSerializer
+    )
+    lookup_field = "id"
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [
+                HasReconciliationReportingAccess()
+            ]
+        return [HasStorePortalAccess()]
+
+    http_method_names = [
+        "get",
+        "post",
+        "patch",
+        "delete",
+        "head",
+        "options",
+    ]
+    filterset_fields = [
+        "period",
+        "item",
+    ]
+    ordering = ["item__item_name"]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(
+            self.get_queryset()
+        )
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+        )
+        return success_response(
+            message=(
+                "Miscellaneous use retrieved "
+                "successfully."
+            ),
+            data=serializer.data,
+        )
+
+    def create(self, request, *args, **kwargs):
+        client_id = _parse_client_id(
+            request.data.get("id"),
+        )
+        if client_id:
+            existing = (
+                self.get_queryset()
+                .filter(pk=client_id)
+                .first()
+            )
+            if existing is not None:
+                serializer = self.get_serializer(
+                    existing
+                )
+                return success_response(
+                    message=(
+                        "Miscellaneous use "
+                        "already recorded."
+                    ),
+                    data=serializer.data,
+                    status_code=status.HTTP_200_OK,
+                )
+
+        serializer = self.get_serializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            _lock_editable_period(
+                period=serializer.validated_data[
+                    "period"
+                ],
+            )
+            extra = {
+                "created_by": request.user,
+                "updated_by": request.user,
+            }
+            if client_id:
+                extra["id"] = client_id
+            serializer.save(**extra)
+
+        return success_response(
+            message=(
+                "Miscellaneous use saved "
+                "successfully."
+            ),
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            _lock_editable_period(
+                period=instance.period,
+            )
+            serializer.save(updated_by=request.user)
+
+        return success_response(
+            message=(
+                "Miscellaneous use updated "
+                "successfully."
+            ),
+            data=serializer.data,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        with transaction.atomic():
+            _lock_editable_period(
+                period=instance.period,
+            )
+            instance.delete()
+
+        return success_response(
+            message=(
+                "Miscellaneous use deleted "
+                "successfully."
             ),
             data=None,
         )

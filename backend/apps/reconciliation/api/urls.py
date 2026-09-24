@@ -7,6 +7,7 @@ from apps.reconciliation.api.views import (
     ItemViewSet,
     ReconciliationDashboardView,
     ReconciliationEntryViewSet,
+    ReconciliationMiscUsageViewSet,
     ReconciliationOutputEntryViewSet,
     ReconciliationPeriodAttachmentViewSet,
     ReconciliationPeriodViewSet,
@@ -53,6 +54,11 @@ router.register(
     "output-entries",
     ReconciliationOutputEntryViewSet,
     basename="output-entries",
+)
+router.register(
+    "misc-usage",
+    ReconciliationMiscUsageViewSet,
+    basename="misc-usage",
 )
 router.register(
     "attachments",
