@@ -4,6 +4,8 @@ from pathlib import Path
 import dj_database_url
 from decouple import Csv, config
 
+from config.storage import resolve_default_storage
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 LOGS_DIR = BASE_DIR / "logs"
@@ -220,10 +222,30 @@ STATICFILES_DIRS = (
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Uploaded files (attachments, profile photos): Cloudflare R2 when its
+# settings are present, otherwise the local ``MEDIA_ROOT`` (fine for
+# development; on Render that disk is wiped on every deploy). See
+# ``config.storage`` and docs/deployment/cloudflare-r2.md.
+R2_ACCOUNT_ID = config("R2_ACCOUNT_ID", default="")
+R2_ENDPOINT_URL = config("R2_ENDPOINT_URL", default="")
+R2_ACCESS_KEY_ID = config("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = config("R2_SECRET_ACCESS_KEY", default="")
+R2_BUCKET_NAME = config("R2_BUCKET_NAME", default="")
+R2_KEY_PREFIX = config("R2_KEY_PREFIX", default="")
+R2_SIGNED_URL_SECONDS = config(
+    "R2_SIGNED_URL_SECONDS", default=3600, cast=int
+)
+
 STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
+    "default": resolve_default_storage(
+        account_id=R2_ACCOUNT_ID,
+        endpoint_url=R2_ENDPOINT_URL,
+        access_key_id=R2_ACCESS_KEY_ID,
+        secret_access_key=R2_SECRET_ACCESS_KEY,
+        bucket_name=R2_BUCKET_NAME,
+        key_prefix=R2_KEY_PREFIX,
+        signed_url_seconds=R2_SIGNED_URL_SECONDS,
+    ),
     "staticfiles": {
         "BACKEND": (
             "whitenoise.storage.CompressedManifestStaticFilesStorage"

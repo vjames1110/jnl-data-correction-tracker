@@ -26,3 +26,12 @@ MIDDLEWARE = [
     for middleware in MIDDLEWARE  # noqa: F405
     if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"
 ]
+
+# Tests never talk to a real bucket, even when a developer has R2
+# credentials in their .env - uploads go to a throw-away local folder.
+STORAGES = {  # noqa: F405
+    **STORAGES,  # noqa: F405
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}

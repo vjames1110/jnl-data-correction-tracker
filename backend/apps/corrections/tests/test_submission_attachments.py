@@ -1,7 +1,10 @@
+import os
 import shutil
 import tempfile
 from decimal import Decimal
 
+import pytest
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -451,6 +454,62 @@ class CorrectionSubmissionAttachmentTests(TestCase):
         self.assertEqual(
             download_response.status_code,
             status.HTTP_200_OK,
+        )
+
+    @pytest.mark.usefixtures("r2_storage")
+    def test_attachment_is_stored_in_and_served_from_r2(self):
+        draft = self._create_complete_draft("JV-R2-001")
+        on_disk_before = sorted(
+            os.path.join(folder, name)
+            for folder, _dirs, names in os.walk(TEST_MEDIA_ROOT)
+            for name in names
+        )
+
+        attachment = create_attachment(
+            request=draft,
+            user=self.requester,
+            file=SimpleUploadedFile(
+                "proof.pdf",
+                b"%PDF-1.4 kept in r2",
+                content_type="application/pdf",
+            ),
+            attachment_type="SUPPORTING_DOCUMENT",
+        )
+
+        # In the bucket, and never written to this server's disk.
+        self.assertTrue(
+            default_storage.exists(attachment.file.name)
+        )
+        self.assertEqual(
+            sorted(
+                os.path.join(folder, name)
+                for folder, _dirs, names in os.walk(
+                    TEST_MEDIA_ROOT
+                )
+                for name in names
+            ),
+            on_disk_before,
+        )
+
+        self.client.force_authenticate(self.requester)
+        url = (
+            "/api/v1/corrections/attachments/"
+            f"{attachment.id}/download/"
+        )
+        response = self.client.get(url)
+
+        self.assertEqual(
+            response.status_code, status.HTTP_200_OK
+        )
+        self.assertEqual(
+            b"".join(response.streaming_content),
+            b"%PDF-1.4 kept in r2",
+        )
+
+        default_storage.delete(attachment.file.name)
+        self.assertEqual(
+            self.client.get(url).status_code,
+            status.HTTP_404_NOT_FOUND,
         )
 
     def test_attachment_cannot_be_added_to_a_closed_request(
