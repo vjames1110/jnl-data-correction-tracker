@@ -21,6 +21,7 @@ import { formatDateTime } from "../../../utils/dateFormat";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { OfflineQueueBanner } from "../../../components/common/OfflineQueueBanner";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { AttachmentLink } from "../../../components/common/AttachmentLink";
 import {
   isApprovalRole,
   isStoreRole,
@@ -1296,17 +1297,9 @@ function AttachmentsCard({
                   (attachment) => (
                     <tr key={attachment.id}>
                       <td>
-                        <a
-                          href={
-                            attachment.download_url
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {
-                            attachment.original_name
-                          }
-                        </a>
+                        <AttachmentLink
+                          attachment={attachment}
+                        />
                       </td>
                       <td>
                         {attachment.notes ||

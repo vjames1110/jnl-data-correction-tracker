@@ -698,3 +698,31 @@ td.recon-sheet__col-label {
     break-inside: avoid;
   }
 }
+
+/* A download that needs the signed-in user's token, so it is a button
+   that looks like a link (a plain <a href> would send no token). */
+.attachment-link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--color-primary-600);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.attachment-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.attachment-link:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.attachment-link__error {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-error-700);
+  font-size: 11px;
+}

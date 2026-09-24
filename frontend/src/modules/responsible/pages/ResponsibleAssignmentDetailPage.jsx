@@ -15,6 +15,7 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { AttachmentLink } from "../../../components/common/AttachmentLink";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAcceptAssignment,
@@ -884,17 +885,15 @@ export function ResponsibleAssignmentDetailPage() {
                   <span>No attachments.</span>
                 ) : (
                   attachments.map((attachment) => (
-                    <a
+                    <AttachmentLink
                       key={attachment.id}
-                      href={attachment.download_url}
-                      target="_blank"
-                      rel="noreferrer"
+                      attachment={attachment}
                     >
                       <Paperclip size={15} />
                       <span>
                         {attachment.original_name}
                       </span>
-                    </a>
+                    </AttachmentLink>
                   ))
                 )}
               </div>

@@ -46,3 +46,16 @@ services:
         value: correctionjnl@gmail.com
       - key: BREVO_SENDER_NAME
         value: JNLOps
+      # Cloudflare R2 file storage. Set these in the Render dashboard
+      # (Environment tab); the values are secrets, so they are never
+      # written in this file. See docs/deployment/cloudflare-r2.md.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_KEY_PREFIX
+        value: prod

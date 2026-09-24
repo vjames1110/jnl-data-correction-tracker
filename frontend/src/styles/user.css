@@ -577,7 +577,8 @@
   gap: 8px;
 }
 
-.request-attachment-list a {
+.request-attachment-list a,
+.request-attachment-list .attachment-link {
   min-width: 0;
   min-height: 32px;
   display: flex;
@@ -587,6 +588,11 @@
   background: var(--color-neutral-50);
   border: 1px solid var(--color-neutral-200);
   border-radius: var(--radius-md);
+}
+
+.request-attachment-list .attachment-link {
+  width: 100%;
+  cursor: pointer;
 }
 
 .request-attachment-list span {
