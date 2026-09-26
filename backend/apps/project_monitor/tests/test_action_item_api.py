@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -101,11 +102,11 @@ def test_name_is_required(api_client, site):
 
 
 @pytest.mark.django_db
-def test_director_cannot_create_an_action_item(
+def test_view_only_cannot_create_an_action_item(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:action-item-list')}?site={site.id}",
@@ -333,7 +334,7 @@ def test_project_manager_can_update_persistent_fields(
 
 
 @pytest.mark.django_db
-def test_director_cannot_update_persistent_fields(
+def test_view_only_cannot_update_persistent_fields(
     api_client, site
 ):
     pm = ProjectManagerUserFactory()
@@ -347,8 +348,8 @@ def test_director_cannot_update_persistent_fields(
         "id"
     ]
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     response = api_client.patch(
         reverse(
             "project-monitor-api:action-item-detail",
@@ -379,8 +380,8 @@ def test_project_manager_can_delete_an_action_item(
         "id"
     ]
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     forbidden_delete = api_client.delete(
         reverse(
             "project-monitor-api:action-item-detail",

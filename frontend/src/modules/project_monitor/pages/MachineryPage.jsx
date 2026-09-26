@@ -6,7 +6,7 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isAdminRole, USER_ROLES } from "../../../constants/roles";
+import { canManageSetup, USER_ROLES } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -60,7 +60,7 @@ export function MachineryPage() {
   // at once; for the department that is the main job.
   const canBulk =
     user?.role === USER_ROLES.MACHINERY_DEPARTMENT ||
-    isAdminRole(user?.role);
+    canManageSetup(user?.role);
   const [scope, setScope] = useState(() =>
     user?.role === USER_ROLES.MACHINERY_DEPARTMENT
       ? "bulk"

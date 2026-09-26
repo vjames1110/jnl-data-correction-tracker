@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from apps.administration.api.permissions import (
     HasAdminPortalAccess,
+    HasAdministrationPortalAccess,
 )
 from apps.administration.api.serializers import (
     AdminProfileSerializer,
@@ -241,7 +242,7 @@ class AdminRecentActivityAPIView(APIView):
 
 class AdminProfileAPIView(APIView):
     permission_classes = [
-        HasAdminPortalAccess,
+        HasAdministrationPortalAccess,
     ]
 
     @extend_schema(
@@ -273,7 +274,7 @@ class AdminProfileAPIView(APIView):
 
 class AdminCapabilitiesAPIView(APIView):
     permission_classes = [
-        HasAdminPortalAccess,
+        HasAdministrationPortalAccess,
     ]
 
     @extend_schema(

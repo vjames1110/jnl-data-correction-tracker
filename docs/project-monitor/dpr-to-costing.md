@@ -24,8 +24,8 @@ margin  = value - expense
 | Number | Where you set it | Who |
 |---|---|---|
 | Item quantity, rate, **concrete per unit**, **TMT per unit** | DPR & Bills > **Add item / Edit item** | DPR & Bills entry |
-| The same two material fields, in a table | Costing > Rates & production > **DPR items and material use** | Admin edits, Director views |
-| **Concrete rate** and **TMT rate** (with a w.e.f. date) | Costing > Rates & production > **Material rates** | Admin |
+| The same two material fields, in a table | Costing > Rates & production > **DPR items and material use** | Admin and Director edit |
+| **Concrete rate** and **TMT rate** (with a w.e.f. date) | Costing > Rates & production > **Material rates** | Admin and Director |
 | Labour and staff cost per day | **HR** | HR department |
 | Machinery, fuel, maintenance per day | **Machinery** | Machinery department |
 | Concrete actually produced (cost from stores) | Costing > Rates & production > **Concrete production (stores)** | Admin |

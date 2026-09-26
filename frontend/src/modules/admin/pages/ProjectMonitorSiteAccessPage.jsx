@@ -162,8 +162,8 @@ function PersonRow({
  * Admin page: for one site, which Project Incharges and Project
  * Managers may use which task. Several people can hold tasks on the
  * same site, and each person can hold any mix - everything, a single
- * task such as DPR & Bills or HR, or a combination. Director and
- * Admins always see every task on every site.
+ * task such as DPR & Bills or HR, or a combination. The Director and
+ * Admins can see and enter every task on every site.
  */
 export function ProjectMonitorSiteAccessPage() {
   const [siteId, setSiteId] = useState("");
@@ -239,8 +239,8 @@ export function ProjectMonitorSiteAccessPage() {
             person&apos;s site in User Management, or making them a
             site&apos;s Project Manager in Organization Setup, gives
             them a starting set of tasks here - trim or extend it as
-            you need. Director and Admins always see every task on
-            every site. HR and Machinery are entered only by the HR
+            you need. The Director and Admins can see and enter every
+            task on every site. HR and Machinery are entered only by the HR
             and Machinery departments, so they are not listed here.
           </p>
         </div>

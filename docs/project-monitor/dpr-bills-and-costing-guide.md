@@ -15,7 +15,7 @@ collapsible "How this works" note directly on the Costing screen.
 | Role | DPR & Bills | Costing |
 |---|---|---|
 | **Admin / Super Admin** | full access, every site | full access, every site |
-| **Director** | view every site (read-only) | view every site (read-only) |
+| **Director** | full access, every site (same rights as an Admin) | full access, every site |
 | **Project Management HO** | view every site + Overview edit rights | no access |
 | **Project Incharge** | full access on their own site(s), automatically | no access |
 | **Project Manager** | access only where an Admin has granted the **DPR & Bills** task on that site | no access |
@@ -32,7 +32,7 @@ site, tick the tasks each person holds).
 ## 2. Set the contract up first
 
 Open **DPR & Bills** for a site and expand **Contract & billing details**
-(Project Manager / Incharge / HO / Admin can edit it; Director only views it).
+(Project Manager / Incharge / Admin and the Director can edit it; the HO only views it).
 
 | Field | What it means |
 |---|---|
@@ -176,8 +176,8 @@ and unknown items are reported, not silently dropped, and re-uploading the
 same file never creates duplicates.
 
 ### Unlocking an old day
-Admin only, from the **Unlock day** panel: pick the site, date, and give a
-reason (required, and logged). Director cannot unlock days.
+Admin or Director, from the **Unlock day** panel: pick the site, date, and give a
+reason (required, and logged). Admins and the Director can unlock days.
 
 ## 6. The measurement sheet
 
@@ -367,9 +367,12 @@ effective-from date.
 **Can I edit a quantity from 20 days ago?** Only if an Admin unlocks that day
 first, with a reason.
 
-**Why can't the Director enter anything?** By design — Director is
-read-only everywhere in Project Monitor, including DPR & Bills, Costing and
-escalation.
+**What can the Director do?** Everything an Admin can in Project
+Monitor: enter on every site (including DPR & Bills, HR, Machinery, Costing
+and escalation), unlock DPR days, grant Site Access and manage the masters.
+The Director also manages users and Organization Setup (see below). Audit
+logs and System Settings stay with the Super Admin, and a Director cannot
+create or change a Super Admin account.
 
 **Why doesn't a Project Manager see DPR & Bills for a site?** They need the
 **DPR & Bills** task granted for that specific site (Admin → Site Access). A

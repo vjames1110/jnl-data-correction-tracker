@@ -3,15 +3,14 @@ from rest_framework.permissions import (
     BasePermission,
 )
 
-from apps.authentication.models import (
-    AccountStatus,
-    UserRole,
-)
+from apps.authentication.models import AccountStatus
+from apps.authentication.roles import SETUP_MANAGER_ROLES
 
 
 class HasEmployeeAccess(BasePermission):
     """
-    Allow active users to view employees and admins to manage them.
+    Allow active users to view employees; admins and the Director
+    manage them.
     """
 
     message = "Employee master access is required."
@@ -35,7 +34,4 @@ class HasEmployeeAccess(BasePermission):
         if request.method in SAFE_METHODS:
             return True
 
-        return user.role in {
-            UserRole.SUPER_ADMIN,
-            UserRole.ADMIN,
-        }
+        return user.role in SETUP_MANAGER_ROLES

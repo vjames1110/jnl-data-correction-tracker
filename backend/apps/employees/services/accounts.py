@@ -3,7 +3,10 @@ import string
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import (
+    PermissionDenied,
+    ValidationError,
+)
 
 from apps.authentication.models import (
     AccountStatus,
@@ -27,6 +30,24 @@ TEMP_PASSWORD_CHARACTERS = (
     + string.digits
     + "!@#$%^&*"
 )
+
+
+def ensure_actor_may_manage(
+    *, actor, target_role=None, new_role=None
+) -> None:
+    """
+    Super Admin accounts stay with the Super Admin. The Director
+    manages every other account like an Admin does, but may not create
+    a Super Admin, promote anyone to it, or change, lock, suspend or
+    reset one - that would let a Director take over the whole system.
+    """
+    if getattr(actor, "role", None) != UserRole.DIRECTOR:
+        return
+    if UserRole.SUPER_ADMIN in (target_role, new_role):
+        raise PermissionDenied(
+            "Only a Super Admin can create or change a Super "
+            "Admin account."
+        )
 
 
 def generate_temporary_password(length: int = 14) -> str:

@@ -47,14 +47,20 @@ def client_for(user):
 @pytest.mark.django_db
 class TestCostingAccess:
     """
-    Costing is the one feed with no per-site grant at all: Director
-    views every site read-only, Admin/Super Admin view and enter,
-    and nobody else - not even a Project Manager or Incharge holding
+    Costing is the one feed with no per-site grant at all: the
+    Director and Admin/Super Admin view and enter on every site, and
+    nobody else - not even a Project Manager or Incharge holding
     every other task on the site - gets in.
     """
 
-    def test_director_can_view_but_not_enter(self, site):
+    def test_director_can_view_and_enter(self, site):
         client = client_for(DirectorUserFactory())
+
+        response = client.get(
+            url("costing-access"), {"site": str(site.id)}
+        )
+        assert response.status_code == OK
+        assert response.data["data"]["can_enter"] is True
 
         response = client.get(
             url("costing-glance"), {"site": str(site.id)}
@@ -70,7 +76,7 @@ class TestCostingAccess:
                 "rate": "6000",
             },
         )
-        assert response.status_code == FORBIDDEN
+        assert response.status_code == OK
 
     def test_admin_can_view_and_enter(self, site, admin_api):
         response = admin_api.get(
@@ -359,7 +365,7 @@ class TestItemLinks:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_director_views_but_cannot_change_the_links(self, site):
+    def test_director_views_and_changes_the_links(self, site):
         item = make_item(site)
         director = client_for(DirectorUserFactory())
 
@@ -368,7 +374,7 @@ class TestItemLinks:
             url("costing-link-detail", item.id),
             {"concrete_per_unit": "1", "tmt_kg_per_unit": "0"},
             format="json",
-        ).status_code == FORBIDDEN
+        ).status_code == OK
 
     @pytest.mark.parametrize(
         "factory", [ProjectManagerUserFactory, ProjectInchargeUserFactory, UserFactory]

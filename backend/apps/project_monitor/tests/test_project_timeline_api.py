@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    HrDepartmentUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -80,11 +81,11 @@ def test_project_manager_can_update_project_timeline_fields(
 
 
 @pytest.mark.django_db
-def test_director_cannot_update_project_timeline_fields(
+def test_hr_department_cannot_update_project_timeline_fields(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = HrDepartmentUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.patch(
         f"{reverse('project-monitor-api:overview')}?site={site.id}",
@@ -251,11 +252,11 @@ def test_effective_end_date_uses_the_latest_extension(
 
 
 @pytest.mark.django_db
-def test_director_cannot_add_an_extension(
+def test_hr_department_cannot_add_an_extension(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = HrDepartmentUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:extension-list')}?site={site.id}",
@@ -434,11 +435,11 @@ def test_a_site_can_have_several_chainage_segments(
 
 
 @pytest.mark.django_db
-def test_director_cannot_add_a_chainage_segment(
+def test_hr_department_cannot_add_a_chainage_segment(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = HrDepartmentUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:chainage-segment-list')}?site={site.id}",

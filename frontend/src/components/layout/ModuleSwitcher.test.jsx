@@ -56,8 +56,19 @@ describe("ModuleSwitcher", () => {
       }),
     );
 
+    // The Director opens Administration too (users and setup only).
     const options = screen.getAllByRole("option");
-    expect(options).toHaveLength(3);
+    expect(options).toHaveLength(4);
+    expect(
+      screen.getByRole("option", {
+        name: /administration/i,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("does not offer Administration to a Project Incharge", () => {
+    renderSwitcher({ role: USER_ROLES.PROJECT_INCHARGE });
+
     expect(
       screen.queryByRole("option", {
         name: /administration/i,

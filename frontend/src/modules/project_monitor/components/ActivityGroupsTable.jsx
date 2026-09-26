@@ -171,7 +171,7 @@ export function ActivityGroupsTable({
           anchorId={active.row.id}
           anchorX={clickX}
           label={`${active.row.name} - update`}
-          width={540}
+          width={680}
           onClose={close}
         >
           <ActivityDetailPanel

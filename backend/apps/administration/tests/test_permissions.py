@@ -123,6 +123,13 @@ def test_admin_roles_can_access_every_admin_portal_api(
     assert response.status_code == status.HTTP_200_OK
 
 
+# The Director manages users and organisation setup, so the two
+# endpoints the Administration screens are built on (who am I, and what
+# may I do) are open to the Director as well. The dashboard, login
+# trend and recent activity stay Admin-only.
+DIRECTOR_PORTAL_ENDPOINTS = {"profile", "capabilities"}
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "endpoint_name",
@@ -132,7 +139,6 @@ def test_admin_roles_can_access_every_admin_portal_api(
     "factory_class",
     [
         UserFactory,
-        DirectorUserFactory,
         ResponsiblePersonUserFactory,
     ],
 )
@@ -154,6 +160,31 @@ def test_non_admin_roles_cannot_access_any_admin_portal_api(
         response.status_code
         == status.HTTP_403_FORBIDDEN
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "endpoint_name",
+    ADMIN_PORTAL_ENDPOINTS,
+)
+def test_director_reaches_only_the_administration_setup_apis(
+    endpoint_name,
+):
+    client = APIClient()
+    client.force_authenticate(user=DirectorUserFactory())
+
+    response = client.get(
+        reverse(
+            f"administration-api:{endpoint_name}"
+        )
+    )
+
+    expected = (
+        status.HTTP_200_OK
+        if endpoint_name in DIRECTOR_PORTAL_ENDPOINTS
+        else status.HTTP_403_FORBIDDEN
+    )
+    assert response.status_code == expected
 
 
 @pytest.mark.django_db

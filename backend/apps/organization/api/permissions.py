@@ -7,13 +7,15 @@ from apps.authentication.models import (
     AccountStatus,
     UserRole,
 )
+from apps.authentication.roles import SETUP_MANAGER_ROLES
 
 
 class HasOrganizationAccess(BasePermission):
     """
     Allow active users to view organization masters.
 
-    Admin and Super Admin users can manage organization records.
+    Admin, Super Admin and the Director can manage organization
+    records.
     Viewsets can set ``super_admin_only_writes`` for operations that
     should be restricted to Super Admin.
     """
@@ -41,11 +43,6 @@ class HasOrganizationAccess(BasePermission):
         if request.method in SAFE_METHODS:
             return True
 
-        admin_roles = {
-            UserRole.SUPER_ADMIN,
-            UserRole.ADMIN,
-        }
-
         if getattr(
             view,
             "super_admin_only_writes",
@@ -53,4 +50,4 @@ class HasOrganizationAccess(BasePermission):
         ):
             return user.role == UserRole.SUPER_ADMIN
 
-        return user.role in admin_roles
+        return user.role in SETUP_MANAGER_ROLES

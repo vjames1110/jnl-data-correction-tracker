@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -56,9 +57,11 @@ def test_access_flags_per_role(api, site, assigned_pm, pm):
     }
     assert flags(pm)["can_view"] is False
     assert flags(pm)["can_enter"] is False
+    # The Director has the same rights as an Admin.
     director = flags(DirectorUserFactory())
     assert director["can_view"] is True
-    assert director["can_enter"] is False
+    assert director["can_enter"] is True
+    assert director["can_unlock"] is True
     admin = flags(AdminUserFactory())
     assert admin["can_enter"] is True
     assert admin["can_unlock"] is True
@@ -87,7 +90,7 @@ def test_read_and_write_matrix_on_dpr_items(
     ok, forbidden = 200, status.HTTP_403_FORBIDDEN
     assert attempt(assigned_pm) == (ok, ok)
     assert attempt(pm) == (forbidden, forbidden)
-    assert attempt(DirectorUserFactory()) == (ok, forbidden)
+    assert attempt(DirectorUserFactory()) == (ok, ok)
     assert attempt(AdminUserFactory()) == (ok, ok)
     assert attempt(UserFactory()) == (forbidden, forbidden)
 
@@ -238,7 +241,7 @@ def test_grid_get_and_save(api, site, assigned_pm):
 
 
 @pytest.mark.django_db
-def test_director_and_unassigned_pm_cannot_save_the_grid(
+def test_project_ho_and_unassigned_pm_cannot_save_the_grid(
     api, site, pm
 ):
     item = make_item(site)
@@ -253,7 +256,7 @@ def test_director_and_unassigned_pm_cannot_save_the_grid(
         ],
     }
 
-    for user in (DirectorUserFactory(), pm):
+    for user in (ProjectHoUserFactory(), pm):
         api.force_authenticate(user=user)
         assert (
             api.put(url("dpr-grid"), body, format="json").status_code
@@ -339,7 +342,7 @@ def test_only_an_admin_can_unlock_and_it_reopens_the_day(
         "reason": "Late site records",
     }
 
-    for user in (assigned_pm, DirectorUserFactory()):
+    for user in (assigned_pm, ProjectHoUserFactory()):
         api.force_authenticate(user=user)
         assert (
             api.post(
@@ -446,7 +449,7 @@ def test_dpr_upload_endpoint_needs_entry_rights(
         ],
         name="dpr.xlsx",
     )
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
     denied = api.post(
         url("dpr-upload"),
         {"site": str(site.id), "file": upload},
@@ -524,11 +527,11 @@ def test_bill_lifecycle_through_the_api(api, site, assigned_pm):
 
 
 @pytest.mark.django_db
-def test_director_can_read_but_not_write_bills(
+def test_project_ho_can_read_but_not_write_bills(
     api, site, assigned_pm
 ):
     item = make_item(site)
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
 
     assert (
         get(api, "ra-bill-list", site).status_code
@@ -579,7 +582,7 @@ def test_contract_details_edit_and_validation(
     )
     assert missing_date.status_code == status.HTTP_400_BAD_REQUEST
 
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
     assert (
         api.patch(
             f"{url('dpr-contract')}?site={site.id}",
@@ -684,7 +687,7 @@ def test_only_incharges_and_managers_can_be_assigned_and_only_by_admins(
     )
     assert not_a_pm.status_code == status.HTTP_400_BAD_REQUEST
 
-    for user in (assigned_pm, DirectorUserFactory()):
+    for user in (assigned_pm, ProjectHoUserFactory()):
         api.force_authenticate(user=user)
         assert (
             api.get(url("site-access-list")).status_code

@@ -17,6 +17,7 @@ import {
 
 import { USER_ROLES } from "../constants/roles";
 import { AdminRoute } from "./AdminRoute";
+import { AdministrationRoute } from "./AdministrationRoute";
 import { DirectorRoute } from "./DirectorRoute";
 import { GuestRoute } from "./GuestRoute";
 import { ProjectMasterRoute } from "./ProjectMasterRoute";
@@ -67,6 +68,31 @@ function renderAdminRoute(
           <Route
             path="/admin/dashboard"
             element={<div>Dashboard</div>}
+          />
+        </Route>
+        <Route
+          path="/admin/change-password"
+          element={<div>Change Password</div>}
+        />
+        <Route
+          path="/forbidden"
+          element={<div>Forbidden</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderAdministrationRoute(
+  initialPath = "/admin/users",
+) {
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route element={<AdministrationRoute />}>
+          <Route
+            path="/admin/users"
+            element={<div>User Management</div>}
           />
         </Route>
         <Route
@@ -319,6 +345,70 @@ describe("route guards", () => {
   });
 
   it("blocks non-admin users from admin routes", async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.DIRECTOR,
+        must_change_password: false,
+      },
+    });
+
+    renderAdminRoute();
+
+    expect(
+      await screen.findByText("Forbidden"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+    USER_ROLES.DIRECTOR,
+  ])("lets %s open the shared setup screens", (role) => {
+    useAuthMock.mockReturnValue({
+      user: { role, must_change_password: false },
+    });
+
+    renderAdministrationRoute();
+
+    expect(
+      screen.getByText("User Management"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    USER_ROLES.USER,
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.PROJECT_INCHARGE,
+    USER_ROLES.PROJECT_HO,
+    USER_ROLES.STORE_HO,
+  ])("keeps %s out of the shared setup screens", async (role) => {
+    useAuthMock.mockReturnValue({
+      user: { role, must_change_password: false },
+    });
+
+    renderAdministrationRoute();
+
+    expect(
+      await screen.findByText("Forbidden"),
+    ).toBeInTheDocument();
+  });
+
+  it("sends a Director on a temporary password to password change first", async () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        role: USER_ROLES.DIRECTOR,
+        must_change_password: true,
+      },
+    });
+
+    renderAdministrationRoute();
+
+    expect(
+      await screen.findByText("Change Password"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the Director out of the Admin-only screens", async () => {
     useAuthMock.mockReturnValue({
       user: {
         role: USER_ROLES.DIRECTOR,

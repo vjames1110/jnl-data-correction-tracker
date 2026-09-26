@@ -30,6 +30,11 @@ import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import {
+  assignableRoleOptions,
+  canManageAccountOf,
+} from "../../../constants/roles";
+import { useAuth } from "../../../hooks/useAuth";
+import {
   useDepartmentsDropdown,
   useDesignationsDropdown,
   useSitesDropdown,
@@ -315,8 +320,12 @@ function EmployeeCreatePanel({
     }));
   };
 
-  const roleOptions =
-    filterOptions.roles ?? fallbackOptions.roles;
+  const { user: actor } = useAuth();
+  const roleOptions = assignableRoleOptions(
+    actor?.role,
+    filterOptions.roles ?? fallbackOptions.roles,
+    form.role,
+  );
   const genderOptions =
     filterOptions.genders ?? fallbackOptions.genders;
   const employmentOptions =
@@ -741,7 +750,14 @@ function EmployeeDetailsDrawer({
     useState(null);
   const [actionError, setActionError] =
     useState(null);
+  const { user: actor } = useAuth();
   const hasAccount = Boolean(profile.user_detail);
+  // A Director cannot change a Super Admin account (the backend
+  // refuses it too), so those controls are switched off with a reason.
+  const isProtected = !canManageAccountOf(
+    actor?.role,
+    profile.role,
+  );
   const loginHistoryQuery =
     useEmployeeLoginHistory(
       profile.id,
@@ -763,9 +779,12 @@ function EmployeeDetailsDrawer({
   const revokeSessions =
     useRevokeEmployeeSessions();
 
-  const roleOptions =
-    filterOptions.roles ?? fallbackOptions.roles;
-  const isActionPending = [
+  const roleOptions = assignableRoleOptions(
+    actor?.role,
+    filterOptions.roles ?? fallbackOptions.roles,
+    profile.role,
+  );
+  const isActionPending = isProtected || [
     activateProfile,
     deactivateProfile,
     resetPassword,
@@ -861,6 +880,7 @@ function EmployeeDetailsDrawer({
           <button
             type="button"
             className="button button--secondary"
+            disabled={isProtected}
             onClick={() => onEdit(profile)}
           >
             <Pencil size={16} />
@@ -1002,7 +1022,7 @@ function EmployeeDetailsDrawer({
                   event.target.value,
                 )
               }
-              disabled={!hasAccount}
+              disabled={!hasAccount || isProtected}
             >
               {roleOptions.map((role) => (
                 <option
@@ -1037,6 +1057,13 @@ function EmployeeDetailsDrawer({
             Apply
           </button>
         </div>
+
+        {isProtected ? (
+          <p className="muted-copy">
+            Only a Super Admin can change a Super
+            Admin account.
+          </p>
+        ) : null}
 
         {!hasAccount ? (
           <p className="muted-copy">
@@ -1415,6 +1442,7 @@ function EmployeeImportPanel({ onClose }) {
 }
 
 export function EmployeeManagementPage() {
+  const { user: actor } = useAuth();
   const [filters, setFilters] = useState({
     search: "",
     site: "",
@@ -1938,6 +1966,12 @@ export function EmployeeManagementPage() {
                         <button
                           type="button"
                           className="button button--tertiary employee-table-action"
+                          disabled={
+                            !canManageAccountOf(
+                              actor?.role,
+                              profile.role,
+                            )
+                          }
                           onClick={() =>
                             setEditingProfile(
                               profile,
@@ -1950,6 +1984,12 @@ export function EmployeeManagementPage() {
                         <button
                           type="button"
                           className="button button--tertiary employee-table-action"
+                          disabled={
+                            !canManageAccountOf(
+                              actor?.role,
+                              profile.role,
+                            )
+                          }
                           onClick={() =>
                             profile.is_active
                               ? deactivateProfile.mutate(

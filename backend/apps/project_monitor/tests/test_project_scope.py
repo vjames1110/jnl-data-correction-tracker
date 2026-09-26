@@ -162,12 +162,12 @@ def test_grants_only_count_for_incharge_and_project_manager(site):
 # ---- Director / Admin ------------------------------------------------------
 
 
-def test_director_sees_everything_but_never_enters(site, other_site):
+def test_director_sees_and_enters_everything_everywhere(site, other_site):
     director = DirectorUserFactory()
     for s in (site, other_site):
         for task in ALL:
             assert project_scope.can_view_task(director, s, task)
-            assert not project_scope.can_enter_task(director, s, task)
+            assert project_scope.can_enter_task(director, s, task)
         assert project_scope.can_view_site(director, s)
     assert project_scope.scoped_site_ids(director) is None
     assert project_scope.tasks_for(director, site) == set(ALL)
@@ -271,7 +271,7 @@ def test_dpr_and_bills_needs_its_own_grant(site, other_site):
 
     director = DirectorUserFactory()
     assert site_access.can_view_finance(director, site)
-    assert not site_access.can_enter_dpr_bills(director, site)
+    assert site_access.can_enter_dpr_bills(director, site)
 
 
 @pytest.mark.parametrize(
@@ -298,14 +298,14 @@ def test_hr_and_machinery_belong_to_their_department(
         assert can_view(department, s)
         assert can_enter(department, s)
 
-    # Nobody else enters it - granted roles cannot hold it, and the
-    # Director only views.
+    # Nobody else enters it except the Director and the Admins -
+    # granted roles cannot hold it.
     for other in (ProjectInchargeUserFactory(), ProjectManagerUserFactory()):
         grant(other, site)
         assert not can_view(other, site)
         assert not can_enter(other, site)
     assert can_view(DirectorUserFactory(), site)
-    assert not can_enter(DirectorUserFactory(), site)
+    assert can_enter(DirectorUserFactory(), site)
     assert can_enter(AdminUserFactory(), site)
 
 
@@ -465,11 +465,18 @@ def test_a_department_account_holds_only_its_own_task_on_every_site(
     assert site_access.visible_site_ids(dept) == set()
 
 
-def test_director_stays_read_only_everywhere(site):
+def test_director_has_every_entry_right_everywhere(site):
     director = DirectorUserFactory()
 
-    assert project_scope.enter_tasks_for(director, site) == set()
+    assert project_scope.enter_tasks_for(director, site) == set(ALL)
     assert project_scope.view_tasks_for(director, site) == set(ALL)
+
+
+def test_director_can_unlock_days_and_manage_site_access():
+    director = DirectorUserFactory()
+
+    assert site_access.can_unlock_days(director)
+    assert site_access.can_manage_access(director)
 
 
 # ---- the migration that removed HR / Machinery grants ----------------------

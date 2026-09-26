@@ -4,15 +4,15 @@ task-wise access in ``services.project_scope``. These are thin
 wrappers that keep the names the finance views and importers already
 use; the rules come from ``project_scope``:
 
-- DPR & Bills: Director (read-only), Admin/Super Admin and the
-  Project Management HO (read-only) see every site; a Project
+- DPR & Bills: Director and Admin/Super Admin (both view and enter)
+  and the Project Management HO (read-only) see every site; a Project
   Incharge or Project Manager needs the task granted on the site by
   an Admin (Site Access page) - view and enter together.
 - HR and Machinery: entered and seen only by the HR Department /
-  Machinery Department on every site, plus Admin/Super Admin, with
-  Director able to view. They cannot be granted to a Project
+  Machinery Department on every site, plus the Director and
+  Admin/Super Admin. They cannot be granted to a Project
   Incharge or Project Manager.
-- Unlock a locked DPR day: Admin/Super Admin only.
+- Unlock a locked DPR day: Admin, Super Admin and the Director.
 """
 
 from rest_framework.exceptions import PermissionDenied

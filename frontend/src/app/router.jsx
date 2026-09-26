@@ -71,6 +71,7 @@ import { ForbiddenPage } from "../pages/ForbiddenPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { RootRedirectPage } from "../pages/RootRedirectPage";
 import { AdminRoute } from "../routes/AdminRoute";
+import { AdministrationRoute } from "../routes/AdministrationRoute";
 import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
@@ -492,25 +493,15 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        element: <AdminRoute />,
+        element: <AdministrationRoute />,
         children: [
           {
             element: <JnlOpsLayout />,
             children: [
               {
-                path: "/admin/dashboard",
-                element:
-                  <AdminDashboardPage />,
-              },
-              {
                 path: "/admin/users",
                 element:
                   <EmployeeManagementPage />,
-              },
-              {
-                path: "/admin/requests",
-                element:
-                  <CorrectionRequestManagementPage />,
               },
               {
                 path: "/admin/organization",
@@ -541,6 +532,32 @@ export const router = createBrowserRouter([
                 path: "/admin/organization/hod-mappings",
                 element:
                   <HodMappingPage />,
+              },
+              {
+                path: "/admin/project-monitor/site-access",
+                element: (
+                  <ProjectMonitorSiteAccessPage />
+                ),
+              },
+            ],
+          },
+        ],
+      },
+      {
+        element: <AdminRoute />,
+        children: [
+          {
+            element: <JnlOpsLayout />,
+            children: [
+              {
+                path: "/admin/dashboard",
+                element:
+                  <AdminDashboardPage />,
+              },
+              {
+                path: "/admin/requests",
+                element:
+                  <CorrectionRequestManagementPage />,
               },
               {
                 path: "/admin/vouchers",
@@ -662,12 +679,6 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/structure-types",
                 element: (
                   <StructureTypeManagementPage />
-                ),
-              },
-              {
-                path: "/admin/project-monitor/site-access",
-                element: (
-                  <ProjectMonitorSiteAccessPage />
                 ),
               },
               {

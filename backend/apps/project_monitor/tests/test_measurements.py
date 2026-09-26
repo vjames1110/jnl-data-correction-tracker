@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
 )
 from apps.project_monitor.models import DprMeasurement
 from apps.project_monitor.services import dpr, measurement
@@ -381,8 +382,8 @@ def test_api_permissions(api, site, assigned_pm, pm):
         == status.HTTP_200_OK
     )
 
-    # Director reads, never writes.
-    api.force_authenticate(user=DirectorUserFactory())
+    # Project HO reads, never writes.
+    api.force_authenticate(user=ProjectHoUserFactory())
     assert (
         api.get(
             url("dpr-measurements"), {"site": str(site.id)}
@@ -392,6 +393,13 @@ def test_api_permissions(api, site, assigned_pm, pm):
     assert (
         put_sheet(api, site, item, days_ago(0), body).status_code
         == status.HTTP_403_FORBIDDEN
+    )
+
+    # The Director has every entry right, like an Admin.
+    api.force_authenticate(user=DirectorUserFactory())
+    assert (
+        put_sheet(api, site, item, days_ago(0), body).status_code
+        == status.HTTP_200_OK
     )
 
     # A manager with no DPR & Bills grant on the site gets nothing.

@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -119,11 +120,11 @@ def test_structure_name_is_required(
 
 
 @pytest.mark.django_db
-def test_director_cannot_create_a_structure(
+def test_view_only_cannot_create_a_structure(
     api_client, site, minor_type_id
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
@@ -205,8 +206,8 @@ def test_structure_detail_and_delete(
         == status.HTTP_200_OK
     )
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     forbidden_delete = api_client.delete(
         reverse(
             "project-monitor-api:structure-detail",
@@ -351,7 +352,7 @@ def test_editing_the_config_regenerates_the_sheet(
 
 
 @pytest.mark.django_db
-def test_a_director_cannot_edit_a_structure(
+def test_a_view_only_cannot_edit_a_structure(
     api_client, site, minor_type_id
 ):
     pm = ProjectManagerUserFactory()
@@ -363,8 +364,8 @@ def test_a_director_cannot_edit_a_structure(
     )
     structure_id = create_response.data["data"]["id"]
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     response = api_client.patch(
         reverse(
             "project-monitor-api:structure-detail",
@@ -437,7 +438,7 @@ def test_updating_an_activity_composes_one_log_line(
 
 
 @pytest.mark.django_db
-def test_director_cannot_update_an_activity(
+def test_view_only_cannot_update_an_activity(
     api_client, site, minor_type_id
 ):
     pm = ProjectManagerUserFactory()
@@ -451,8 +452,8 @@ def test_director_cannot_update_an_activity(
         "groups"
     ][1]["rows"][0]["id"]
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     response = api_client.patch(
         reverse(
             "project-monitor-api:activity-update",

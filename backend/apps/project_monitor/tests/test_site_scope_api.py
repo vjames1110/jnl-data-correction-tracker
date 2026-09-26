@@ -344,18 +344,11 @@ def test_two_incharges_on_one_site_each_get_only_their_own_tasks(world, site):
 # ---- Director / Admin ---------------------------------------------------------------------
 
 
-def test_director_reads_and_reviews_everywhere_but_never_enters(world):
-    client = client_for(DirectorUserFactory())
-    for key in ("a", "b"):
-        assert_all(read_ops(world[key]), client, OK)
-        assert_all(review_ops(world[key]), client, OK)
-        assert_all(entry_ops(world[key]), client, DENIED)
-        assert_all(delete_ops(world[key]), client, DENIED)
-    assert Structure.objects.count() == 2
-
-
-def test_admin_can_do_everything_on_every_site(world):
-    client = client_for(AdminUserFactory())
+@pytest.mark.parametrize(
+    "factory", [AdminUserFactory, DirectorUserFactory]
+)
+def test_admin_and_director_can_do_everything_on_every_site(world, factory):
+    client = client_for(factory())
     for key in ("a", "b"):
         for ops in (read_ops, entry_ops, review_ops):
             assert_all(ops(world[key]), client, OK)
@@ -553,8 +546,8 @@ def test_sites_endpoint_lists_each_sites_tasks(world, site, other_site):
 
     director = sites(DirectorUserFactory())
     assert director["CHK"]["tasks"] == list(ALL)
-    assert director["CHK"]["enter_tasks"] == []
-    assert director["CHK"]["read_only"] is True
+    assert director["CHK"]["enter_tasks"] == list(ALL)
+    assert director["CHK"]["read_only"] is False
     assert sites(AdminUserFactory())["OTH"]["read_only"] is False
 
     # The Project Management HO sees most tasks on every site but can
@@ -691,9 +684,9 @@ def test_set_rejects_unknown_tasks_and_unknown_sites(site, admin_api):
     assert bad_site.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_site_access_is_admin_only(site):
+def test_site_access_is_for_admins_and_the_director_only(site):
     person = grant(ProjectInchargeUserFactory(), site)
-    for user in (person, DirectorUserFactory(), ProjectManagerUserFactory()):
+    for user in (person, ProjectManagerUserFactory(), ProjectHoUserFactory()):
         client = client_for(user)
         assert client.get(url("site-access-list"), {"site": str(site.id)}).status_code == DENIED
         assert client.put(

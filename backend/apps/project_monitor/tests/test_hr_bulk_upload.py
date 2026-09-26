@@ -268,7 +268,6 @@ def test_the_register_file_needs_a_recognisable_header(api, site, hr_user):
 @pytest.mark.parametrize(
     "uploader_factory",
     [
-        DirectorUserFactory,
         ProjectManagerUserFactory,
         MachineryDepartmentUserFactory,
         ProjectHoUserFactory,
@@ -433,7 +432,7 @@ def test_muster_matches_a_name_when_the_register_has_no_code(
 @pytest.mark.parametrize(
     "uploader_factory",
     [
-        DirectorUserFactory,
+        ProjectHoUserFactory,
         ProjectManagerUserFactory,
         MachineryDepartmentUserFactory,
     ],

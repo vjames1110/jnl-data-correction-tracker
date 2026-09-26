@@ -4,6 +4,7 @@ from apps.authentication.models import (
     AccountStatus,
     UserRole,
 )
+from apps.authentication.roles import SETUP_MANAGER_ROLES
 
 
 class HasAdminPortalAccess(BasePermission):
@@ -31,6 +32,33 @@ class HasAdminPortalAccess(BasePermission):
                 UserRole.SUPER_ADMIN,
                 UserRole.ADMIN,
             }
+        )
+
+
+class HasAdministrationPortalAccess(BasePermission):
+    """
+    Permit the Administration module's own screens (User Management,
+    Organization Setup and Project Management setup) to Super Admin,
+    Admin and the Director. What each of them may do on a screen is
+    decided by ``get_user_capabilities`` and by that screen's API.
+    """
+
+    message = "Administration access is required."
+
+    def has_permission(
+        self,
+        request,
+        view,
+    ) -> bool:
+        user = request.user
+
+        if not user or not user.is_authenticated:
+            return False
+
+        return bool(
+            user.is_active
+            and user.account_status == AccountStatus.ACTIVE
+            and user.role in SETUP_MANAGER_ROLES
         )
 
 

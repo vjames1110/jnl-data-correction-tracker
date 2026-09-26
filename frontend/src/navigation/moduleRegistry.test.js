@@ -30,18 +30,22 @@ describe("module access by role", () => {
     );
   });
 
-  it("keeps Administration Admin-only", () => {
+  it("keeps Administration to the Admin, Super Admin and Director", () => {
     Object.values(USER_ROLES)
       .filter(
         (role) =>
           role !== USER_ROLES.ADMIN &&
-          role !== USER_ROLES.SUPER_ADMIN,
+          role !== USER_ROLES.SUPER_ADMIN &&
+          role !== USER_ROLES.DIRECTOR,
       )
       .forEach((role) => {
         expect(keysFor(role)).not.toContain(
           MODULE_KEYS.ADMINISTRATION,
         );
       });
+    expect(keysFor(USER_ROLES.DIRECTOR)).toContain(
+      MODULE_KEYS.ADMINISTRATION,
+    );
   });
 
   it("maps the other roles to their modules", () => {
@@ -49,6 +53,7 @@ describe("module access by role", () => {
       MODULE_KEYS.APPROVAL,
       MODULE_KEYS.PRODUCTION,
       MODULE_KEYS.PROJECT,
+      MODULE_KEYS.ADMINISTRATION,
     ]);
     expect(keysFor(USER_ROLES.USER)).toEqual([
       MODULE_KEYS.APPROVAL,
@@ -381,7 +386,7 @@ describe("Project Management HO, departments and the Director's masters", () => 
     ]);
   });
 
-  it("gives the Director the two masters too, under the director portal", () => {
+  it("gives the Director the two masters and Site Access, under the director portal", () => {
     const nav = getModuleNav(
       USER_ROLES.DIRECTOR,
       MODULE_KEYS.PROJECT,
@@ -390,6 +395,7 @@ describe("Project Management HO, departments and the Director's masters", () => 
       "Project Monitor",
       "Structure Types",
       "RDSO Span Library",
+      "Site Access",
     ]);
     expect(
       nav.filter((entry) => entry.group === "master").map(
@@ -398,7 +404,35 @@ describe("Project Management HO, departments and the Director's masters", () => 
     ).toEqual([
       "/director/project-monitor/structure-types",
       "/director/project-monitor/rdso-span-library",
+      "/admin/project-monitor/site-access",
     ]);
+  });
+
+  it("gives the Director User Management and Organization Setup, but not audit or settings", () => {
+    const nav = getModuleNav(
+      USER_ROLES.DIRECTOR,
+      MODULE_KEYS.ADMINISTRATION,
+    );
+    expect(nav.map((entry) => entry.label)).toEqual([
+      "User Management",
+      "Organization Setup",
+    ]);
+    expect(nav.map((entry) => entry.path)).toEqual([
+      "/admin/users",
+      "/admin/organization",
+    ]);
+    expect(
+      getModuleHome(
+        USER_ROLES.DIRECTOR,
+        MODULE_KEYS.ADMINISTRATION,
+      ),
+    ).toBe("/admin/users");
+  });
+
+  it("does not give the Project Management HO Site Access", () => {
+    expect(labels(USER_ROLES.PROJECT_HO)).not.toContain(
+      "Site Access",
+    );
   });
 
   it("does not give a Project Manager or Incharge the masters", () => {

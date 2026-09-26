@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -102,11 +103,11 @@ def test_building_name_is_required(
 
 
 @pytest.mark.django_db
-def test_director_cannot_create_a_building(
+def test_view_only_cannot_create_a_building(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:building-list')}?site={site.id}",
@@ -188,8 +189,8 @@ def test_building_detail_and_delete(
         == status.HTTP_200_OK
     )
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     forbidden_delete = api_client.delete(
         reverse(
             "project-monitor-api:building-detail",

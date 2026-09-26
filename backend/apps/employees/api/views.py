@@ -20,6 +20,7 @@ from apps.authentication.models import (
     LoginHistory,
     UserRole,
 )
+from apps.authentication.roles import SETUP_MANAGER_ROLES
 from apps.core.api.responses import success_response
 from apps.employees.api.permissions import (
     HasEmployeeAccess,
@@ -39,6 +40,7 @@ from apps.employees.models import (
     Gender,
 )
 from apps.employees.services.accounts import (
+    ensure_actor_may_manage,
     change_account_role,
     create_account_for_employee,
     reactivate_account,
@@ -62,11 +64,7 @@ def _is_admin_user(user) -> bool:
     return bool(
         user
         and user.is_authenticated
-        and user.role
-        in {
-            UserRole.SUPER_ADMIN,
-            UserRole.ADMIN,
-        }
+        and user.role in SETUP_MANAGER_ROLES
     )
 
 
@@ -349,6 +347,10 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
+        ensure_actor_may_manage(
+            actor=self.request.user,
+            new_role=serializer.validated_data.get("role"),
+        )
         try:
             serializer.save()
         except DjangoValidationError as exc:
@@ -358,6 +360,11 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             ) from exc
 
     def perform_update(self, serializer):
+        ensure_actor_may_manage(
+            actor=self.request.user,
+            target_role=self._account_role(serializer.instance),
+            new_role=serializer.validated_data.get("role"),
+        )
         try:
             serializer.save()
         except DjangoValidationError as exc:
@@ -486,6 +493,10 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
     )
     def activate(self, request, *args, **kwargs):
         profile = self.get_object()
+        ensure_actor_may_manage(
+            actor=request.user,
+            target_role=self._account_role(profile),
+        )
         profile.is_active = True
         profile.save(
             update_fields=["is_active", "updated_at"]
@@ -507,6 +518,10 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
     )
     def deactivate(self, request, *args, **kwargs):
         profile = self.get_object()
+        ensure_actor_may_manage(
+            actor=request.user,
+            target_role=self._account_role(profile),
+        )
         profile.is_active = False
         profile.save(
             update_fields=["is_active", "updated_at"]
@@ -626,7 +641,8 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
                 "Employee import preview generated successfully."
             ),
             data=preview_employee_import(
-                serializer.validated_data["file"]
+                serializer.validated_data["file"],
+                blocked_roles=self._blocked_import_roles(),
             ),
         )
 
@@ -653,7 +669,8 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
                 "Employee import completed successfully."
             ),
             data=import_employee_rows(
-                serializer.validated_data["file"]
+                serializer.validated_data["file"],
+                blocked_roles=self._blocked_import_roles(),
             ),
             status_code=status.HTTP_201_CREATED,
         )
@@ -730,13 +747,17 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             data=request.data
         )
         serializer.is_valid(raise_exception=True)
+        new_role = serializer.validated_data.get(
+            "role",
+            profile.role,
+        )
+        ensure_actor_may_manage(
+            actor=request.user, new_role=new_role
+        )
 
         result = create_account_for_employee(
             profile=profile,
-            role=serializer.validated_data.get(
-                "role",
-                profile.role,
-            ),
+            role=new_role,
             send_notification=serializer.validated_data[
                 "send_notification"
             ],
@@ -862,6 +883,11 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             data=request.data
         )
         serializer.is_valid(raise_exception=True)
+        ensure_actor_may_manage(
+            actor=request.user,
+            target_role=self._account_role(profile),
+            new_role=serializer.validated_data["role"],
+        )
         user = change_account_role(
             profile=profile,
             role=serializer.validated_data["role"],
@@ -924,6 +950,19 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
             ).data,
         )
 
+    def _blocked_import_roles(self):
+        """Roles a bulk import may not create for this person."""
+        if self.request.user.role == UserRole.DIRECTOR:
+            return frozenset({UserRole.SUPER_ADMIN})
+        return frozenset()
+
+    @staticmethod
+    def _account_role(profile):
+        """The role that counts: the account's, else the profile's."""
+        if profile.user_id:
+            return profile.user.role
+        return profile.role
+
     def _get_profile_user(self):
         profile = self.get_object()
 
@@ -936,4 +975,8 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
                 }
             )
 
+        ensure_actor_may_manage(
+            actor=self.request.user,
+            target_role=profile.user.role,
+        )
         return profile.user

@@ -150,7 +150,7 @@ class SiteAccessSetSerializer(serializers.Serializer):
 
 class SiteAccessListCreateAPIView(APIView):
     """
-    Who may use which task on one site. Admin/Super Admin only.
+    Who may use which task on one site. Admin, Super Admin and Director.
 
     GET ``?site=`` -> the task list, every person holding a task on
     the site (with their tasks), and the Project Incharge / Project

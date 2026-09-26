@@ -22,6 +22,50 @@ export function isAdminRole(role) {
   return ADMIN_ROLES.includes(role);
 }
 
+/**
+ * The accounts that run setup: Admin, Super Admin and the Director.
+ * They manage users and organization setup and hold every Project
+ * Management entry right on every site. What only the Super Admin may
+ * do (audit logs, system settings, Super Admin accounts) is enforced by
+ * the backend and the capability list.
+ */
+export function canManageSetup(role) {
+  return isAdminRole(role) || role === USER_ROLES.DIRECTOR;
+}
+
+/**
+ * Whether the person may run account actions (edit, deactivate, reset
+ * password, change role...) on an account of the given role. A
+ * Director manages every account except Super Admin ones.
+ */
+export function canManageAccountOf(actorRole, targetRole) {
+  return !(
+    actorRole === USER_ROLES.DIRECTOR &&
+    targetRole === USER_ROLES.SUPER_ADMIN
+  );
+}
+
+/**
+ * The role options a person may hand out. A Director manages every
+ * account except the Super Admin ones, so that option is dropped for
+ * them (the backend refuses it too); the option already in use stays
+ * so an existing value never disappears from the list.
+ */
+export function assignableRoleOptions(
+  actorRole,
+  options,
+  currentValue,
+) {
+  if (actorRole !== USER_ROLES.DIRECTOR) {
+    return options;
+  }
+  return options.filter(
+    (option) =>
+      option.value !== USER_ROLES.SUPER_ADMIN ||
+      option.value === currentValue,
+  );
+}
+
 export function isApprovalRole(role) {
   return [
     USER_ROLES.DIRECTOR,
@@ -106,7 +150,11 @@ export function canManageProjectMasters(role) {
   );
 }
 
-/** Roles that may enter Project Monitor data (Director only views). */
+/**
+ * Roles that work in the Project Management portal or hold every
+ * entry right on it (Admin). The Director enters everywhere too but
+ * uses the /director tree, so it is not part of this portal check.
+ */
 export function isProjectEntryRole(role) {
   return (
     usesProjectPortal(role) || isAdminRole(role)
@@ -228,6 +276,14 @@ export function projectMonitorMachineryPath(role) {
     return "/director/project-monitor/machinery";
   }
   return "/admin/project-monitor/machinery";
+}
+
+/**
+ * Site Access is granted by the Admin and the Director alike; both
+ * open the same page (its URL sits with the other setup screens).
+ */
+export function projectMonitorSiteAccessPath() {
+  return "/admin/project-monitor/site-access";
 }
 
 export function projectMonitorStructureTypesPath(role) {

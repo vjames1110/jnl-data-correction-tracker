@@ -34,6 +34,7 @@ import {
   projectMonitorMachineryPath,
   projectMonitorOverviewPath,
   projectMonitorRdsoPath,
+  projectMonitorSiteAccessPath,
   projectMonitorStructureTypesPath,
   USER_ROLES,
 } from "../constants/roles";
@@ -284,7 +285,8 @@ function adminNav(moduleKey) {
 }
 
 // Structure Types and the RDSO span library: Admin (in its own
-// nav), Director and the Project Management HO.
+// nav), Director and the Project Management HO. Site Access is added
+// for the Director alone, next to these.
 function projectMasterItems(role) {
   return [
     item(
@@ -372,6 +374,32 @@ function directorNav(moduleKey) {
           "transaction",
         ),
         ...projectMasterItems(USER_ROLES.DIRECTOR),
+        item(
+          "site-access",
+          "Site Access",
+          projectMonitorSiteAccessPath(),
+          KeyRound,
+          "master",
+        ),
+      ];
+    case MODULE_KEYS.ADMINISTRATION:
+      // Users and Organization Setup only: audit logs and system
+      // settings stay with the Super Admin.
+      return [
+        item(
+          "users",
+          "User Management",
+          "/admin/users",
+          Users,
+          "master",
+        ),
+        item(
+          "organization",
+          "Organization Setup",
+          "/admin/organization",
+          Building2,
+          "master",
+        ),
       ];
     default:
       return [];
@@ -529,6 +557,7 @@ const ROLE_MODULES = Object.freeze({
     MODULE_KEYS.APPROVAL,
     MODULE_KEYS.PRODUCTION,
     MODULE_KEYS.PROJECT,
+    MODULE_KEYS.ADMINISTRATION,
   ],
   [USER_ROLES.USER]: [MODULE_KEYS.APPROVAL],
   [USER_ROLES.RESPONSIBLE_PERSON]: [

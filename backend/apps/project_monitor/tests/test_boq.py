@@ -15,6 +15,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
 )
 from apps.project_monitor.models import (
     DprEntry,
@@ -922,7 +923,7 @@ def test_api_escalation_endpoints_and_permissions(
         "note": "Price variation as per clause 46",
     }
 
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
     assert (
         api.get(
             url("dpr-escalation-list"), {"site": str(site.id)}
@@ -951,14 +952,15 @@ def test_api_escalation_endpoints_and_permissions(
     )
     assert duplicate.status_code == status.HTTP_400_BAD_REQUEST
 
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
     assert (
         api.delete(
             url("dpr-escalation-detail", created.data["data"]["id"])
         ).status_code
         == status.HTTP_403_FORBIDDEN
     )
-    api.force_authenticate(user=AdminUserFactory())
+    # The Director has the same entry rights as an Admin.
+    api.force_authenticate(user=DirectorUserFactory())
     assert (
         api.delete(
             url("dpr-escalation-detail", created.data["data"]["id"])

@@ -270,7 +270,7 @@ export function ActionItemTable({
           anchorId={activeItem.activity.id}
           anchorX={clickX}
           label={`${activeItem.activity.name} - update`}
-          width={540}
+          width={680}
           onClose={close}
         >
           {isCompletedTable && canEdit ? (

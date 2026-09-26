@@ -122,7 +122,7 @@ def test_access_flags_per_role(api, site, mech_user, hr_user, assigned_pm, pm):
     assert flags(pm)["can_view"] is False
     assert flags(DirectorUserFactory()) == {
         "can_view": True,
-        "can_enter": False,
+        "can_enter": True,
     }
     assert flags(AdminUserFactory()) == {
         "can_view": True,
@@ -150,7 +150,7 @@ def test_read_and_write_matrix(api, site, other_site, mech_user, hr_user, pm):
         )
 
     assert attempt(mech_user) == (200, 200)
-    assert attempt(DirectorUserFactory()) == (200, FORBIDDEN)
+    assert attempt(DirectorUserFactory()) == (200, 200)
     assert attempt(AdminUserFactory()) == (200, 200)
     assert attempt(hr_user) == (FORBIDDEN, FORBIDDEN)
     assert attempt(pm) == (FORBIDDEN, FORBIDDEN)
@@ -361,7 +361,7 @@ def test_usage_follows_the_machines_own_site(
         == 200
     )
     # ...but nobody without machinery rights may, on any site.
-    api.force_authenticate(user=DirectorUserFactory())
+    api.force_authenticate(user=ProjectHoUserFactory())
     assert (
         api.post(
             url("machinery-usage-list"),
@@ -553,7 +553,7 @@ def test_rows_are_routed_by_site_code_to_every_site(
 @pytest.mark.parametrize(
     "uploader_factory",
     [
-        DirectorUserFactory,
+        ProjectHoUserFactory,
         ProjectManagerUserFactory,
         HrDepartmentUserFactory,
     ],

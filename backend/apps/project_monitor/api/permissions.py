@@ -21,8 +21,9 @@ def _is_active_authenticated(user) -> bool:
 
 class HasProjectMonitorPortalAccess(BasePermission):
     """
-    Project Incharge and Project Manager (and Admin/Super Admin as
-    a backup) can enter and edit Project Monitor data, and the
+    Project Incharge and Project Manager, and Admin/Super Admin and
+    the Director (who work on every site), can enter and edit Project
+    Monitor data, and the
     Project Management HO can enter the project Overview. This is only
     the role gate - which SITES and TASKS a person may use is
     enforced per request by ``services.project_scope`` (Incharge and
@@ -40,6 +41,7 @@ class HasProjectMonitorPortalAccess(BasePermission):
             return False
 
         return user.role in {
+            UserRole.DIRECTOR,
             UserRole.PROJECT_MANAGER,
             UserRole.PROJECT_INCHARGE,
             UserRole.PROJECT_HO,
@@ -50,9 +52,8 @@ class HasProjectMonitorPortalAccess(BasePermission):
 
 class HasProjectMonitorReportingAccess(BasePermission):
     """
-    Director gets live, read-only visibility across every project,
-    same as Director's existing read-only access into Store
-    Reconciliation - no submit/approve cycle to gate here, per the
+    Live visibility across every project for the Director and the
+    project roles - no submit/approve cycle to gate here, per the
     confirmed "live view + review comments" design.
     """
 
@@ -111,8 +112,8 @@ class HasProjectMonitorMasterAccess(BasePermission):
     Read access (so the Add-a-structure form and matrix can list
     active types) is open to anyone with portal or reporting access;
     writes are for Admin/Super Admin, the Director and the Project
-    Management HO. (Who may use which site stays on Site Access, which
-    is Admin-only.)
+    Management HO. (Who may use which site stays on Site Access,
+    which is for Admin/Super Admin and the Director.)
     """
 
     message = (
@@ -177,10 +178,9 @@ class HasProjectMonitorCostingAccess(BasePermission):
     Costing (expense vs value of work done, "Today at a glance") is
     the one Project Monitor feed with no per-site Project Manager or
     Incharge grant at all - project margin is materially more
-    sensitive than progress or even billing figures. Director may
-    view every site (read-only, as everywhere else); only
-    Admin/Super Admin may view AND enter material rates and the
-    stores concrete-production figures.
+    sensitive than progress or even billing figures. Only the
+    Director and Admin/Super Admin may view AND enter material rates
+    and the stores concrete-production figures.
     """
 
     message = (
@@ -200,13 +200,17 @@ class HasProjectMonitorCostingAccess(BasePermission):
             }
 
         return user.role in {
+            UserRole.DIRECTOR,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
 
 
 class IsProjectMonitorAdmin(BasePermission):
-    """Admin/Super Admin only (site assignments, day unlocks)."""
+    """
+    Admin/Super Admin and the Director (site assignments, day
+    unlocks).
+    """
 
     message = "Admin access is required."
 
@@ -216,6 +220,7 @@ class IsProjectMonitorAdmin(BasePermission):
             return False
 
         return user.role in {
+            UserRole.DIRECTOR,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }

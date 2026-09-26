@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -163,11 +164,11 @@ def test_at_least_one_span_is_required(
 
 
 @pytest.mark.django_db
-def test_director_cannot_create_a_girder_job(
+def test_view_only_cannot_create_a_girder_job(
     api_client, site
 ):
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
 
     response = api_client.post(
         f"{reverse('project-monitor-api:girder-job-list')}?site={site.id}",
@@ -230,8 +231,8 @@ def test_girder_job_detail_and_delete(
         == status.HTTP_200_OK
     )
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     forbidden_delete = api_client.delete(
         reverse(
             "project-monitor-api:girder-job-detail",
@@ -489,7 +490,7 @@ def test_project_manager_can_update_span_vendor_and_po(
 
 
 @pytest.mark.django_db
-def test_director_cannot_update_span_vendor(
+def test_view_only_cannot_update_span_vendor(
     api_client, site
 ):
     pm = ProjectManagerUserFactory()
@@ -503,8 +504,8 @@ def test_director_cannot_update_span_vendor(
         "spans"
     ][0]["id"]
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
+    view_only = ProjectHoUserFactory()
+    api_client.force_authenticate(user=view_only)
     response = api_client.patch(
         reverse(
             "project-monitor-api:girder-span-update",

@@ -14,6 +14,12 @@ import {
 
 import { EmployeeManagementPage } from "./EmployeeManagementPage";
 
+const auth = vi.hoisted(() => ({ role: "ADMIN" }));
+
+vi.mock("../../../hooks/useAuth", () => ({
+  useAuth: () => ({ user: { role: auth.role } }),
+}));
+
 const hooks = vi.hoisted(() => ({
   useActivateEmployeeProfileMock: vi.fn(),
   useChangeEmployeeRoleMock: vi.fn(),
@@ -111,6 +117,7 @@ const filterOptions = {
   roles: [
     { value: "USER", label: "User" },
     { value: "ADMIN", label: "Admin" },
+    { value: "SUPER_ADMIN", label: "Super Admin" },
     { value: "EMPLOYEE", label: "Employee" },
   ],
   account_statuses: [
@@ -132,6 +139,7 @@ const filterOptions = {
 
 describe("EmployeeManagementPage", () => {
   beforeEach(() => {
+    auth.role = "ADMIN";
     Object.values(hooks).forEach((mock) =>
       mock.mockReset(),
     );
@@ -422,6 +430,46 @@ describe("EmployeeManagementPage", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    ["ADMIN", true],
+    ["SUPER_ADMIN", true],
+    ["DIRECTOR", false],
+  ])(
+    "%s sees the Super Admin role option: %s",
+    async (role, expected) => {
+      auth.role = role;
+      hooks.useCreateEmployeeProfileMock.mockReturnValue(
+        mutationMock(),
+      );
+      hooks.useCreateEmployeeAccountMock.mockReturnValue(
+        mutationMock(),
+      );
+
+      render(<EmployeeManagementPage />);
+
+      await userEvent.click(
+        screen.getByRole("button", {
+          name: /add employee/i,
+        }),
+      );
+
+      const panel = screen.getByRole("complementary");
+      const roleSelect =
+        within(panel).getByLabelText(/^role$/i);
+      const labels = within(roleSelect)
+        .getAllByRole("option")
+        .map((option) => option.textContent);
+
+      expect(labels.includes("Super Admin")).toBe(
+        expected,
+      );
+      // The Director still hands out every other role.
+      expect(labels).toEqual(
+        expect.arrayContaining(["User", "Admin", "Employee"]),
+      );
+    },
+  );
+
   it("auto-unchecks and disables account creation when role is set to Employee", async () => {
     hooks.useCreateEmployeeProfileMock.mockReturnValue(
       mutationMock(),
@@ -503,6 +551,93 @@ describe("EmployeeManagementPage", () => {
     expect(
       await screen.findByText("ResetPass123!"),
     ).toBeInTheDocument();
+  });
+
+  it("locks every account action on a Super Admin for a Director", async () => {
+    auth.role = "DIRECTOR";
+    const current = hooks.useEmployeeProfilesMock();
+    hooks.useEmployeeProfilesMock.mockReturnValue({
+      ...current,
+      data: {
+        ...current.data,
+        items: [
+          {
+            ...current.data.items[0],
+            id: "profile-root",
+            employee_id: "ROOT001",
+            full_name: "Sam Super",
+            role: "SUPER_ADMIN",
+          },
+        ],
+      },
+    });
+
+    render(<EmployeeManagementPage />);
+
+    // The table row itself already refuses Edit and Delete.
+    expect(
+      screen.getByRole("button", { name: /^edit/i }),
+    ).toBeDisabled();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /details/i }),
+    );
+
+    const drawer = screen.getByRole("complementary");
+    [
+      /reset password/i,
+      /unlock/i,
+      /suspend/i,
+      /reactivate/i,
+      /revoke sessions/i,
+      /deactivate/i,
+      /^edit/i,
+      /apply/i,
+    ].forEach((name) => {
+      expect(
+        within(drawer).getByRole("button", { name }),
+      ).toBeDisabled();
+    });
+    expect(
+      within(drawer).getByText(
+        /only a super admin can change a super admin account/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves a Super Admin account open to an Admin", async () => {
+    auth.role = "ADMIN";
+    const current = hooks.useEmployeeProfilesMock();
+    hooks.useEmployeeProfilesMock.mockReturnValue({
+      ...current,
+      data: {
+        ...current.data,
+        items: [
+          {
+            ...current.data.items[0],
+            role: "SUPER_ADMIN",
+          },
+        ],
+      },
+    });
+
+    render(<EmployeeManagementPage />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /details/i }),
+    );
+
+    const drawer = screen.getByRole("complementary");
+    expect(
+      within(drawer).getByRole("button", {
+        name: /reset password/i,
+      }),
+    ).toBeEnabled();
+    expect(
+      within(drawer).queryByText(
+        /only a super admin can change/i,
+      ),
+    ).toBeNull();
   });
 
   it("edits an employee profile", async () => {

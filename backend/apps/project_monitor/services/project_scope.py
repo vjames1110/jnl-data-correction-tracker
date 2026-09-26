@@ -6,8 +6,9 @@ Two kinds of people:
 **Company-wide roles** work on every site, with a fixed set of tasks
 each (``COMPANY_WIDE``):
 
-- Director: sees every task; read-only (but manages the masters).
-- Admin and Super Admin: see and enter every task.
+- Admin, Super Admin and Director: see and enter every task, unlock
+  DPR days, grant site access and manage the masters (the Director
+  has every entry right, like an Admin).
 - Project Management HO: sees the progress tasks, DPR & Bills and
   Reports on every site; enters only the project Overview (and
   manages the masters). Not HR salaries, machinery costs or Costing.
@@ -46,14 +47,19 @@ from apps.project_monitor.models import (
     ProjectSiteAccessRole as Task,
 )
 
-# Can see every task on every site (Director is read-only).
+# Can see every task on every site.
 ALL_SITE_ROLES = {
     UserRole.DIRECTOR,
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN,
 }
-# Can enter data on any site.
-ADMIN_ROLES = {UserRole.ADMIN, UserRole.SUPER_ADMIN}
+# Can enter data on any site, unlock days and manage who has which
+# task on a site (the Director has the same rights as an Admin here).
+ADMIN_ROLES = {
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.DIRECTOR,
+}
 # People whose access comes from grants.
 SCOPED_ROLES = set(GRANTABLE_USER_ROLES)
 
@@ -129,7 +135,7 @@ _EVERY_TASK = frozenset(ALL_TASKS)
 COMPANY_WIDE = {
     UserRole.SUPER_ADMIN: RoleTasks(_EVERY_TASK, _EVERY_TASK),
     UserRole.ADMIN: RoleTasks(_EVERY_TASK, _EVERY_TASK),
-    UserRole.DIRECTOR: RoleTasks(_EVERY_TASK, frozenset()),
+    UserRole.DIRECTOR: RoleTasks(_EVERY_TASK, _EVERY_TASK),
     UserRole.PROJECT_HO: RoleTasks(
         view=frozenset(
             PROGRESS_TASKS

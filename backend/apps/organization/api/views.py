@@ -20,8 +20,8 @@ from drf_spectacular.utils import (
 from apps.authentication.models import (
     AccountStatus,
     User,
-    UserRole,
 )
+from apps.authentication.roles import SETUP_MANAGER_ROLES
 from apps.core.api.responses import success_response
 from apps.organization.api.permissions import (
     HasOrganizationAccess,
@@ -61,11 +61,7 @@ def _is_admin_user(user) -> bool:
     return bool(
         user
         and user.is_authenticated
-        and user.role
-        in {
-            UserRole.SUPER_ADMIN,
-            UserRole.ADMIN,
-        }
+        and user.role in SETUP_MANAGER_ROLES
     )
 
 

@@ -34,6 +34,26 @@ ADMIN_CAPABILITIES = {
 }
 
 
+# The Director's Administration rights: user accounts, the
+# organization setup and Project Management setup. Everything else in
+# the Administration portal (dashboard, vouchers, reports, audit logs,
+# system settings) is not part of it.
+DIRECTOR_CAPABILITIES = {
+    AdminCapability.VIEW_USERS,
+    AdminCapability.CREATE_USERS,
+    AdminCapability.UPDATE_USERS,
+    AdminCapability.DEACTIVATE_USERS,
+    AdminCapability.RESET_USER_PASSWORD,
+    AdminCapability.UNLOCK_USERS,
+    AdminCapability.VIEW_SITES,
+    AdminCapability.MANAGE_SITES,
+    AdminCapability.VIEW_DEPARTMENTS,
+    AdminCapability.MANAGE_DEPARTMENTS,
+    AdminCapability.VIEW_PROJECT_MONITOR,
+    AdminCapability.MANAGE_PROJECT_MONITOR,
+}
+
+
 SUPER_ADMIN_ADDITIONAL_CAPABILITIES = {
     AdminCapability.VIEW_AUDIT_LOGS,
     AdminCapability.MANAGE_SYSTEM_SETTINGS,
@@ -44,6 +64,12 @@ def get_user_capabilities(
     *,
     user: User,
 ) -> list[str]:
+    if user.role == UserRole.DIRECTOR:
+        return sorted(
+            capability.value
+            for capability in DIRECTOR_CAPABILITIES
+        )
+
     capabilities = set(ADMIN_CAPABILITIES)
 
     if user.role == UserRole.SUPER_ADMIN:

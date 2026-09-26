@@ -144,9 +144,11 @@ def parse_employee_import_file(uploaded_file):
     )
 
 
-def preview_employee_import(uploaded_file):
+def preview_employee_import(uploaded_file, blocked_roles=()):
     rows = parse_employee_import_file(uploaded_file)
-    results = validate_import_rows(rows)
+    results = validate_import_rows(
+        rows, blocked_roles=blocked_roles
+    )
     valid_rows = [
         result for result in results if result.is_valid
     ]
@@ -172,9 +174,11 @@ def preview_employee_import(uploaded_file):
 
 
 @transaction.atomic
-def import_employee_rows(uploaded_file):
+def import_employee_rows(uploaded_file, blocked_roles=()):
     rows = parse_employee_import_file(uploaded_file)
-    results = validate_import_rows(rows)
+    results = validate_import_rows(
+        rows, blocked_roles=blocked_roles
+    )
     created_profiles = []
     failed_rows = []
 
@@ -220,7 +224,7 @@ def import_employee_rows(uploaded_file):
     }
 
 
-def validate_import_rows(rows):
+def validate_import_rows(rows, blocked_roles=()):
     seen_employee_ids = set()
     duplicate_employee_ids = set()
 
@@ -274,6 +278,11 @@ def validate_import_rows(rows):
             designation_map=designation_map,
             manager_map=manager_map,
         )
+        if result.normalized.get("role") in blocked_roles:
+            result.errors.append(
+                "Only a Super Admin can create a Super Admin "
+                "profile."
+            )
         results.append(result)
 
     return results
