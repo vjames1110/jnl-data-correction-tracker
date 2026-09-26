@@ -168,7 +168,7 @@ class NotificationTests(TransactionTestCase):
         BREVO_API_KEY="test-brevo-key",
         BREVO_API_URL="https://api.brevo.test/v3/smtp/email",
         BREVO_SENDER_EMAIL="correctionjnl@gmail.com",
-        BREVO_SENDER_NAME="JNL Correction Tracker",
+        BREVO_SENDER_NAME="JNLOps",
         APP_FRONTEND_BASE_URL="https://tracker.example.com",
     )
     @patch("apps.notifications.services.email.urlopen")
