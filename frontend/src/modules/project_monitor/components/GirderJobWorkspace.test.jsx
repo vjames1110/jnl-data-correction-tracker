@@ -87,18 +87,25 @@ describe("GirderJobWorkspace", () => {
     expect(screen.getByText("GAD Approval")).toBeInTheDocument();
   });
 
-  it("opens a span with its own details and chains as segments", () => {
+  it("opens a span with its own details and its chains as sections", () => {
     renderWorkspace();
 
     fireEvent.click(screen.getByRole("tab", { name: /S1/ }));
 
     expect(screen.getByText(/Vendor: ABC Steel/)).toBeInTheDocument();
     expect(screen.getByText(/PO: PO-9/)).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Bearings/ })).toBeInTheDocument();
-    expect(screen.getByText("Fabrication")).toBeInTheDocument();
+    // Its chains are section buttons of their own, under the span's.
+    expect(
+      screen.getByRole("tab", { name: /Bearings/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Fabrication:/ }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /Bearings/ }));
-    expect(screen.getByText("Bearing supply")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Bearing supply:/ }),
+    ).toBeInTheDocument();
   });
 
   it("edits a span vendor, PO and drawing number in place", () => {

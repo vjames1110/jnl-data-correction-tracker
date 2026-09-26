@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { GroupSegments } from "./GroupSegments";
+import { ActivityMatrix } from "./ActivityMatrix";
 import { ReviewAllControl } from "./ReviewAllControl";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
 
@@ -109,9 +109,8 @@ function SpanPanel({
         />
       ) : null}
 
-      <GroupSegments
+      <ActivityMatrix
         groups={span.groups}
-        label={`${span.label} sections`}
         canEdit={canEdit}
         {...tableProps}
       />
@@ -125,8 +124,8 @@ const BRIDGE = "bridge";
  * One bridge's full girder tracking, opened in place under its row:
  * segments for the bridge-level GAD and for each span, and inside a
  * span its own chains (girder, bearings, expansion joints) as
- * segments too. A span's vendor / PO / drawing number stay editable
- * (freely, per the prototype).
+ * horizontal status strips, one per chain. A span's vendor / PO /
+ * drawing number stay editable (freely, per the prototype).
  */
 export function GirderJobWorkspace({
   job,
@@ -191,9 +190,8 @@ export function GirderJobWorkspace({
           {...tableProps}
         />
       ) : (
-        <GroupSegments
+        <ActivityMatrix
           groups={job.groups}
-          label="Bridge sections"
           canEdit={canEdit}
           onSelectActivity={onSelectActivity}
           {...tableProps}

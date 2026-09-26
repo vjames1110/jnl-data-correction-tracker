@@ -2898,3 +2898,222 @@ table.pm-report__table td.pm-num {
   border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
   overflow-wrap: anywhere;
 }
+
+/* ---- Horizontal status matrix: structures, buildings, girders ---- */
+/* The colour plan: red not taken up, amber in progress, green complete,
+   striped brown on hold, grey not applicable. */
+.pm-cell--not-started {
+  color: #fff;
+  background: #d13f3f;
+}
+
+.pm-cell--in-progress {
+  color: #3a2800;
+  background: #f2b632;
+}
+
+.pm-cell--complete {
+  color: #fff;
+  background: #1b8548;
+}
+
+.pm-cell--hold {
+  color: #fff;
+  background: #9a3412
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.16) 0 6px,
+      transparent 6px 12px
+    );
+}
+
+.pm-cell--not-applicable {
+  color: #4b5563;
+  background: #e9ecf1;
+}
+
+.pm-matrix-stack {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pm-matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  color: var(--color-neutral-700);
+  font-size: 12px;
+  list-style: none;
+}
+
+.pm-matrix-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-matrix-legend__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.pm-matrix-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pm-matrix-block__caption {
+  margin: 0;
+  color: var(--color-neutral-600);
+  font-size: 12px;
+}
+
+.pm-matrix-wrap {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.pm-matrix {
+  width: max-content;
+  font-size: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.pm-matrix th {
+  padding: 8px 10px;
+  color: var(--color-neutral-800);
+  font-weight: 600;
+  text-align: left;
+  background: var(--color-primary-100);
+}
+
+.pm-matrix__colhead {
+  width: 108px;
+  min-width: 108px;
+  max-width: 132px;
+  line-height: 1.25;
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.pm-matrix__corner,
+.pm-matrix__rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 128px;
+  max-width: 190px;
+  border-right: 1px solid var(--color-neutral-200);
+}
+
+.pm-matrix__rowhead {
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-neutral-100);
+  vertical-align: middle;
+}
+
+.pm-matrix__rowhead strong,
+.pm-matrix__rowhead span {
+  display: block;
+}
+
+.pm-matrix__rowhead span {
+  color: var(--color-neutral-600);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.pm-matrix__cell {
+  width: 108px;
+  min-width: 108px;
+  height: 58px;
+  padding: 0;
+  border-right: 1px solid var(--color-white);
+  border-bottom: 1px solid var(--color-white);
+}
+
+.pm-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 58px;
+  padding: 6px 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  border: 0;
+  cursor: pointer;
+}
+
+button.pm-cell:hover {
+  filter: brightness(1.08);
+}
+
+button.pm-cell:focus-visible {
+  outline: 2px solid var(--color-primary-700);
+  outline-offset: -3px;
+}
+
+/* The task whose popup is open. */
+.pm-cell--active {
+  box-shadow:
+    inset 0 0 0 3px var(--color-white),
+    inset 0 0 0 5px var(--color-primary-700);
+}
+
+.pm-cell--empty {
+  background: var(--color-neutral-100);
+  cursor: default;
+}
+
+.pm-cell__detail {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.pm-cell__marks {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+}
+
+.pm-cell__bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: rgba(58, 40, 0, 0.2);
+}
+
+.pm-cell__bar > span {
+  display: block;
+  height: 100%;
+  background: #3a2800;
+}
+
+/* Action History / review icons in the corner of the update popup. */
+.pm-update-panel__head .pm-row-tools {
+  flex: none;
+}

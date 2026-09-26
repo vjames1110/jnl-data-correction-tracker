@@ -113,7 +113,12 @@ function ToolHeader({ eyebrow, title, onClose }) {
   );
 }
 
-function ReviewBody({ activity, onReview, reviewStatus, onClose }) {
+export function ReviewBody({
+  activity,
+  onReview,
+  reviewStatus,
+  onClose,
+}) {
   const [remarks, setRemarks] = useState("");
 
   const handleSubmit = (event) => {

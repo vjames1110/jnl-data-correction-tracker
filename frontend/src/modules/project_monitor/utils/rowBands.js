@@ -23,6 +23,22 @@ export function clusterKey(name) {
     : null;
 }
 
+const CLUSTER_PARTS = /^\s*([A-Za-z]{1,6}\s?\d+)\s*[–—-]\s+(\S.*?)\s*$/;
+
+/**
+ * "S1 - Bearings" -> ``{label: "S1", rest: "Bearings"}``; null for a
+ * name that does not repeat per span.
+ */
+export function clusterParts(name) {
+  const match = CLUSTER_PARTS.exec(name || "");
+  return match
+    ? {
+        label: match[1].replace(/\s+/g, ""),
+        rest: match[2],
+      }
+    : null;
+}
+
 /**
  * ``[{band: "a" | "b" | null, start: boolean}]`` per row, in order.
  * ``start`` marks the first row of every cluster after the first.
