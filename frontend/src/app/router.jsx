@@ -75,6 +75,7 @@ import { DirectorRoute } from "../routes/DirectorRoute";
 import { GuestRoute } from "../routes/GuestRoute";
 import { ProtectedRoute } from "../routes/ProtectedRoute";
 import { ProjectManagerRoute } from "../routes/ProjectManagerRoute";
+import { ProjectMasterRoute } from "../routes/ProjectMasterRoute";
 import { ResponsibleRoute } from "../routes/ResponsibleRoute";
 import { StoreHoRoute } from "../routes/StoreHoRoute";
 import { StoreRoute } from "../routes/StoreRoute";
@@ -324,6 +325,23 @@ export const router = createBrowserRouter([
                   <ProjectMonitorReportPage />
                 ),
               },
+              {
+                element: <ProjectMasterRoute />,
+                children: [
+                  {
+                    path: "/project-manager/structure-types",
+                    element: (
+                      <StructureTypeManagementPage />
+                    ),
+                  },
+                  {
+                    path: "/project-manager/rdso-span-library",
+                    element: (
+                      <RdsoSpanLibraryPage />
+                    ),
+                  },
+                ],
+              },
             ],
           },
         ],
@@ -441,6 +459,23 @@ export const router = createBrowserRouter([
               {
                 path: "/director/project-monitor/costing",
                 element: <CostingPage />,
+              },
+              {
+                element: <ProjectMasterRoute />,
+                children: [
+                  {
+                    path: "/director/project-monitor/structure-types",
+                    element: (
+                      <StructureTypeManagementPage />
+                    ),
+                  },
+                  {
+                    path: "/director/project-monitor/rdso-span-library",
+                    element: (
+                      <RdsoSpanLibraryPage />
+                    ),
+                  },
+                ],
               },
               {
                 path: "/director/export",

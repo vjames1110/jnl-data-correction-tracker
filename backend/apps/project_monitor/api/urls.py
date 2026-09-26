@@ -6,6 +6,8 @@ from apps.project_monitor.api.costing_views import (
     CostingAccessAPIView,
     CostingGlanceAPIView,
     CostingTableAPIView,
+    ItemLinkDetailAPIView,
+    ItemLinkListAPIView,
     MaterialRateDetailAPIView,
     MaterialRateListCreateAPIView,
 )
@@ -19,7 +21,10 @@ from apps.project_monitor.api.dpr_views import (
     DprContractDetailsAPIView,
     DprEntryDetailAPIView,
     DprEntryListCreateAPIView,
+    DprEscalationDetailAPIView,
+    DprEscalationListCreateAPIView,
     DprGridAPIView,
+    DprMeasurementAPIView,
     DprItemDetailAPIView,
     DprItemImportAPIView,
     DprItemListCreateAPIView,
@@ -42,6 +47,10 @@ from apps.project_monitor.api.hr_views import (
     HrSummaryAPIView,
     HrTemplateAPIView,
     HrUploadAPIView,
+    HrStaffTemplateAPIView,
+    HrStaffUploadAPIView,
+    HrMusterTemplateAPIView,
+    HrMusterUploadAPIView,
 )
 from apps.project_monitor.api.machinery_views import (
     FuelDetailAPIView,
@@ -126,9 +135,24 @@ urlpatterns = [
         name="dpr-item-detail",
     ),
     path(
+        "dpr/escalations/",
+        DprEscalationListCreateAPIView.as_view(),
+        name="dpr-escalation-list",
+    ),
+    path(
+        "dpr/escalations/<uuid:pk>/",
+        DprEscalationDetailAPIView.as_view(),
+        name="dpr-escalation-detail",
+    ),
+    path(
         "dpr/grid/",
         DprGridAPIView.as_view(),
         name="dpr-grid",
+    ),
+    path(
+        "dpr/measurements/",
+        DprMeasurementAPIView.as_view(),
+        name="dpr-measurements",
     ),
     path(
         "dpr/entries/",
@@ -226,6 +250,26 @@ urlpatterns = [
         name="hr-upload",
     ),
     path(
+        "hr/staff-template/",
+        HrStaffTemplateAPIView.as_view(),
+        name="hr-staff-template",
+    ),
+    path(
+        "hr/staff-upload/",
+        HrStaffUploadAPIView.as_view(),
+        name="hr-staff-upload",
+    ),
+    path(
+        "hr/muster-template/",
+        HrMusterTemplateAPIView.as_view(),
+        name="hr-muster-template",
+    ),
+    path(
+        "hr/muster-upload/",
+        HrMusterUploadAPIView.as_view(),
+        name="hr-muster-upload",
+    ),
+    path(
         "machinery/access/",
         MachineryAccessAPIView.as_view(),
         name="machinery-access",
@@ -299,6 +343,16 @@ urlpatterns = [
         "costing/rates/<uuid:pk>/",
         MaterialRateDetailAPIView.as_view(),
         name="costing-rate-detail",
+    ),
+    path(
+        "costing/links/",
+        ItemLinkListAPIView.as_view(),
+        name="costing-link-list",
+    ),
+    path(
+        "costing/links/<uuid:pk>/",
+        ItemLinkDetailAPIView.as_view(),
+        name="costing-link-detail",
     ),
     path(
         "costing/production/",

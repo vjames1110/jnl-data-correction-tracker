@@ -272,6 +272,18 @@ class Site(BusinessModel):
             "last RA bill raised before this system."
         ),
     )
+    tender_percent = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor finance: the tender percentage "
+            "over (+) or under (-) the authority rate, applied "
+            "to every BOQ item that has an authority rate and "
+            "no percentage of its own."
+        ),
+    )
 
     class Meta:
         db_table = "organization_site"

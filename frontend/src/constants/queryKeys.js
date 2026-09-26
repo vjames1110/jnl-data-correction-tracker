@@ -339,6 +339,12 @@ export const queryKeys = Object.freeze({
     "dashboard",
     params,
   ],
+  reconciliationCardDetail: (kind, params) => [
+    "reconciliation",
+    "dashboard-card",
+    kind,
+    params,
+  ],
   reconciliationStatementPack: (params) => [
     "reconciliation",
     "statement-pack",

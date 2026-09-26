@@ -16,6 +16,7 @@ import {
   SESSION_END_REASONS,
 } from "../../../constants/auth";
 import {
+  landingPath,
   portalBasePath,
 } from "../../../constants/roles";
 import { InlineAlert } from "../../../components/feedback/InlineAlert";
@@ -108,7 +109,9 @@ export function LoginPage() {
       const base = portalBasePath(
         loginData.user.role,
       );
-      const fallbackPath = `${base}/dashboard`;
+      const fallbackPath = landingPath(
+        loginData.user.role,
+      );
       const canUseRequestedPath =
         requestedPath &&
         requestedPath.startsWith(`${base}/`);

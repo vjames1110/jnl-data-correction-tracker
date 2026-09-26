@@ -6,7 +6,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -26,7 +25,7 @@ import {
 import { AddStructureForm } from "../components/AddStructureForm";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
-import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
+import { ActivityWorkspace } from "../components/ActivityWorkspace";
 import { ItemGroupSection } from "../components/ItemGroupSection";
 import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
@@ -58,7 +57,7 @@ export function StructuresPage() {
     !siteTasks.isLoading &&
     !siteTasks.has("STRUCTURES");
   const canEdit =
-    isProjectEntryRole(user?.role) && !lacksTask;
+    !lacksTask && siteTasks.canEnter("STRUCTURES");
 
   const createStructure = useCreateStructure(
     selectedSite,
@@ -120,15 +119,6 @@ export function StructuresPage() {
     );
     return map;
   }, [structuresQuery.data]);
-
-  const selectedStructure = useMemo(
-    () =>
-      (structuresQuery.data || []).find(
-        (structure) =>
-          structure.id === selectedStructureId,
-      ) || null,
-    [structuresQuery.data, selectedStructureId],
-  );
 
   const handleSaveEdit = (payload) => {
     updateStructure.mutate(
@@ -327,9 +317,51 @@ export function StructuresPage() {
                   ) || []
                 }
                 onView={(id) => {
-                  setSelectedStructureId(id);
+                  setSelectedStructureId((current) =>
+                    current === id ? null : id,
+                  );
                   setActiveActivityId(null);
                 }}
+                expandedId={selectedStructureId}
+                renderExpanded={(structure) => (
+                  <ActivityWorkspace
+                    item={structure}
+                    metaLine={`${
+                      structure.chainage_km != null
+                        ? `Ch. ${structure.chainage_km} km`
+                        : "Chainage not set"
+                    } · ${structure.overall_progress.done}/${
+                      structure.overall_progress.total
+                    } activities complete`}
+                    activeActivityId={activeActivityId}
+                    onSelectActivity={setActiveActivityId}
+                    canEdit={canEdit}
+                    onSubmitUpdate={(activityId, payload) =>
+                      updateActivity.mutate({
+                        activityId,
+                        payload,
+                      })
+                    }
+                    updateStatus={updateActivity}
+                    onReviewActivity={(activityId, remarks) =>
+                      reviewActivity.mutate({
+                        activityId,
+                        payload: { remarks },
+                      })
+                    }
+                    reviewActivityStatus={reviewActivity}
+                    onReviewAll={(remarks, options) =>
+                      reviewStructure.mutate(
+                        {
+                          structureId: structure.id,
+                          payload: { remarks },
+                        },
+                        options,
+                      )
+                    }
+                    reviewAllStatus={reviewStructure}
+                  />
+                )}
                 onEdit={setEditingStructure}
                 onDelete={handleDelete}
                 canEdit={canEdit}
@@ -339,61 +371,6 @@ export function StructuresPage() {
           </SurfaceCard>
         </>
       )}
-
-      <ActivitySheetDrawer
-        item={selectedStructure}
-        eyebrow={
-          selectedStructure?.structure_type_name
-        }
-        metaLine={
-          selectedStructure
-            ? `${
-                selectedStructure.chainage_km !=
-                null
-                  ? `Ch. ${selectedStructure.chainage_km} km`
-                  : "Chainage not set"
-              } · ${
-                selectedStructure
-                  .overall_progress.done
-              }/${
-                selectedStructure
-                  .overall_progress.total
-              } activities complete`
-            : ""
-        }
-        activeActivityId={activeActivityId}
-        onSelectActivity={setActiveActivityId}
-        canEdit={canEdit}
-        onClose={() => {
-          setSelectedStructureId(null);
-          setActiveActivityId(null);
-        }}
-        onSubmitUpdate={(activityId, payload) =>
-          updateActivity.mutate({
-            activityId,
-            payload,
-          })
-        }
-        updateStatus={updateActivity}
-        onReviewActivity={(activityId, remarks) =>
-          reviewActivity.mutate({
-            activityId,
-            payload: { remarks },
-          })
-        }
-        reviewActivityStatus={reviewActivity}
-        onReviewAll={(remarks, options) =>
-          reviewStructure.mutate(
-            {
-              structureId:
-                selectedStructure?.id,
-              payload: { remarks },
-            },
-            options,
-          )
-        }
-        reviewAllStatus={reviewStructure}
-      />
     </div>
   );
 }

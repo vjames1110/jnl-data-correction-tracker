@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -316,32 +317,75 @@ def test_unused_structure_type_can_be_deleted(
 
 
 @pytest.mark.django_db
-def test_director_cannot_delete_a_structure_type(
+def test_director_can_add_and_remove_structure_types(
     api_client,
 ):
-    admin = AdminUserFactory()
-    api_client.force_authenticate(user=admin)
-    api_client.post(
+    api_client.force_authenticate(user=DirectorUserFactory())
+
+    created = api_client.post(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
         _fob_payload(),
         format="json",
     )
+    assert created.status_code == status.HTTP_200_OK
     fob_id = StructureTypeDefinition.objects.get(
         code="FOB"
     ).id
 
-    director = DirectorUserFactory()
-    api_client.force_authenticate(user=director)
-    response = api_client.delete(
+    deleted = api_client.delete(
         reverse(
             "project-monitor-api:structure-type-detail",
             args=[fob_id],
         ),
+    )
+    assert deleted.status_code == status.HTTP_200_OK
+    assert not StructureTypeDefinition.objects.filter(
+        code="FOB"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_project_ho_can_add_structure_types(api_client):
+    api_client.force_authenticate(user=ProjectHoUserFactory())
+
+    response = api_client.post(
+        reverse(
+            "project-monitor-api:structure-type-list"
+        ),
+        _fob_payload(),
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert StructureTypeDefinition.objects.filter(
+        code="FOB"
+    ).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "factory",
+    [ProjectManagerUserFactory, UserFactory],
+)
+def test_everyone_else_cannot_write_structure_types(
+    api_client, factory
+):
+    api_client.force_authenticate(user=factory())
+
+    response = api_client.post(
+        reverse(
+            "project-monitor-api:structure-type-list"
+        ),
+        _fob_payload(),
+        format="json",
     )
 
     assert (
         response.status_code
         == status.HTTP_403_FORBIDDEN
     )
+    assert not StructureTypeDefinition.objects.filter(
+        code="FOB"
+    ).exists()

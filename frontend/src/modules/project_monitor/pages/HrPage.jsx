@@ -1,4 +1,4 @@
-import { CalendarDays, HardHat, Users } from "lucide-react";
+import { CalendarDays, HardHat, Upload, Users } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -6,6 +6,7 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { isAdminRole, USER_ROLES } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -15,6 +16,7 @@ import {
   useHrAccess,
   useHrSummary,
 } from "../../../hooks/useProjectMonitor";
+import { HrBulkUploadPanel } from "../components/HrBulkUploadPanel";
 import { HrDayTable } from "../components/HrDayTable";
 import { LabourPanel } from "../components/LabourPanel";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
@@ -24,6 +26,12 @@ import {
   apiErrorMessage,
   todayIso,
 } from "../utils/finance";
+
+// One page, two scopes: a single site, or an all-sites bulk upload.
+const SCOPES = [
+  { key: "site", label: "One site", icon: Users },
+  { key: "bulk", label: "Bulk upload - all sites", icon: Upload },
+];
 
 const SUB_TABS = [
   { key: "cost", label: "Day-wise cost", icon: CalendarDays },
@@ -48,6 +56,15 @@ export function HrPage() {
     todayIso().slice(0, 7),
   );
   const [subTab, setSubTab] = useState("cost");
+  // The HR Department (and Admins) can upload for every site at
+  // once; for the department that is the main job, so it opens there.
+  const canBulk =
+    user?.role === USER_ROLES.HR_DEPARTMENT ||
+    isAdminRole(user?.role);
+  const [scope, setScope] = useState(() =>
+    user?.role === USER_ROLES.HR_DEPARTMENT ? "bulk" : "site",
+  );
+  const bulkMode = canBulk && scope === "bulk";
 
   const sitesQuery = useProjectSites();
   const accessQuery = useHrAccess(selectedSite);
@@ -123,7 +140,20 @@ export function HrPage() {
         />
       </div>
 
-      {!selectedSite ? (
+      {canBulk ? (
+        <WorkspaceSwitch
+          label="HR scope"
+          value={scope}
+          onChange={setScope}
+          options={SCOPES}
+        />
+      ) : null}
+
+      {bulkMode ? (
+        <SurfaceCard>
+          <HrBulkUploadPanel siteId={selectedSite} />
+        </SurfaceCard>
+      ) : !selectedSite ? (
         <EmptyState
           title="Pick a project to get started"
           message="Choose a project/site above to see its labour and staff cost."

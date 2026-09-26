@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.contenttypes.fields import (
     GenericForeignKey,
@@ -1537,6 +1539,34 @@ class DprItem(
     )
     is_active = models.BooleanField(default=True)
     row_order = models.PositiveIntegerField(default=0)
+    # Railway BOQ structure. A heading (group / sub-group) has no
+    # quantity, rate or DPR entries - it only rolls up its children.
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="children",
+    )
+    is_heading = models.BooleanField(default=False)
+    # The Railway estimated / schedule rate. When set, ``rate`` (the
+    # bid rate the contractor is paid at) is worked out from it and the
+    # tender percentage (see ``compute_bid_rate``); when blank, ``rate``
+    # is whatever was typed, exactly as before.
+    authority_rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    # This item's own percentage over (+) / under (-) the authority
+    # rate; blank = use the contract-wide ``Site.tender_percent``.
+    tender_percent = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "project_monitor_dpr_item"
@@ -1574,10 +1604,123 @@ class DprItem(
             )
         if self.rate < 0:
             errors["rate"] = "Rate cannot be negative."
+        if (
+            self.authority_rate is not None
+            and self.authority_rate < 0
+        ):
+            errors["authority_rate"] = (
+                "The authority rate cannot be negative."
+            )
+        errors.update(self._hierarchy_errors())
         if errors:
             raise ValidationError(errors)
 
+    MAX_LEVEL = 3
+
+    def level(self) -> int:
+        """1 for a top-level row, 2 under a group, 3 under a sub-group."""
+        depth, node = 1, self
+        seen = {self.pk}
+        while node.parent_id:
+            node = node.parent
+            if node.pk in seen:
+                break
+            seen.add(node.pk)
+            depth += 1
+        return depth
+
+    def _height(self) -> int:
+        """1 for a row with nothing under it, else 1 + its deepest child."""
+        return 1 + max(
+            (child._height() for child in self.children.all()),
+            default=0,
+        )
+
+    def _is_above(self, other) -> bool:
+        """True when ``other`` is this row's descendant (or itself)."""
+        node, seen = other, set()
+        while node is not None and node.pk not in seen:
+            if node.pk == self.pk:
+                return True
+            seen.add(node.pk)
+            node = node.parent
+        return False
+
+    def compute_bid_rate(self):
+        """
+        authority rate x (1 + percentage / 100), rounded to paise;
+        ``None`` for an item with no authority rate (its ``rate`` is
+        typed by hand). The percentage is the item's own, else the
+        contract-wide tender percentage, else 0.
+        """
+        if self.authority_rate is None:
+            return None
+        percent = self.tender_percent
+        if percent is None:
+            percent = getattr(self.site, "tender_percent", None)
+        percent = percent or 0
+        return (
+            self.authority_rate * (1 + Decimal(percent) / 100)
+        ).quantize(Decimal("0.01"))
+
+    def _hierarchy_errors(self) -> dict:
+        errors = {}
+        if self.parent_id:
+            parent = self.parent
+            if parent.site_id != self.site_id:
+                errors["parent"] = (
+                    "The group must be on the same project."
+                )
+            elif not parent.is_heading:
+                errors["parent"] = (
+                    "Items can only go under a group "
+                    "(heading), not under another item."
+                )
+            elif parent.pk == self.pk:
+                errors["parent"] = "An item cannot be its own group."
+            elif self._is_above(parent):
+                errors["parent"] = (
+                    "A group cannot go under one of its own "
+                    "items."
+                )
+            elif parent.level() + self._height() > self.MAX_LEVEL:
+                errors["parent"] = (
+                    f"Groups go {self.MAX_LEVEL} levels deep at "
+                    "most."
+                )
+        if self.is_heading:
+            if (
+                self.scope_qty
+                or self.rate
+                or self.authority_rate
+                or self.concrete_per_unit
+                or self.tmt_kg_per_unit
+            ):
+                errors["is_heading"] = (
+                    "A group has no quantity, rate or material "
+                    "use - it only adds up the items under it."
+                )
+            elif self.pk and (
+                self.entries.exists()
+                or self.bill_lines.exists()
+                or self.measurements.exists()
+            ):
+                errors["is_heading"] = (
+                    "This item already has DPR entries, "
+                    "measurements or bill lines, so it cannot "
+                    "become a group."
+                )
+        elif self.pk and self.children.exists():
+            errors["is_heading"] = (
+                "This group has items under it, so it must stay "
+                "a group."
+            )
+        return errors
+
     def save(self, *args, **kwargs):
+        bid = self.compute_bid_rate()
+        if bid is not None:
+            self.rate = bid
         self.full_clean()
         return super().save(*args, **kwargs)
 
@@ -1655,6 +1798,91 @@ class DprEntry(
     @property
     def value(self):
         return self.qty * self.rate
+
+
+class DprMeasurement(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One line of the measurement sheet behind a day's quantity on an
+    item: what was measured, how many, and its length / breadth /
+    depth (any left blank are not multiplied in; a line with only
+    ``nos`` is a plain count). ``is_deduction`` lines (openings,
+    overlaps) count negatively. Supporting detail only - the DPR
+    quantity itself is what is typed in the grid and is never
+    changed by these lines.
+    """
+
+    item = models.ForeignKey(
+        DprItem,
+        on_delete=models.PROTECT,
+        related_name="measurements",
+    )
+    date = models.DateField(db_index=True)
+    description = models.CharField(max_length=200, blank=True)
+    nos = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    length = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    breadth = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    depth = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    is_deduction = models.BooleanField(default=False)
+    remarks = models.CharField(max_length=300, blank=True)
+    row_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "project_monitor_dpr_measurement"
+        ordering = ["date", "row_order"]
+        indexes = [
+            models.Index(
+                fields=["item", "date"],
+                name="pm_dpr_meas_item_date_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.item_id} - {self.date} - {self.quantity}"
+
+    @property
+    def quantity(self):
+        """nos x the dimensions that are filled, negative if a deduction."""
+        factors = [
+            value
+            for value in (
+                self.nos,
+                self.length,
+                self.breadth,
+                self.depth,
+            )
+            if value is not None
+        ]
+        if not factors:
+            return Decimal("0.000")
+        result = Decimal("1")
+        for factor in factors:
+            result *= factor
+        result = result.quantize(Decimal("0.001"))
+        return -result if self.is_deduction else result
 
 
 class DprDayUnlock(
@@ -1903,6 +2131,10 @@ class StaffMember(
         on_delete=models.CASCADE,
         related_name="staff_members",
     )
+    # Optional employee / payroll code: what an HR Excel sheet keys a
+    # person by, so a bulk upload can find them again. Unique per site
+    # when given.
+    staff_code = models.CharField(max_length=50, blank=True)
     name = models.CharField(max_length=150)
     designation = models.CharField(max_length=100, blank=True)
     monthly_salary = models.DecimalField(
@@ -1942,6 +2174,28 @@ class StaffMember(
                     )
                 }
             )
+        # One code, one person per site. (Not a database constraint:
+        # a salary revision is a second row for the same person, so
+        # the code legitimately repeats - the name must not.)
+        code = (self.staff_code or "").strip()
+        if code and self.site_id:
+            clash = (
+                StaffMember.objects.filter(
+                    site_id=self.site_id, staff_code__iexact=code
+                )
+                .exclude(pk=self.pk)
+                .exclude(name__iexact=(self.name or "").strip())
+                .first()
+            )
+            if clash:
+                raise ValidationError(
+                    {
+                        "staff_code": (
+                            f'The code "{code}" already belongs '
+                            f"to {clash.name} on this site."
+                        )
+                    }
+                )
 
 
 class StaffDayOverride(
@@ -2325,3 +2579,45 @@ class ConcreteProduction(
 
     def __str__(self) -> str:
         return f"{self.site_id} - {self.date} - {self.cum} cum"
+
+
+class RateEscalation(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A dated escalation on the contract bid rates. ``percent`` is the
+    TOTAL escalation over the bid rate from ``effective_from`` (not an
+    increment on the previous step): new DPR entries and bills from
+    that date are priced at bid rate x (1 + percent / 100). Work
+    already recorded keeps the rate it was entered at.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="rate_escalations",
+    )
+    effective_from = models.DateField()
+    percent = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+    )
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        db_table = "project_monitor_rate_escalation"
+        ordering = ["effective_from"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["site", "effective_from"],
+                name="pm_rate_escalation_uniq",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.site_id} - from {self.effective_from} "
+            f"+{self.percent}%"
+        )

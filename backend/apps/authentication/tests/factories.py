@@ -88,3 +88,26 @@ def ProjectInchargeUserFactory(**kwargs):
     kwargs.setdefault("must_change_password", False)
 
     return UserFactory(**kwargs)
+
+
+def ProjectHoUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.PROJECT_HO)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
+
+
+def HrDepartmentUserFactory(**kwargs):
+    kwargs.setdefault("role", UserRole.HR_DEPARTMENT)
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)
+
+
+def MachineryDepartmentUserFactory(**kwargs):
+    kwargs.setdefault(
+        "role", UserRole.MACHINERY_DEPARTMENT
+    )
+    kwargs.setdefault("must_change_password", False)
+
+    return UserFactory(**kwargs)

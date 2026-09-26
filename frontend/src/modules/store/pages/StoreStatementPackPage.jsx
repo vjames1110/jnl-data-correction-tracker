@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Download, Printer } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
@@ -28,10 +29,14 @@ function SiteStatement({ statement }) {
 }
 
 export function StoreStatementPackPage() {
-  const [monthOverride, setMonthOverride] =
-    useState("");
-  const [selectedSite, setSelectedSite] =
-    useState("");
+  // The Reports page opens a site's statement with ?site=&month=.
+  const [searchParams] = useSearchParams();
+  const [monthOverride, setMonthOverride] = useState(
+    () => searchParams.get("month") || "",
+  );
+  const [selectedSite, setSelectedSite] = useState(
+    () => searchParams.get("site") || "",
+  );
   const sitesQuery = useSitesDropdown();
   const params = useMemo(
     () => ({

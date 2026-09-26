@@ -1,4 +1,4 @@
-import { CalendarDays, Fuel, Truck } from "lucide-react";
+import { CalendarDays, Fuel, Truck, Upload } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -6,6 +6,7 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { isAdminRole, USER_ROLES } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -16,6 +17,7 @@ import {
   useMachinerySummary,
 } from "../../../hooks/useProjectMonitor";
 import { MachineUsagePanel } from "../components/MachineUsagePanel";
+import { MachineryBulkUploadPanel } from "../components/MachineryBulkUploadPanel";
 import { MachineryDayTable } from "../components/MachineryDayTable";
 import { MachinesPanel } from "../components/MachinesPanel";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
@@ -24,6 +26,12 @@ import {
   apiErrorMessage,
   todayIso,
 } from "../utils/finance";
+
+// One page, two scopes: a single site, or an all-sites bulk upload.
+const SCOPES = [
+  { key: "site", label: "One site", icon: Truck },
+  { key: "bulk", label: "Bulk upload - all sites", icon: Upload },
+];
 
 const SUB_TABS = [
   { key: "cost", label: "Day-wise cost", icon: CalendarDays },
@@ -48,6 +56,17 @@ export function MachineryPage() {
     todayIso().slice(0, 7),
   );
   const [subTab, setSubTab] = useState("cost");
+  // The Machinery Department (and Admins) can upload for every site
+  // at once; for the department that is the main job.
+  const canBulk =
+    user?.role === USER_ROLES.MACHINERY_DEPARTMENT ||
+    isAdminRole(user?.role);
+  const [scope, setScope] = useState(() =>
+    user?.role === USER_ROLES.MACHINERY_DEPARTMENT
+      ? "bulk"
+      : "site",
+  );
+  const bulkMode = canBulk && scope === "bulk";
 
   const sitesQuery = useProjectSites();
   const accessQuery = useMachineryAccess(selectedSite);
@@ -123,7 +142,20 @@ export function MachineryPage() {
         />
       </div>
 
-      {!selectedSite ? (
+      {canBulk ? (
+        <WorkspaceSwitch
+          label="Machinery scope"
+          value={scope}
+          onChange={setScope}
+          options={SCOPES}
+        />
+      ) : null}
+
+      {bulkMode ? (
+        <SurfaceCard>
+          <MachineryBulkUploadPanel siteId={selectedSite} />
+        </SurfaceCard>
+      ) : !selectedSite ? (
         <EmptyState
           title="Pick a project to get started"
           message="Choose a project/site above to see its machinery and fuel cost."

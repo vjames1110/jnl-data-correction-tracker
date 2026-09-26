@@ -29,6 +29,7 @@ from apps.project_monitor.models import (
     DprItem,
     RaBillLine,
 )
+from apps.project_monitor.services import boq
 
 DPR_EDIT_WINDOW_DAYS = 3
 MAJOR_ITEM_PERCENT = Decimal("2")
@@ -147,54 +148,121 @@ def day_value_map(site, start, end) -> dict:
     return {row["date"]: row["sum_value"] for row in rows}
 
 
-def build_item_rows(site) -> list[dict]:
+def build_item_rows(site, today=None) -> list[dict]:
     """
-    Every DPR item with the figures the grid shows: amount, share of
-    the contract value (``is_major`` = 2% or more; display only), and
-    executed/billed/balance quantities.
+    Every DPR item, in tree order, with the figures the grid shows:
+    amount, share of the contract value (``is_major`` = 2% or more;
+    display only), executed/billed/balance quantities and the BOQ
+    columns (authority rate, tender %, bid rate, escalation and the
+    rate new entries use today). A group (heading) row carries the
+    roll-up of the items under it.
     """
+    today = today or timezone.localdate()
     contract = contract_value(site)
     executed = executed_totals(site)
     billed = billed_qty_map(site)
+    series = boq.escalation_series(site)
+    escalation_today = boq.escalation_percent(series, today)
+
+    items = boq.tree_order(list(DprItem.objects.filter(site=site)))
+    level_of = boq.levels(items)
+    children_of: dict = {}
+    for item in items:
+        children_of.setdefault(item.parent_id, []).append(item.id)
 
     rows = []
-    for item in DprItem.objects.filter(site=site):
-        exec_qty, exec_value = executed.get(
-            item.id, (ZERO, ZERO)
+    by_id = {}
+    for item in items:
+        exec_qty, exec_value = (
+            (ZERO, ZERO)
+            if item.is_heading
+            else executed.get(item.id, (ZERO, ZERO))
         )
         amount = item.amount
-        percent = (
-            amount / contract * 100
-            if contract
+        contract_pct = site.tender_percent
+        applied_pct = (
+            (
+                item.tender_percent
+                if item.tender_percent is not None
+                else contract_pct
+            )
+            if item.authority_rate is not None
             else None
         )
-        billed_qty = billed.get(item.id, ZERO)
-        rows.append(
-            {
-                "id": item.id,
-                "item_no": item.item_no,
-                "description": item.description,
-                "unit": item.unit,
-                "scope_qty": item.scope_qty,
-                "rate": item.rate,
-                "amount": amount,
-                "percent_of_contract": (
-                    round(percent, 2)
-                    if percent is not None
-                    else None
-                ),
-                "is_major": (
-                    percent is not None
-                    and percent >= MAJOR_ITEM_PERCENT
-                ),
-                "concrete_per_unit": item.concrete_per_unit,
-                "tmt_kg_per_unit": item.tmt_kg_per_unit,
-                "is_active": item.is_active,
-                "executed_qty": exec_qty,
-                "executed_value": exec_value,
-                "billed_qty": billed_qty,
-                "balance_qty": item.scope_qty - exec_qty,
-            }
+        row = {
+            "id": item.id,
+            "parent_id": item.parent_id,
+            "level": level_of[item.id],
+            "is_heading": item.is_heading,
+            "has_children": item.id in children_of,
+            "item_no": item.item_no,
+            "description": item.description,
+            "unit": item.unit,
+            "scope_qty": item.scope_qty,
+            "rate": item.rate,
+            "bid_rate": item.rate,
+            "authority_rate": item.authority_rate,
+            "authority_amount": (
+                item.scope_qty * item.authority_rate
+                if item.authority_rate is not None
+                else None
+            ),
+            "tender_percent": item.tender_percent,
+            "applied_tender_percent": applied_pct,
+            "escalation_percent": escalation_today,
+            "effective_rate": (
+                boq.effective_rate(item, today, series)
+                if not item.is_heading
+                else ZERO
+            ),
+            "amount": amount,
+            "concrete_per_unit": item.concrete_per_unit,
+            "tmt_kg_per_unit": item.tmt_kg_per_unit,
+            "is_active": item.is_active,
+            "executed_qty": exec_qty,
+            "executed_value": exec_value,
+            "billed_qty": (
+                ZERO
+                if item.is_heading
+                else billed.get(item.id, ZERO)
+            ),
+            "balance_qty": (
+                ZERO
+                if item.is_heading
+                else item.scope_qty - exec_qty
+            ),
+        }
+        by_id[item.id] = row
+        rows.append(row)
+
+    def roll_up(item_id):
+        row = by_id[item_id]
+        if not row["is_heading"]:
+            return row["amount"], row["executed_value"]
+        amount = executed_value = ZERO
+        for child_id in children_of.get(item_id, []):
+            child_amount, child_value = roll_up(child_id)
+            amount += child_amount
+            executed_value += child_value
+        row["amount"] = amount
+        row["executed_value"] = executed_value
+        return amount, executed_value
+
+    for row in rows:
+        if row["parent_id"] is None:
+            roll_up(row["id"])
+
+    for row in rows:
+        percent = (
+            row["amount"] / contract * 100 if contract else None
+        )
+        row["percent_of_contract"] = (
+            round(percent, 2) if percent is not None else None
+        )
+        row["is_major"] = (
+            not row["is_heading"]
+            and percent is not None
+            and percent >= MAJOR_ITEM_PERCENT
         )
     return rows
 
@@ -209,6 +277,10 @@ def create_item(
     rate=ZERO,
     concrete_per_unit=ZERO,
     tmt_kg_per_unit=ZERO,
+    parent=None,
+    is_heading=False,
+    authority_rate=None,
+    tender_percent=None,
     actor=None,
 ) -> DprItem:
     next_order = (
@@ -226,22 +298,61 @@ def create_item(
         rate=rate,
         concrete_per_unit=concrete_per_unit,
         tmt_kg_per_unit=tmt_kg_per_unit,
+        parent=parent,
+        is_heading=is_heading,
+        authority_rate=authority_rate,
+        tender_percent=tender_percent,
         row_order=next_order,
         created_by=actor,
         updated_by=actor,
     )
 
 
+@transaction.atomic
+def create_item_with_children(
+    *, site, children=(), actor=None, **fields
+) -> DprItem:
+    """
+    Create an item and, for a group (heading), its sub-items in one
+    go. All or nothing: a bad sub-item rolls the group back too.
+    """
+    if children and not fields.get("is_heading"):
+        raise ValidationError(
+            {
+                "children": (
+                    "Sub-items can only be added to a group - "
+                    "mark this row as a group first."
+                )
+            }
+        )
+    item = create_item(site=site, actor=actor, **fields)
+    for child in children:
+        create_item(
+            site=site, parent=item, actor=actor, **child
+        )
+    return item
+
+
 def delete_item(item: DprItem) -> None:
+    if item.children.exists():
+        raise ValidationError(
+            {
+                "detail": (
+                    "This group has items under it. Delete or "
+                    "move them first."
+                )
+            }
+        )
     if (
         item.entries.exists()
         or item.bill_lines.exists()
+        or item.measurements.exists()
     ):
         raise ValidationError(
             {
                 "detail": (
-                    "This item has DPR entries or bill "
-                    "lines, so it cannot be deleted. "
+                    "This item has DPR entries, measurements "
+                    "or bill lines, so it cannot be deleted. "
                     "Deactivate it instead."
                 )
             }
@@ -280,6 +391,15 @@ def add_detailed_entry(
         raise ValidationError(
             {"item": "Item does not belong to this site."}
         )
+    if item.is_heading:
+        raise ValidationError(
+            {
+                "item": (
+                    "This is a group - enter quantities against "
+                    "the items under it."
+                )
+            }
+        )
     if qty is None or qty <= 0:
         raise ValidationError(
             {"qty": "Quantity must be greater than zero."}
@@ -290,7 +410,7 @@ def add_detailed_entry(
         item=item,
         date=day,
         qty=qty,
-        rate=item.rate,
+        rate=boq.effective_rate(item, day),
         location=location,
         agency=agency,
         remarks=remarks,
@@ -320,6 +440,7 @@ def save_grid(
     reported in ``below_detailed``.
     """
     today = today or timezone.localdate()
+    series = boq.escalation_series(site)
     unlocked = None
     if edits:
         dates = [edit["date"] for edit in edits]
@@ -349,6 +470,15 @@ def save_grid(
             raise ValidationError(
                 {"qty": "Quantity cannot be negative."}
             )
+        if item.is_heading:
+            raise ValidationError(
+                {
+                    "item": (
+                        "This is a group - enter quantities "
+                        "against the items under it."
+                    )
+                }
+            )
         if not is_day_editable(
             site, day, today=today, unlocked=unlocked
         ):
@@ -376,7 +506,7 @@ def save_grid(
                 item=item,
                 date=day,
                 qty=rest,
-                rate=item.rate,
+                rate=boq.effective_rate(item, day, series),
                 source=DprEntrySource.MANUAL_GRID,
                 created_by=actor,
                 updated_by=actor,

@@ -68,6 +68,7 @@ export function DprBillsPage() {
   );
   const [subTab, setSubTab] = useState("grid");
   const [itemPanel, setItemPanel] = useState(null);
+  const [presetParent, setPresetParent] = useState("");
   const [itemError, setItemError] = useState(null);
 
   const sitesQuery = useProjectSites();
@@ -126,7 +127,9 @@ export function DprBillsPage() {
   const handleDeleteItem = (item) => {
     if (
       window.confirm(
-        `Delete "${item.description}"? Items that already have DPR entries or bills cannot be deleted - deactivate them instead.`,
+        item.is_heading
+          ? `Delete the group "${item.description}"? A group that still has items under it cannot be deleted.`
+          : `Delete "${item.description}"? Items that already have DPR entries or bills cannot be deleted - deactivate them instead.`,
       )
     ) {
       deleteItem.mutate(item.id);
@@ -138,6 +141,9 @@ export function DprBillsPage() {
     (canView &&
       (gridQuery.isLoading || itemsQuery.isLoading));
   const items = itemsQuery.data?.items ?? [];
+  // Groups only add up their items - entries and bills go against
+  // the items themselves.
+  const leafItems = items.filter((item) => !item.is_heading);
 
   return (
     <div className="organization-page">
@@ -177,6 +183,7 @@ export function DprBillsPage() {
               className="button button--primary"
               onClick={() => {
                 setItemError(null);
+                setPresetParent("");
                 setItemPanel("new");
               }}
             >
@@ -206,6 +213,15 @@ export function DprBillsPage() {
         >
           <DprItemForm
             initial={itemPanel === "new" ? null : itemPanel}
+            items={items}
+            presetParent={presetParent}
+            contractPercent={
+              itemsQuery.data?.tender_percent ?? null
+            }
+            escalationPercent={
+              items.find((item) => !item.is_heading)
+                ?.escalation_percent ?? 0
+            }
             onSubmit={handleSaveItem}
             onCancel={() => setItemPanel(null)}
             isPending={
@@ -275,6 +291,7 @@ export function DprBillsPage() {
               ) : gridQuery.data ? (
                 <DprGrid
                   grid={gridQuery.data}
+                  siteId={selectedSite}
                   canEnter={canEnter}
                   isSaving={saveGrid.isPending}
                   onSave={(edits) =>
@@ -286,6 +303,11 @@ export function DprBillsPage() {
                   onEditItem={(item) => {
                     setItemError(null);
                     setItemPanel(item);
+                  }}
+                  onAddChild={(group) => {
+                    setItemError(null);
+                    setPresetParent(group.id);
+                    setItemPanel("new");
                   }}
                   onDeleteItem={handleDeleteItem}
                 />
@@ -301,7 +323,7 @@ export function DprBillsPage() {
             <SurfaceCard>
               <DprRegister
                 siteId={selectedSite}
-                items={items}
+                items={leafItems}
                 canEnter={canEnter}
               />
             </SurfaceCard>
@@ -311,7 +333,7 @@ export function DprBillsPage() {
             <SurfaceCard>
               <RaBillsPanel
                 siteId={selectedSite}
-                items={items}
+                items={leafItems}
                 canEnter={canEnter}
               />
             </SurfaceCard>

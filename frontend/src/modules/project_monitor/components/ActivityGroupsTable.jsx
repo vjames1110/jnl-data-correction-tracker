@@ -19,7 +19,7 @@ import { TargetDateHistory } from "./ActivityTimeline";
  * Project Monitor sheet - Structures, Buildings, Girders' bridge-
  * level GAD row, and each Girder span's own chains) as one table per
  * group, with a chevron-driven inline-expand row for the update
- * form/review control - extracted out of ``ActivitySheetDrawer`` so
+ * form/review control - extracted out of ``ActivityWorkspace`` so
  * Girders can render this same table more than once per bridge (once
  * for the GAD row, once per span) without duplicating the row/expand
  * logic.

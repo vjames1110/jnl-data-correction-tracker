@@ -170,6 +170,44 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async listDprMeasurements(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/measurements/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async saveDprMeasurements(payload) {
+    const response = await apiClient.put(
+      "/project-monitor/dpr/measurements/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async listDprEscalations(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/dpr/escalations/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createDprEscalation(payload) {
+    const response = await apiClient.post(
+      "/project-monitor/dpr/escalations/",
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteDprEscalation(escalationId) {
+    await apiClient.delete(
+      `/project-monitor/dpr/escalations/${escalationId}/`,
+    );
+  },
+
   async listRaBills(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/ra-bills/",
@@ -317,6 +355,71 @@ export const projectMonitorService = {
       },
     );
     return response.data;
+  },
+
+  async downloadHrStaffTemplate(siteId) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/staff-template/",
+      {
+        params: siteId ? { site: siteId } : {},
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  },
+
+  async uploadHrStaff(siteId, file) {
+    const form = new FormData();
+    if (siteId) {
+      form.append("site", siteId);
+    }
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/hr/staff-upload/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
+  async downloadHrMusterTemplate({ siteId, layout, month }) {
+    const response = await apiClient.get(
+      "/project-monitor/hr/muster-template/",
+      {
+        params: {
+          layout,
+          ...(month ? { month } : {}),
+          ...(siteId ? { site: siteId } : {}),
+        },
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  },
+
+  async uploadHrMuster(siteId, file, month) {
+    const form = new FormData();
+    if (siteId) {
+      form.append("site", siteId);
+    }
+    if (month) {
+      form.append("month", month);
+    }
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/hr/muster-upload/",
+      form,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
   },
 
   async uploadHr(siteId, file) {
@@ -958,6 +1061,22 @@ export const projectMonitorService = {
     await apiClient.delete(
       `/project-monitor/costing/rates/${rateId}/`,
     );
+  },
+
+  async listItemLinks(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/links/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async saveItemLink(itemId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/costing/links/${itemId}/`,
+      payload,
+    );
+    return response.data.data;
   },
 
   async listConcreteProduction(params = {}) {

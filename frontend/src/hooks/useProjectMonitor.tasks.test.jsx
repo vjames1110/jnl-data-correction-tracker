@@ -111,3 +111,42 @@ describe("site task hooks", () => {
     expect(result.current.has("GIRDERS")).toBe(false);
   });
 });
+
+describe("useSiteTasks entry rights", () => {
+  it("uses the tasks the API says may be entered", async () => {
+    service.getProjectSites.mockResolvedValue([
+      {
+        id: "ho",
+        code: "CHK",
+        tasks: ["OVERVIEW", "STRUCTURES", "REPORTS"],
+        enter_tasks: ["OVERVIEW"],
+        read_only: false,
+      },
+    ]);
+    const { result } = renderHook(() => useSiteTasks("ho"), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.has("STRUCTURES")).toBe(true);
+    expect(result.current.canEnter("OVERVIEW")).toBe(true);
+    // Sees Structures, may not enter it.
+    expect(result.current.canEnter("STRUCTURES")).toBe(false);
+  });
+
+  it("falls back to every held task, or none when read-only", async () => {
+    service.getProjectSites.mockResolvedValue(SITES);
+
+    const held = renderHook(() => useSiteTasks("s1"), { wrapper });
+    await waitFor(() => expect(held.result.current.isLoading).toBe(false));
+    expect(held.result.current.canEnter("STRUCTURES")).toBe(true);
+
+    const readOnly = renderHook(() => useSiteTasks("s2"), {
+      wrapper,
+    });
+    await waitFor(() =>
+      expect(readOnly.result.current.isLoading).toBe(false),
+    );
+    expect(readOnly.result.current.canEnter("REPORTS")).toBe(false);
+  });
+});

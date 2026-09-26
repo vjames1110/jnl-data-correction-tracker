@@ -11,6 +11,7 @@ from apps.project_monitor.models import (
     DprDayUnlock,
     DprEntry,
     DprItem,
+    DprMeasurement,
     FuelEntry,
     LabourEntry,
     Machine,
@@ -23,6 +24,7 @@ from apps.project_monitor.models import (
     ProjectExtension,
     ProjectSiteAccess,
     RaBill,
+    RateEscalation,
     RaBillLine,
     StaffDayOverride,
     StaffMember,
@@ -289,6 +291,28 @@ class DprEntryAdmin(admin.ModelAdmin):
     list_display = ["date", "item", "qty", "rate", "source"]
     list_filter = ["source", "item__site"]
     date_hierarchy = "date"
+
+
+@admin.register(DprMeasurement)
+class DprMeasurementAdmin(admin.ModelAdmin):
+    list_display = [
+        "date",
+        "item",
+        "description",
+        "nos",
+        "length",
+        "breadth",
+        "depth",
+        "is_deduction",
+    ]
+    list_filter = ["is_deduction", "item__site"]
+    date_hierarchy = "date"
+
+
+@admin.register(RateEscalation)
+class RateEscalationAdmin(admin.ModelAdmin):
+    list_display = ["site", "effective_from", "percent", "note"]
+    list_filter = ["site"]
 
 
 @admin.register(DprDayUnlock)

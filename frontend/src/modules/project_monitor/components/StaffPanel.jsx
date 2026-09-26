@@ -21,6 +21,7 @@ import {
 } from "../utils/status";
 
 const BLANK = {
+  staff_code: "",
   name: "",
   designation: "",
   monthly_salary: "",
@@ -34,6 +35,7 @@ function StaffForm({ siteId, editing, onDone }) {
   const [form, setForm] = useState(
     editing
       ? {
+          staff_code: editing.staff_code ?? "",
           name: editing.name,
           designation: editing.designation ?? "",
           monthly_salary: editing.monthly_salary,
@@ -50,6 +52,7 @@ function StaffForm({ siteId, editing, onDone }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     const payload = {
+      staff_code: form.staff_code,
       name: form.name,
       designation: form.designation,
       monthly_salary: parseNumber(form.monthly_salary),
@@ -79,6 +82,16 @@ function StaffForm({ siteId, editing, onDone }) {
       className="form-grid pm-hr-form print-hidden"
       onSubmit={handleSubmit}
     >
+      <label className="form-field">
+        <span>Staff code (optional)</span>
+        <input
+          type="text"
+          value={form.staff_code}
+          onChange={(event) =>
+            setField("staff_code", event.target.value)
+          }
+        />
+      </label>
       <label className="form-field">
         <span>Name</span>
         <input
@@ -375,6 +388,7 @@ export function StaffPanel({ siteId, month, canEnter }) {
           <table className="pm-report__table pm-hr-table">
             <thead>
               <tr>
+                <th>Code</th>
                 <th>Name</th>
                 <th>Designation</th>
                 <th className="pm-num">Monthly salary</th>
@@ -388,6 +402,7 @@ export function StaffPanel({ siteId, month, canEnter }) {
             <tbody>
               {staff.map((member) => (
                 <tr key={member.id}>
+                  <td>{member.staff_code || "-"}</td>
                   <td>{member.name}</td>
                   <td>{member.designation || "-"}</td>
                   <td className="pm-num">

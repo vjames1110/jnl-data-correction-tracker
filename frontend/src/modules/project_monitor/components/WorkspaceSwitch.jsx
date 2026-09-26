@@ -35,6 +35,11 @@ export function WorkspaceSwitch({
           >
             {Icon ? <Icon size={15} /> : null}
             <span>{option.label}</span>
+            {option.badge ? (
+              <span className="pm-workspace__badge">
+                {option.badge}
+              </span>
+            ) : null}
           </button>
         );
       })}

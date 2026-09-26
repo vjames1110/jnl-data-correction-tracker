@@ -30,12 +30,15 @@ from apps.project_monitor.models import (
     DprItem,
     RaBill,
     RaBillKind,
+    RateEscalation,
 )
 from apps.project_monitor.services import (
     billing,
+    boq,
     contract_finance,
     dpr,
     dpr_import,
+    measurement,
     site_access,
 )
 
@@ -56,6 +59,27 @@ def _qty_field(**kwargs):
 def _money_field(**kwargs):
     return serializers.DecimalField(
         max_digits=16, decimal_places=2, **kwargs
+    )
+
+
+def _authority_rate_field():
+    return serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+
+
+def _percent_field():
+    return serializers.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+        min_value=Decimal("-100"),
+        max_value=Decimal("500"),
     )
 
 
@@ -86,6 +110,37 @@ class DprItemWriteSerializer(serializers.Serializer):
         required=False,
         min_value=0,
     )
+    parent = serializers.UUIDField(
+        required=False, allow_null=True
+    )
+    is_heading = serializers.BooleanField(required=False)
+    authority_rate = _authority_rate_field()
+    tender_percent = _percent_field()
+
+
+class DprSubItemSerializer(serializers.Serializer):
+    """One row of the Sub-items table when a group is created."""
+
+    item_no = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
+    description = serializers.CharField(max_length=300)
+    unit = serializers.CharField(
+        max_length=30, required=False, allow_blank=True
+    )
+    scope_qty = _qty_field(required=False, min_value=0)
+    rate = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        min_value=0,
+    )
+    authority_rate = _authority_rate_field()
+    tender_percent = _percent_field()
+
+
+class DprItemCreateSerializer(DprItemWriteSerializer):
+    children = DprSubItemSerializer(many=True, required=False)
 
 
 class DprItemUpdateSerializer(DprItemWriteSerializer):
@@ -93,6 +148,17 @@ class DprItemUpdateSerializer(DprItemWriteSerializer):
         max_length=300, required=False
     )
     is_active = serializers.BooleanField(required=False)
+
+
+class EscalationSerializer(serializers.Serializer):
+    site = serializers.UUIDField()
+    effective_from = serializers.DateField()
+    percent = serializers.DecimalField(
+        max_digits=7, decimal_places=3
+    )
+    note = serializers.CharField(
+        max_length=300, required=False, allow_blank=True
+    )
 
 
 class GridEditSerializer(serializers.Serializer):
@@ -120,6 +186,36 @@ class DetailedEntrySerializer(serializers.Serializer):
     remarks = serializers.CharField(
         max_length=300, required=False, allow_blank=True
     )
+
+
+def _dimension_field():
+    return serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+
+
+class MeasurementLineSerializer(serializers.Serializer):
+    description = serializers.CharField(
+        max_length=200, required=False, allow_blank=True
+    )
+    nos = _dimension_field()
+    length = _dimension_field()
+    breadth = _dimension_field()
+    depth = _dimension_field()
+    is_deduction = serializers.BooleanField(required=False)
+    remarks = serializers.CharField(
+        max_length=300, required=False, allow_blank=True
+    )
+
+
+class MeasurementSheetSerializer(serializers.Serializer):
+    site = serializers.UUIDField()
+    item = serializers.UUIDField()
+    date = serializers.DateField()
+    lines = MeasurementLineSerializer(many=True)
 
 
 class UnlockSerializer(serializers.Serializer):
@@ -186,6 +282,7 @@ class ContractDetailsSerializer(serializers.Serializer):
     opening_bill_date = serializers.DateField(
         required=False, allow_null=True
     )
+    tender_percent = _percent_field()
 
     def validate(self, attrs):
         if (
@@ -221,6 +318,20 @@ def _enterable_site(request):
     site = _site(request)
     site_access.ensure_can_enter(request.user, site)
     return site
+
+
+def _resolve_parent(site, parent_id):
+    """The group an item goes under, on this same project."""
+    if parent_id is None:
+        return None
+    parent = DprItem.objects.filter(
+        site=site, pk=parent_id
+    ).first()
+    if parent is None:
+        raise ValidationError(
+            {"parent": "That group is not on this project."}
+        )
+    return parent
 
 
 def _parse_date(raw, field, default=None):
@@ -273,6 +384,8 @@ class DprContractDetailsAPIView(APIView):
             "opening_billed_value": site.opening_billed_value,
             "opening_bill_no": site.opening_bill_no,
             "opening_bill_date": site.opening_bill_date,
+            "tender_percent": site.tender_percent,
+            "boq_total": boq.boq_total(site),
         }
 
     def get(self, request, *args, **kwargs):
@@ -288,13 +401,27 @@ class DprContractDetailsAPIView(APIView):
             data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
+        percent_changed = (
+            "tender_percent" in serializer.validated_data
+            and serializer.validated_data["tender_percent"]
+            != site.tender_percent
+        )
         for field, value in serializer.validated_data.items():
             setattr(site, field, value)
         with as_drf_validation():
             site.save()
+        payload = self._payload(site)
+        if percent_changed:
+            # Every item priced from an authority rate follows the
+            # new percentage; recorded work keeps its old rate.
+            with as_drf_validation():
+                payload["recalculated"] = boq.recalculate_rates(
+                    site, actor=request.user
+                )
+            payload["boq_total"] = boq.boq_total(site)
         return success_response(
             message="Contract details updated successfully.",
-            data=self._payload(site),
+            data=payload,
         )
 
 
@@ -307,21 +434,30 @@ class DprItemListCreateAPIView(APIView):
             message="DPR items retrieved successfully.",
             data={
                 "contract_value": dpr.contract_value(site),
+                "tender_percent": site.tender_percent,
+                "boq_total": boq.boq_total(site),
                 "items": dpr.build_item_rows(site),
             },
         )
 
     def post(self, request, *args, **kwargs):
         site = _enterable_site(request)
-        serializer = DprItemWriteSerializer(
+        serializer = DprItemCreateSerializer(
             data=request.data
         )
         serializer.is_valid(raise_exception=True)
+        fields = dict(serializer.validated_data)
+        children = fields.pop("children", [])
+        if "parent" in fields:
+            fields["parent"] = _resolve_parent(
+                site, fields["parent"]
+            )
         with as_drf_validation():
-            item = dpr.create_item(
+            item = dpr.create_item_with_children(
                 site=site,
+                children=children,
                 actor=request.user,
-                **serializer.validated_data,
+                **fields,
             )
         return success_response(
             message="DPR item added successfully.",
@@ -349,6 +485,8 @@ class DprItemDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         for field, value in serializer.validated_data.items():
+            if field == "parent":
+                value = _resolve_parent(item.site, value)
             setattr(item, field, value)
         item.updated_by = request.user
         with as_drf_validation():
@@ -462,8 +600,16 @@ class DprGridAPIView(APIView):
                 }
             )
 
+        measured = measurement.measured_map(site, start, end)
         items = []
         for row in dpr.build_item_rows(site):
+            row["measured"] = {
+                d["date"].isoformat(): measured[
+                    (row["id"], d["date"])
+                ]
+                for d in dates
+                if (row["id"], d["date"]) in measured
+            }
             row["days"] = {
                 d["date"].isoformat(): day_qty[
                     (row["id"], d["date"])
@@ -818,4 +964,155 @@ class FinancialReportAPIView(APIView):
             data=contract_finance.financial_report(
                 site, as_on
             ),
+        )
+
+
+def _escalation_row(escalation):
+    return {
+        "id": escalation.id,
+        "effective_from": escalation.effective_from,
+        "percent": escalation.percent,
+        "note": escalation.note,
+    }
+
+
+class DprEscalationListCreateAPIView(APIView):
+    """Dated escalation steps on the contract bid rates."""
+
+    permission_classes = [HasFinanceRoleAccess]
+
+    def get(self, request, *args, **kwargs):
+        site = _viewable_site(request)
+        rows = RateEscalation.objects.filter(
+            site=site
+        ).order_by("effective_from")
+        return success_response(
+            message="Escalations retrieved successfully.",
+            data=[_escalation_row(row) for row in rows],
+        )
+
+    def post(self, request, *args, **kwargs):
+        serializer = EscalationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        site = _enterable_site(request)
+        escalation = boq.create_escalation(
+            site=site,
+            actor=request.user,
+            effective_from=serializer.validated_data[
+                "effective_from"
+            ],
+            percent=serializer.validated_data["percent"],
+            note=serializer.validated_data.get("note", ""),
+        )
+        return success_response(
+            message="Escalation added successfully.",
+            data=_escalation_row(escalation),
+        )
+
+
+class DprEscalationDetailAPIView(APIView):
+    permission_classes = [HasFinanceRoleAccess]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            escalation = RateEscalation.objects.select_related(
+                "site"
+            ).get(pk=pk)
+        except RateEscalation.DoesNotExist as exc:
+            raise NotFound("Escalation not found.") from exc
+        site_access.ensure_can_enter(
+            request.user, escalation.site
+        )
+        boq.delete_escalation(escalation)
+        return success_response(
+            message="Escalation deleted successfully.",
+            data=None,
+        )
+
+
+MEASUREMENT_SHEET_LIMIT = 500
+
+
+def _measurement_line(line):
+    return {
+        "id": line.id,
+        "description": line.description,
+        "nos": line.nos,
+        "length": line.length,
+        "breadth": line.breadth,
+        "depth": line.depth,
+        "is_deduction": line.is_deduction,
+        "remarks": line.remarks,
+        "quantity": line.quantity,
+    }
+
+
+def _measurement_sheet(sheet):
+    return {
+        "item": sheet["item"],
+        "date": sheet["date"],
+        "total": sheet["total"],
+        "lines": [
+            _measurement_line(line) for line in sheet["lines"]
+        ],
+    }
+
+
+class DprMeasurementAPIView(APIView):
+    """
+    The measurement lines behind DPR quantities. ``GET`` filters by
+    ``item``, ``date`` or a ``from`` / ``to`` range; ``PUT`` replaces
+    one item-day's lines (an empty list clears them).
+    """
+
+    permission_classes = [HasFinanceRoleAccess]
+
+    def get(self, request, *args, **kwargs):
+        site = _viewable_site(request)
+        item = None
+        if request.query_params.get("item"):
+            item = DprItem.objects.filter(
+                site=site, pk=request.query_params["item"]
+            ).first()
+            if item is None:
+                raise NotFound("DPR item not found.")
+        sheets = measurement.sheet_rows(
+            site,
+            item=item,
+            day=_parse_date(
+                request.query_params.get("date"), "date"
+            ),
+            start=_parse_date(
+                request.query_params.get("from"), "from"
+            ),
+            end=_parse_date(
+                request.query_params.get("to"), "to"
+            ),
+        )[:MEASUREMENT_SHEET_LIMIT]
+        return success_response(
+            message="Measurements retrieved successfully.",
+            data=[_measurement_sheet(sheet) for sheet in sheets],
+        )
+
+    def put(self, request, *args, **kwargs):
+        serializer = MeasurementSheetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        site = get_site_or_400(str(data["site"]))
+        site_access.ensure_can_enter(request.user, site)
+        item = DprItem.objects.filter(
+            site=site, pk=data["item"]
+        ).first()
+        if item is None:
+            raise NotFound("DPR item not found.")
+        sheet = measurement.replace_sheet(
+            site=site,
+            item=item,
+            day=data["date"],
+            lines=data["lines"],
+            actor=request.user,
+        )
+        return success_response(
+            message="Measurements saved.",
+            data=_measurement_sheet(sheet),
         )

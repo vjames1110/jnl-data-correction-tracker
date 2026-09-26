@@ -6,7 +6,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -25,7 +24,7 @@ import {
   useUpdateGirderSpan,
 } from "../../../hooks/useProjectMonitor";
 import { AddGirderJobForm } from "../components/AddGirderJobForm";
-import { GirderJobDrawer } from "../components/GirderJobDrawer";
+import { GirderJobWorkspace } from "../components/GirderJobWorkspace";
 import { ItemGroupSection } from "../components/ItemGroupSection";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
@@ -65,7 +64,7 @@ export function GirdersPage() {
     !siteTasks.isLoading &&
     !siteTasks.has("GIRDERS");
   const canEdit =
-    isProjectEntryRole(user?.role) && !lacksTask;
+    !lacksTask && siteTasks.canEnter("GIRDERS");
 
   const createGirderJob = useCreateGirderJob(
     selectedSite,
@@ -136,14 +135,6 @@ export function GirdersPage() {
           .filter(Boolean),
       ),
     [girderJobsQuery.data],
-  );
-
-  const selectedJob = useMemo(
-    () =>
-      (girderJobsQuery.data || []).find(
-        (job) => job.id === selectedJobId,
-      ) || null,
-    [girderJobsQuery.data, selectedJobId],
   );
 
   const handleDelete = (jobId) => {
@@ -310,11 +301,63 @@ export function GirdersPage() {
                 description: `${job.girder_scope_display} · ${job.spans.length} span(s)`,
                 overall_progress:
                   job.overall_progress,
+                job,
               }))}
               onView={(id) => {
-                setSelectedJobId(id);
+                setSelectedJobId((current) =>
+                  current === id ? null : id,
+                );
                 setActiveActivityId(null);
               }}
+              expandedId={selectedJobId}
+              renderExpanded={({ job }) => (
+                <GirderJobWorkspace
+                  job={job}
+                  metaLine={`${
+                    job.chainage_km != null
+                      ? `Ch. ${job.chainage_km} km`
+                      : "Chainage not set"
+                  } · ${job.girder_scope_display} · ${
+                    job.overall_progress.done
+                  }/${
+                    job.overall_progress.total
+                  } activities complete`}
+                  activeActivityId={activeActivityId}
+                  onSelectActivity={setActiveActivityId}
+                  canEdit={canEdit}
+                  onSubmitUpdate={(activityId, payload) =>
+                    updateActivity.mutate({
+                      activityId,
+                      payload,
+                    })
+                  }
+                  updateStatus={updateActivity}
+                  onReviewActivity={(activityId, remarks) =>
+                    reviewActivity.mutate({
+                      activityId,
+                      payload: { remarks },
+                    })
+                  }
+                  reviewActivityStatus={reviewActivity}
+                  onReviewAll={(remarks, options) =>
+                    reviewGirderJob.mutate(
+                      {
+                        jobId: job.id,
+                        payload: { remarks },
+                      },
+                      options,
+                    )
+                  }
+                  reviewAllStatus={reviewGirderJob}
+                  onUpdateSpan={(spanId, payload, options) =>
+                    updateGirderSpan.mutate(
+                      { spanId, payload },
+                      options,
+                    )
+                  }
+                  updateSpanStatus={updateGirderSpan}
+                />
+              )}
               onDelete={handleDelete}
               canEdit={canEdit}
               deleteTitle="Delete this girder job and all its data"
@@ -322,76 +365,6 @@ export function GirdersPage() {
           ))}
         </SurfaceCard>
       )}
-
-      <GirderJobDrawer
-        job={selectedJob}
-        eyebrow={
-          selectedJob
-            ? STRUCTURE_KIND_LABELS[
-                selectedJob.structure_kind
-              ]
-            : ""
-        }
-        metaLine={
-          selectedJob
-            ? `${
-                selectedJob.chainage_km != null
-                  ? `Ch. ${selectedJob.chainage_km} km`
-                  : "Chainage not set"
-              } · ${
-                selectedJob.girder_scope_display
-              } · ${
-                selectedJob.overall_progress
-                  .done
-              }/${
-                selectedJob.overall_progress
-                  .total
-              } activities complete`
-            : ""
-        }
-        activeActivityId={activeActivityId}
-        onSelectActivity={setActiveActivityId}
-        canEdit={canEdit}
-        onClose={() => {
-          setSelectedJobId(null);
-          setActiveActivityId(null);
-        }}
-        onSubmitUpdate={(activityId, payload) =>
-          updateActivity.mutate({
-            activityId,
-            payload,
-          })
-        }
-        updateStatus={updateActivity}
-        onReviewActivity={(activityId, remarks) =>
-          reviewActivity.mutate({
-            activityId,
-            payload: { remarks },
-          })
-        }
-        reviewActivityStatus={reviewActivity}
-        onReviewAll={(remarks, options) =>
-          reviewGirderJob.mutate(
-            {
-              jobId: selectedJob?.id,
-              payload: { remarks },
-            },
-            options,
-          )
-        }
-        reviewAllStatus={reviewGirderJob}
-        onUpdateSpan={(
-          spanId,
-          payload,
-          options,
-        ) =>
-          updateGirderSpan.mutate(
-            { spanId, payload },
-            options,
-          )
-        }
-        updateSpanStatus={updateGirderSpan}
-      />
     </div>
   );
 }

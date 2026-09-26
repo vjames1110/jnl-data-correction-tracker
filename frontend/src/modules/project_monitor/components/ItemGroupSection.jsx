@@ -1,4 +1,10 @@
-import { Pencil, Trash2 } from "lucide-react";
+import clsx from "clsx";
+import {
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 /**
  * A labeled group of Structures/Buildings (grouped by type for
@@ -8,6 +14,10 @@ import { Pencil, Trash2 } from "lucide-react";
  * have ``{id, name, chainage_km, description, overall_progress}``.
  * ``onEdit`` is optional - a section that has no edit form yet (e.g.
  * Buildings, for now) simply omits it and gets no Edit button.
+ *
+ * With ``renderExpanded`` the View button opens that item's workspace
+ * right under its own row (``expandedId`` says which item is open;
+ * View again closes it) instead of leaving the list.
  */
 export function ItemGroupSection({
   label,
@@ -16,6 +26,8 @@ export function ItemGroupSection({
   onEdit,
   onDelete,
   canEdit,
+  expandedId = null,
+  renderExpanded,
   deleteTitle = "Delete this sheet and all its data",
 }) {
   return (
@@ -32,11 +44,18 @@ export function ItemGroupSection({
           None added yet.
         </p>
       ) : (
-        items.map((item) => (
+        items.map((item) => {
+          const isOpen =
+            Boolean(renderExpanded) && expandedId === item.id;
+          return (
           <div
-            className="pm-structure-row"
+            className={clsx(
+              "pm-structure-item",
+              isOpen && "pm-structure-item--open",
+            )}
             key={item.id}
           >
+          <div className="pm-structure-row">
             <div className="pm-structure-row__main">
               <strong>
                 {item.name}
@@ -57,8 +76,18 @@ export function ItemGroupSection({
                 type="button"
                 className="button button--tertiary"
                 onClick={() => onView(item.id)}
+                aria-expanded={
+                  renderExpanded ? isOpen : undefined
+                }
               >
-                View
+                {renderExpanded ? (
+                  isOpen ? (
+                    <ChevronDown size={14} />
+                  ) : (
+                    <ChevronRight size={14} />
+                  )
+                ) : null}
+                {isOpen ? "Hide" : "View"}
               </button>
               {canEdit && onEdit ? (
                 <button
@@ -88,7 +117,10 @@ export function ItemGroupSection({
               ) : null}
             </div>
           </div>
-        ))
+          {isOpen ? renderExpanded(item) : null}
+          </div>
+          );
+        })
       )}
     </div>
   );

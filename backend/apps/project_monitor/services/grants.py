@@ -10,8 +10,10 @@ Manager would otherwise leave them with no access at all, so it gives
 them a *starting set* of tasks on that site - which the Admin can then
 trim or extend in the Site Access grid.
 
-- Project Incharge: every task (they are the person making the entries).
-- Project Manager: the progress tasks and Reports (finance tasks stay
+- Project Incharge: every grantable task (they are the person making
+  the entries). HR and Machinery are never granted - the HR and
+  Machinery departments enter those.
+- Project Manager: the progress tasks and Reports (DPR & Bills stays
   something an Admin grants on purpose).
 
 This only ever ADDS missing grants and only when the assignment
@@ -26,7 +28,7 @@ from apps.project_monitor.services import project_scope
 
 def default_tasks_for(role) -> tuple:
     if role == UserRole.PROJECT_INCHARGE:
-        return project_scope.ALL_TASKS
+        return project_scope.GRANTABLE_TASKS
     if role == UserRole.PROJECT_MANAGER:
         return (
             project_scope.PROGRESS_TASKS

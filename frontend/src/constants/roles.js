@@ -8,6 +8,9 @@ export const USER_ROLES = Object.freeze({
   STORE_HO: "STORE_HO",
   PROJECT_MANAGER: "PROJECT_MANAGER",
   PROJECT_INCHARGE: "PROJECT_INCHARGE",
+  PROJECT_HO: "PROJECT_HO",
+  HR_DEPARTMENT: "HR_DEPARTMENT",
+  MACHINERY_DEPARTMENT: "MACHINERY_DEPARTMENT",
 });
 
 export const ADMIN_ROLES = Object.freeze([
@@ -44,24 +47,63 @@ export function isStoreRole(role) {
 }
 
 /**
- * People who work in the Project Management portal (entries limited
- * to their own sites, enforced by the backend): the Project Incharge
- * - who makes the entries - and the Project Manager, kept for now.
+ * The HR and Machinery departments: company-wide accounts that alone
+ * enter HR and machinery data, on every site (enforced by the
+ * backend).
  */
-export function usesProjectPortal(role) {
+export function isDepartmentRole(role) {
   return (
-    role === USER_ROLES.PROJECT_MANAGER ||
-    role === USER_ROLES.PROJECT_INCHARGE
+    role === USER_ROLES.HR_DEPARTMENT ||
+    role === USER_ROLES.MACHINERY_DEPARTMENT
   );
 }
 
 /**
- * Who sees every project on All Projects: Admin, Super Admin and
- * Director. Everyone else sees only the sites they were assigned
- * (the backend enforces it; this only words the page).
+ * People who work in the Project Management portal: the Project
+ * Incharge (makes the entries, on granted sites and tasks), the
+ * Project Manager (kept for now), the Project Management HO (every
+ * site, enters only the Overview and masters) and the two
+ * departments (their own tab, every site). What each may actually do
+ * is decided by the backend per site and task.
+ */
+export function usesProjectPortal(role) {
+  return (
+    role === USER_ROLES.PROJECT_MANAGER ||
+    role === USER_ROLES.PROJECT_INCHARGE ||
+    role === USER_ROLES.PROJECT_HO ||
+    isDepartmentRole(role)
+  );
+}
+
+/**
+ * Who sees every project on All Projects: Admin, Super Admin,
+ * Director and the Project Management HO. Everyone else sees only
+ * the sites they were assigned (the backend enforces it; this only
+ * words the page).
  */
 export function seesEveryProject(role) {
+  return (
+    isAdminRole(role) ||
+    role === USER_ROLES.DIRECTOR ||
+    role === USER_ROLES.PROJECT_HO
+  );
+}
+
+/** Costing (margins) stays with Director and Admin only. */
+export function seesCosting(role) {
   return isAdminRole(role) || role === USER_ROLES.DIRECTOR;
+}
+
+/**
+ * Who manages the Project Management masters (Structure Types, RDSO
+ * span library): Admin, Director and the Project Management HO.
+ */
+export function canManageProjectMasters(role) {
+  return (
+    isAdminRole(role) ||
+    role === USER_ROLES.DIRECTOR ||
+    role === USER_ROLES.PROJECT_HO
+  );
 }
 
 /** Roles that may enter Project Monitor data (Director only views). */
@@ -88,6 +130,13 @@ export function projectMonitorDashboardPath(role) {
 }
 
 export function projectMonitorOverviewPath(role) {
+  // The departments have no Overview: their home is their own page.
+  if (role === USER_ROLES.HR_DEPARTMENT) {
+    return "/project-manager/hr";
+  }
+  if (role === USER_ROLES.MACHINERY_DEPARTMENT) {
+    return "/project-manager/machinery";
+  }
   if (usesProjectPortal(role)) {
     return "/project-manager/dashboard";
   }
@@ -181,6 +230,26 @@ export function projectMonitorMachineryPath(role) {
   return "/admin/project-monitor/machinery";
 }
 
+export function projectMonitorStructureTypesPath(role) {
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/structure-types";
+  }
+  if (usesProjectPortal(role)) {
+    return "/project-manager/structure-types";
+  }
+  return "/admin/project-monitor/structure-types";
+}
+
+export function projectMonitorRdsoPath(role) {
+  if (role === USER_ROLES.DIRECTOR) {
+    return "/director/project-monitor/rdso-span-library";
+  }
+  if (usesProjectPortal(role)) {
+    return "/project-manager/rdso-span-library";
+  }
+  return "/admin/project-monitor/rdso-span-library";
+}
+
 export function projectMonitorReportsPath(role) {
   if (usesProjectPortal(role)) {
     return "/project-manager/reports";
@@ -201,6 +270,18 @@ export function projectMonitorCostingPath(role) {
     return "/director/project-monitor/costing";
   }
   return "/admin/project-monitor/costing";
+}
+
+/**
+ * Where a person lands after signing in (unless they were sent to a
+ * page they asked for): their portal's dashboard, or - for the HR and
+ * Machinery departments, who have no dashboard - their own page.
+ */
+export function landingPath(role) {
+  if (isDepartmentRole(role)) {
+    return projectMonitorOverviewPath(role);
+  }
+  return `${portalBasePath(role)}/dashboard`;
 }
 
 export function portalBasePath(role) {

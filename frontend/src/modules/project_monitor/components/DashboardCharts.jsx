@@ -1,28 +1,16 @@
-import { useRef, useState } from "react";
-
+import { ChartLegend as Legend } from "../../../components/charts/kit/ChartLegend";
+import {
+  STATUS_SERIES,
+  shareOf,
+  statusSegments,
+} from "../../../components/charts/kit/chartData";
+import {
+  ChartRow,
+  SegmentBar,
+} from "../../../components/charts/kit/SegmentBar";
+import { useChartTooltip } from "../../../components/charts/kit/useChartTooltip";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { formatPercent } from "../utils/status";
-
-/**
- * Status colours for the All Projects charts - one set, used by every
- * chart on the page so a colour always means the same state. They
- * live in project-monitor.css as `--viz-*` tokens; the keys here only
- * pick the token. Grey is "no state yet" (context), not a warning.
- */
-const STATUS_SERIES = [
-  { key: "done", label: "Complete", token: "complete" },
-  {
-    key: "in_progress",
-    label: "In progress",
-    token: "progress",
-  },
-  { key: "hold", label: "Hold / issue", token: "hold" },
-  {
-    key: "not_started",
-    label: "Not taken up",
-    token: "idle",
-  },
-];
 
 const MODULE_ROWS = [
   { key: "structures", label: "Structures" },
@@ -30,188 +18,6 @@ const MODULE_ROWS = [
   { key: "girders", label: "Girders" },
   { key: "action_items", label: "Action items" },
 ];
-
-function shareOf(value, total) {
-  return total ? Math.round((value * 100) / total) : 0;
-}
-
-/**
- * One tooltip for a whole chart. Each mark spreads `bind(content)`
- * to get pointer + keyboard-focus behaviour; the tip follows the
- * pointer (or sits over the focused mark) inside the chart frame.
- */
-function useChartTooltip() {
-  const frameRef = useRef(null);
-  const [tip, setTip] = useState(null);
-
-  const show = (x, y, content) => setTip({ x, y, content });
-  const hide = () => setTip(null);
-
-  const bind = (content) => ({
-    tabIndex: 0,
-    onPointerMove: (event) => {
-      const frame = frameRef.current?.getBoundingClientRect();
-      if (frame) {
-        show(
-          event.clientX - frame.left,
-          event.clientY - frame.top,
-          content,
-        );
-      }
-    },
-    onPointerLeave: hide,
-    onFocus: (event) => {
-      const frame = frameRef.current?.getBoundingClientRect();
-      const mark = event.currentTarget.getBoundingClientRect();
-      if (frame) {
-        show(
-          mark.left - frame.left + mark.width / 2,
-          mark.top - frame.top,
-          content,
-        );
-      }
-    },
-    onBlur: hide,
-  });
-
-  const node = tip ? (
-    <div
-      className={
-        tip.y < 130
-          ? "pm-viz__tip pm-viz__tip--below"
-          : "pm-viz__tip"
-      }
-      role="tooltip"
-      style={{ left: tip.x, top: tip.y }}
-    >
-      <div className="pm-viz__tip-title">
-        {tip.content.title}
-      </div>
-      {tip.content.rows.map((row) => (
-        <div className="pm-viz__tip-row" key={row.label}>
-          <span
-            className={`pm-viz__key pm-viz__key--${row.token}`}
-            aria-hidden="true"
-          />
-          <strong>{row.value}</strong>
-          <span>{row.label}</span>
-        </div>
-      ))}
-    </div>
-  ) : null;
-
-  return { frameRef, bind, node };
-}
-
-function Legend({ series }) {
-  return (
-    <ul className="pm-viz__legend">
-      {series.map((item) => (
-        <li key={item.key}>
-          <span
-            className={`pm-viz__key pm-viz__key--${item.token}`}
-            aria-hidden="true"
-          />
-          {item.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * A part-to-whole row: a rounded bar cut into segments by a 2px
- * surface gap, with the headline figure to its right (a direct
- * label - the bar itself carries no text).
- */
-function SegmentBar({ title, segments, bind, height }) {
-  const total = segments.reduce(
-    (sum, segment) => sum + segment.value,
-    0,
-  );
-  if (!total) {
-    return (
-      <div
-        className="pm-viz__bar pm-viz__bar--empty"
-        style={{ height }}
-      />
-    );
-  }
-  return (
-    <div
-      className="pm-viz__bar"
-      style={{ height }}
-      role="img"
-      aria-label={`${title}: ${segments
-        .filter((segment) => segment.value > 0)
-        .map(
-          (segment) =>
-            `${segment.value} ${segment.label}`,
-        )
-        .join(", ")}`}
-    >
-      {segments
-        .filter((segment) => segment.value > 0)
-        .map((segment) => (
-          <span
-            key={segment.key}
-            className={`pm-viz__seg pm-viz__seg--${segment.token}`}
-            style={{ flexGrow: segment.value }}
-            {...bind({
-              title,
-              rows: segments.map((row) => ({
-                label: row.label,
-                token: row.token,
-                value: `${row.value.toLocaleString(
-                  "en-IN",
-                )}${
-                  row.unit ? ` ${row.unit}` : ""
-                } (${shareOf(row.value, total)}%)`,
-              })),
-            })}
-          />
-        ))}
-    </div>
-  );
-}
-
-function statusSegments(counts) {
-  return STATUS_SERIES.map((series) => ({
-    key: series.key,
-    label: series.label,
-    token: series.token,
-    value: counts[series.key] ?? 0,
-  }));
-}
-
-function ChartRow({
-  name,
-  sub,
-  headline,
-  detail,
-  title,
-  segments,
-  bind,
-}) {
-  return (
-    <div className="pm-viz__row">
-      <div className="pm-viz__row-label">
-        <strong>{name}</strong>
-        {sub ? <span className="sub">{sub}</span> : null}
-      </div>
-      <SegmentBar
-        title={title}
-        segments={segments}
-        bind={bind}
-        height={14}
-      />
-      <div className="pm-viz__row-value">
-        <strong>{headline}</strong>
-        <span>{detail}</span>
-      </div>
-    </div>
-  );
-}
 
 export function ProjectProgressChart({ projects }) {
   const { frameRef, bind, node } = useChartTooltip();

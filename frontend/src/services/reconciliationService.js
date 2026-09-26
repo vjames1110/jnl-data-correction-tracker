@@ -491,6 +491,15 @@ export const reconciliationService = {
     return response.data.data;
   },
 
+  async getDashboardCardDetail(kind, params = {}) {
+    const response = await apiClient.get(
+      `/reconciliation/dashboard/cards/${kind}/`,
+      { params },
+    );
+
+    return response.data.data;
+  },
+
   async getStatementPack(params = {}) {
     const response = await apiClient.get(
       "/reconciliation/statement-pack/",

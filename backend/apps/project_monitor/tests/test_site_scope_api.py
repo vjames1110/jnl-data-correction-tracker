@@ -16,6 +16,9 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    HrDepartmentUserFactory,
+    MachineryDepartmentUserFactory,
+    ProjectHoUserFactory,
     ProjectInchargeUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
@@ -43,6 +46,7 @@ pytestmark = [pytest.mark.real_scope, pytest.mark.django_db]
 OK = status.HTTP_200_OK
 DENIED = status.HTTP_403_FORBIDDEN
 ALL = project_scope.ALL_TASKS
+GRANTABLE = project_scope.GRANTABLE_TASKS
 
 
 def url(name, *args):
@@ -328,11 +332,13 @@ def test_two_incharges_on_one_site_each_get_only_their_own_tasks(world, site):
     assert dpr_only.get(url("structure-list"), {"site": str(site.id)}).status_code == DENIED
     assert dpr_only.get(url("overview"), {"site": str(site.id)}).status_code == OK
 
-    for name, expected in (("hr-summary", OK), ("machinery-summary", OK), ("financial-summary", OK)):
-        assert everything.get(url(name), {"site": str(site.id)}).status_code == expected
+    assert everything.get(url("financial-summary"), {"site": str(site.id)}).status_code == OK
     assert dpr_only.get(url("financial-summary"), {"site": str(site.id)}).status_code == OK
-    assert dpr_only.get(url("hr-summary"), {"site": str(site.id)}).status_code == DENIED
-    assert dpr_only.get(url("machinery-summary"), {"site": str(site.id)}).status_code == DENIED
+    # HR and Machinery belong to their departments: never an Incharge's,
+    # not even one who holds every grantable task.
+    for name in ("hr-summary", "machinery-summary"):
+        assert everything.get(url(name), {"site": str(site.id)}).status_code == DENIED
+        assert dpr_only.get(url(name), {"site": str(site.id)}).status_code == DENIED
 
 
 # ---- Director / Admin ---------------------------------------------------------------------
@@ -358,6 +364,53 @@ def test_admin_can_do_everything_on_every_site(world):
         assert not Structure.objects.filter(pk=world[key]["structure"]).exists()
 
 
+HO_VIEW = {"OVERVIEW", "STRUCTURES", "BUILDINGS", "GIRDERS", "ACTION_ITEMS", "LINEAR_WORKS", "DPR_BILLS", "REPORTS"}
+
+
+def test_project_ho_sees_every_site_but_enters_only_the_overview(world):
+    client = client_for(ProjectHoUserFactory())
+    for key in ("a", "b"):
+        assert_matrix(read_ops(world[key]), client, HO_VIEW)
+        assert_matrix(review_ops(world[key]), client, HO_VIEW)
+        # Entry is the Overview alone - nothing else, on any site.
+        assert_matrix(entry_ops(world[key]), client, {"OVERVIEW"})
+    # Nothing outside the Overview was added by that.
+    assert Structure.objects.count() == 2
+    assert ActionItem.objects.count() == 2
+
+
+def test_project_ho_can_remove_overview_items_but_nothing_else(world):
+    client = client_for(ProjectHoUserFactory())
+    for key in ("a", "b"):
+        assert_matrix(delete_ops(world[key]), client, {"OVERVIEW"})
+    assert Structure.objects.count() == 2
+    assert LinearItem.objects.count() == 2
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [HrDepartmentUserFactory, MachineryDepartmentUserFactory],
+)
+def test_the_departments_get_no_progress_data_at_all(world, factory):
+    client = client_for(factory())
+    for key in ("a", "b"):
+        for ops in (read_ops, entry_ops, review_ops, delete_ops):
+            assert_all(ops(world[key]), client, DENIED)
+    assert client.get(url("dashboard")).status_code == DENIED
+    assert client.get(url("due-tracker")).status_code == DENIED
+    assert Structure.objects.count() == 2
+    # Their one page still needs the list of sites to pick from.
+    assert client.get(url("project-sites")).status_code == OK
+
+
+def test_the_project_ho_dashboard_lists_every_project(world):
+    response = client_for(ProjectHoUserFactory()).get(
+        url("dashboard"), {"include_empty": "1"}
+    )
+    assert response.status_code == OK
+    assert _project_codes(response) == ["CHK", "OTH"]
+
+
 def test_a_forged_site_id_for_another_project_is_refused(world, other_site):
     client = client_for(grant(ProjectInchargeUserFactory(), world["a"]["site"]))
     forged = client.get(url("structure-list"), {"site": str(other_site.id)})
@@ -373,7 +426,7 @@ def _project_codes(response):
 
 def test_dashboard_lists_the_projects_where_the_person_holds_a_task(world, site, other_site):
     query = {"include_empty": "1"}
-    finance_only_a = grant(ProjectManagerUserFactory(), site, "HR")
+    finance_only_a = grant(ProjectManagerUserFactory(), site, "DPR_BILLS")
     on_both = ProjectInchargeUserFactory()
     grant(on_both, site, "STRUCTURES")
     grant(on_both, other_site, "REPORTS")
@@ -484,7 +537,7 @@ def test_overdue_counts_only_cover_the_modules_held(world, site):
 
 def test_sites_endpoint_lists_each_sites_tasks(world, site, other_site):
     person = ProjectInchargeUserFactory()
-    grant(person, site, "STRUCTURES", "HR")
+    grant(person, site, "STRUCTURES", "DPR_BILLS")
     grant(person, other_site, "REPORTS")
 
     def sites(user):
@@ -493,14 +546,27 @@ def test_sites_endpoint_lists_each_sites_tasks(world, site, other_site):
         return {s["code"]: s for s in response.data["data"]}
 
     mine = sites(person)
-    assert mine["CHK"]["tasks"] == ["STRUCTURES", "HR"]
+    assert mine["CHK"]["tasks"] == ["STRUCTURES", "DPR_BILLS"]
+    assert mine["CHK"]["enter_tasks"] == ["STRUCTURES", "DPR_BILLS"]
     assert mine["OTH"]["tasks"] == ["REPORTS"]
     assert mine["CHK"]["read_only"] is False
 
     director = sites(DirectorUserFactory())
     assert director["CHK"]["tasks"] == list(ALL)
+    assert director["CHK"]["enter_tasks"] == []
     assert director["CHK"]["read_only"] is True
     assert sites(AdminUserFactory())["OTH"]["read_only"] is False
+
+    # The Project Management HO sees most tasks on every site but can
+    # enter only the Overview; the departments see only their own.
+    ho = sites(ProjectHoUserFactory())
+    assert set(ho) == {"CHK", "OTH"}
+    assert ho["CHK"]["enter_tasks"] == ["OVERVIEW"]
+    assert "HR" not in ho["CHK"]["tasks"]
+    assert ho["CHK"]["read_only"] is False
+    hr = sites(HrDepartmentUserFactory())
+    assert hr["OTH"]["tasks"] == ["HR"] == hr["OTH"]["enter_tasks"]
+    assert sites(MachineryDepartmentUserFactory())["CHK"]["tasks"] == ["MACHINERY"]
     assert sites(ProjectManagerUserFactory()) == {}
     assert client_for(UserFactory()).get(url("project-sites")).status_code == DENIED
 
@@ -510,15 +576,16 @@ def test_sites_endpoint_lists_each_sites_tasks(world, site, other_site):
 
 def test_site_access_lists_people_and_who_could_be_added(site, admin_api):
     first = grant(ProjectInchargeUserFactory(), site)
-    second = grant(ProjectManagerUserFactory(), site, "HR", "DPR_BILLS")
+    second = grant(ProjectManagerUserFactory(), site, "STRUCTURES", "DPR_BILLS")
     free = ProjectInchargeUserFactory()
 
     data = admin_api.get(url("site-access-list"), {"site": str(site.id)}).data["data"]
 
-    assert [m["key"] for m in data["tasks"]] == list(ALL)
+    # The grid offers only the grantable tasks (no HR / Machinery).
+    assert [m["key"] for m in data["tasks"]] == list(GRANTABLE)
     people = {p["user_employee_id"]: p for p in data["people"]}
-    assert people[first.employee_id]["tasks"] == list(ALL)
-    assert people[second.employee_id]["tasks"] == ["DPR_BILLS", "HR"]
+    assert people[first.employee_id]["tasks"] == list(GRANTABLE)
+    assert people[second.employee_id]["tasks"] == ["STRUCTURES", "DPR_BILLS"]
     assert people[first.employee_id]["role_label"] == "Project Incharge"
     eligible = {e["employee_id"] for e in data["eligible"]}
     assert free.employee_id in eligible
@@ -529,21 +596,48 @@ def test_set_replaces_a_persons_tasks_atomically(site, admin_api):
     incharge = ProjectInchargeUserFactory()
     body = {"site": str(site.id), "user": str(incharge.id)}
 
-    added = admin_api.put(url("site-access-set"), {**body, "tasks": ["STRUCTURES", "HR"]}, format="json")
+    added = admin_api.put(url("site-access-set"), {**body, "tasks": ["STRUCTURES", "DPR_BILLS"]}, format="json")
     assert added.status_code == OK
-    assert added.data["data"]["tasks"] == ["STRUCTURES", "HR"]
+    assert added.data["data"]["tasks"] == ["STRUCTURES", "DPR_BILLS"]
 
-    changed = admin_api.put(url("site-access-set"), {**body, "tasks": ["HR", "REPORTS"]}, format="json")
-    assert changed.data["data"]["tasks"] == ["HR", "REPORTS"]
-    assert set(ProjectSiteAccess.objects.filter(user=incharge).values_list("role", flat=True)) == {"HR", "REPORTS"}
+    changed = admin_api.put(url("site-access-set"), {**body, "tasks": ["DPR_BILLS", "REPORTS"]}, format="json")
+    assert changed.data["data"]["tasks"] == ["DPR_BILLS", "REPORTS"]
+    assert set(ProjectSiteAccess.objects.filter(user=incharge).values_list("role", flat=True)) == {"DPR_BILLS", "REPORTS"}
 
     removed = admin_api.put(url("site-access-set"), {**body, "tasks": []}, format="json")
     assert removed.status_code == OK
     assert not ProjectSiteAccess.objects.filter(user=incharge).exists()
 
 
+def test_hr_and_machinery_cannot_be_granted_per_site(site, admin_api):
+    incharge = ProjectInchargeUserFactory()
+    for task in ("HR", "MACHINERY"):
+        response = admin_api.put(
+            url("site-access-set"),
+            {"site": str(site.id), "user": str(incharge.id), "tasks": [task]},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert ProjectSiteAccess.objects.count() == 0
+
+
+def test_saving_a_persons_tasks_clears_an_old_hr_grant(site, admin_api):
+    incharge = ProjectInchargeUserFactory()
+    ProjectSiteAccess.objects.bulk_create(
+        [ProjectSiteAccess(site=site, user=incharge, role="HR")]
+    )
+
+    admin_api.put(
+        url("site-access-set"),
+        {"site": str(site.id), "user": str(incharge.id), "tasks": ["STRUCTURES"]},
+        format="json",
+    )
+
+    assert set(ProjectSiteAccess.objects.filter(user=incharge).values_list("role", flat=True)) == {"STRUCTURES"}
+
+
 def test_set_only_touches_the_named_site_and_person(site, other_site, admin_api):
-    incharge = grant(ProjectInchargeUserFactory(), other_site, "HR")
+    incharge = grant(ProjectInchargeUserFactory(), other_site, "REPORTS")
     other_person = grant(ProjectInchargeUserFactory(), site, "STRUCTURES")
 
     admin_api.put(
@@ -552,7 +646,7 @@ def test_set_only_touches_the_named_site_and_person(site, other_site, admin_api)
         format="json",
     )
 
-    assert set(ProjectSiteAccess.objects.filter(user=incharge, site=other_site).values_list("role", flat=True)) == {"HR"}
+    assert set(ProjectSiteAccess.objects.filter(user=incharge, site=other_site).values_list("role", flat=True)) == {"REPORTS"}
     assert set(ProjectSiteAccess.objects.filter(user=other_person).values_list("role", flat=True)) == {"STRUCTURES"}
 
 
@@ -574,7 +668,7 @@ def test_only_incharges_and_managers_can_be_granted(site, admin_api):
     for user in (DirectorUserFactory(), UserFactory(), AdminUserFactory()):
         response = admin_api.put(
             url("site-access-set"),
-            {"site": str(site.id), "user": str(user.id), "tasks": ["HR"]},
+            {"site": str(site.id), "user": str(user.id), "tasks": ["STRUCTURES"]},
             format="json",
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -590,7 +684,7 @@ def test_set_rejects_unknown_tasks_and_unknown_sites(site, admin_api):
     )
     bad_site = admin_api.put(
         url("site-access-set"),
-        {"site": "not-a-uuid", "user": str(incharge.id), "tasks": ["HR"]},
+        {"site": "not-a-uuid", "user": str(incharge.id), "tasks": ["STRUCTURES"]},
         format="json",
     )
     assert bad_task.status_code == status.HTTP_400_BAD_REQUEST
@@ -604,7 +698,7 @@ def test_site_access_is_admin_only(site):
         assert client.get(url("site-access-list"), {"site": str(site.id)}).status_code == DENIED
         assert client.put(
             url("site-access-set"),
-            {"site": str(site.id), "user": str(user.id), "tasks": ["HR"]},
+            {"site": str(site.id), "user": str(user.id), "tasks": ["STRUCTURES"]},
             format="json",
         ).status_code == DENIED
         assert client.get(url("site-scope")).status_code == DENIED
@@ -613,13 +707,13 @@ def test_site_access_is_admin_only(site):
 def test_site_scope_summarises_grants_per_person(site, other_site, admin_api):
     busy = ProjectInchargeUserFactory()
     grant(busy, site)
-    grant(busy, other_site, "HR")
+    grant(busy, other_site, "REPORTS")
     idle = ProjectManagerUserFactory()
 
     rows = {r["employee_id"]: r for r in admin_api.get(url("site-scope")).data["data"]}
 
     assert {s["code"]: s["task_count"] for s in rows[busy.employee_id]["sites"]} == {
-        "CHK": len(ALL),
+        "CHK": len(GRANTABLE),
         "OTH": 1,
     }
     assert [s["all_tasks"] for s in rows[busy.employee_id]["sites"]] == [True, False]
@@ -655,6 +749,7 @@ COSTING_ROUTES = {
     "costing-access", "costing-glance", "costing-table",
     "costing-rate-list", "costing-rate-detail",
     "costing-production-list", "costing-production-detail",
+    "costing-link-list", "costing-link-detail",
 }
 
 

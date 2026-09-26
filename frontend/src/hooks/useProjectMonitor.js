@@ -1030,6 +1030,45 @@ export function useUnlockDprDay() {
   );
 }
 
+export function useDprMeasurements(params, enabled = true) {
+  return useFinanceQuery(
+    "measurements",
+    params,
+    () => projectMonitorService.listDprMeasurements(params),
+    Boolean(params.site) && enabled,
+  );
+}
+
+export function useSaveDprMeasurements() {
+  return useFinanceMutation(
+    projectMonitorService.saveDprMeasurements,
+  );
+}
+
+export function useDprEscalations(siteId, enabled) {
+  return useFinanceQuery(
+    "escalations",
+    { site: siteId },
+    () =>
+      projectMonitorService.listDprEscalations({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateDprEscalation() {
+  return useFinanceMutation(
+    projectMonitorService.createDprEscalation,
+  );
+}
+
+export function useDeleteDprEscalation() {
+  return useFinanceMutation(
+    projectMonitorService.deleteDprEscalation,
+  );
+}
+
 export function useRaBills(siteId, enabled) {
   return useFinanceQuery(
     "ra-bills",
@@ -1231,6 +1270,18 @@ export function useUploadHr(siteId) {
   );
 }
 
+export function useUploadHrStaff(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.uploadHrStaff(siteId, file),
+  );
+}
+
+export function useUploadHrMuster(siteId) {
+  return useFinanceMutation(({ file, month }) =>
+    projectMonitorService.uploadHrMuster(siteId, file, month),
+  );
+}
+
 // ---------------------------------------------------------------
 // Machinery: machines, daily usage and fuel (per-site Machinery role)
 // ---------------------------------------------------------------
@@ -1390,11 +1441,18 @@ export function useSiteTasks(siteId) {
     (candidate) => candidate.id === siteId,
   );
   const tasks = site?.tasks ?? [];
+  // The tasks the person may make entries for. Older responses only
+  // carry ``read_only``: read-only means nothing, otherwise every
+  // task they hold.
+  const enterTasks =
+    site?.enter_tasks ?? (site?.read_only ? [] : tasks);
   return {
     isLoading: sitesQuery.isLoading,
     tasks,
+    enterTasks,
     readOnly: Boolean(site?.read_only),
     has: (task) => tasks.includes(task),
+    canEnter: (task) => enterTasks.includes(task),
   };
 }
 
@@ -1441,14 +1499,20 @@ export function useCostingAccess(siteId) {
   );
 }
 
-export function useCostingGlance(siteId, enabled = true) {
+export function useCostingGlance(
+  siteId,
+  { period = "today", on } = {},
+  enabled = true,
+) {
+  const params = {
+    site: siteId,
+    period,
+    ...(period === "date" && on ? { on } : {}),
+  };
   return useFinanceQuery(
     "costing-glance",
-    { site: siteId },
-    () =>
-      projectMonitorService.getCostingGlance({
-        site: siteId,
-      }),
+    params,
+    () => projectMonitorService.getCostingGlance(params),
     Boolean(siteId) && enabled,
   );
 }
@@ -1487,6 +1551,24 @@ export function useCreateMaterialRate() {
 export function useDeleteMaterialRate() {
   return useFinanceMutation(
     projectMonitorService.deleteMaterialRate,
+  );
+}
+
+export function useItemLinks(siteId, enabled = true) {
+  return useFinanceQuery(
+    "costing-links",
+    { site: siteId },
+    () =>
+      projectMonitorService.listItemLinks({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useSaveItemLink() {
+  return useFinanceMutation(({ itemId, ...payload }) =>
+    projectMonitorService.saveItemLink(itemId, payload),
   );
 }
 

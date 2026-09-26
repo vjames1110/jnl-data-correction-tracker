@@ -91,6 +91,19 @@ export function formatCurrency(value) {
   return `₹${INR_FORMATTER.format(Number(value))}`;
 }
 
+const RATE_FORMATTER = new Intl.NumberFormat("en-IN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** A per-unit rate, to the paisa (amounts are shown in whole rupees). */
+export function formatRate(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `₹${RATE_FORMATTER.format(Number(value))}`;
+}
+
 export function formatCountdown(site) {
   if (site.days_remaining == null) {
     return "End date not set";

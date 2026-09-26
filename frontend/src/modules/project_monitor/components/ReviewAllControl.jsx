@@ -3,8 +3,8 @@ import { useState } from "react";
 
 /**
  * The "review everything on this sheet at once" control - shared by
- * Structures/Buildings (``ActivitySheetDrawer``) and Girders
- * (``GirderJobDrawer``), since it's the exact same optional-remark
+ * Structures/Buildings (``ActivityWorkspace``) and Girders
+ * (``GirderJobWorkspace``), since it's the exact same optional-remark
  * confirm flow either way.
  */
 export function ReviewAllControl({

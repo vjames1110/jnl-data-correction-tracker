@@ -23,6 +23,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.project_monitor.models import (
@@ -31,7 +32,7 @@ from apps.project_monitor.models import (
     RaBillKind,
     RaBillLine,
 )
-from apps.project_monitor.services import dpr
+from apps.project_monitor.services import boq, dpr
 
 ZERO = Decimal("0")
 
@@ -162,6 +163,15 @@ def create_bill(
                     )
                 }
             )
+        if item.is_heading:
+            raise ValidationError(
+                {
+                    "lines": (
+                        "A group cannot be billed - bill the "
+                        "items under it."
+                    )
+                }
+            )
         if item.id in seen:
             raise ValidationError(
                 {"lines": "An item appears twice."}
@@ -180,13 +190,16 @@ def create_bill(
         created_by=actor,
         updated_by=actor,
     )
+    series = boq.escalation_series(site)
     RaBillLine.objects.bulk_create(
         [
             RaBillLine(
                 bill=bill,
                 item=line["item"],
                 qty=line["qty"],
-                rate=line["item"].rate,
+                rate=boq.effective_rate(
+                    line["item"], bill_date, series
+                ),
             )
             for line in billable
         ]
@@ -317,9 +330,11 @@ def bill_rows(site) -> dict:
 
 
 def unbilled_value(site, upto: date | None = None) -> Decimal:
-    """Executed-but-not-yet-billed value at contract rates."""
+    """Executed-but-not-yet-billed value at the rate in force."""
     executed = dpr.executed_totals(site, upto)
     billed = dpr.billed_qty_map(site, upto)
+    series = boq.escalation_series(site)
+    on_day = upto or timezone.localdate()
     total = ZERO
     items = {
         item.id: item
@@ -329,5 +344,7 @@ def unbilled_value(site, upto: date | None = None) -> Decimal:
         item = items.get(item_id)
         if item is None:
             continue
-        total += (qty - billed.get(item_id, ZERO)) * item.rate
+        total += (qty - billed.get(item_id, ZERO)) * boq.effective_rate(
+            item, on_day, series
+        )
     return total

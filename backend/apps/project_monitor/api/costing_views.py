@@ -15,6 +15,7 @@ from apps.project_monitor.api.permissions import (
 )
 from apps.project_monitor.models import (
     ConcreteProduction,
+    DprItem,
     MaterialKind,
     MaterialRate,
 )
@@ -153,11 +154,20 @@ class CostingGlanceAPIView(APIView):
         site = get_site_or_400(
             request.query_params.get("site")
         )
+        raw_on = request.query_params.get("on")
         return success_response(
             message=(
                 "Today at a glance retrieved successfully."
             ),
-            data=costing.today_at_a_glance(site),
+            data=costing.today_at_a_glance(
+                site,
+                period=request.query_params.get(
+                    "period", "today"
+                ),
+                on=_parse_date(raw_on, "on")
+                if raw_on
+                else None,
+            ),
         )
 
 
@@ -299,4 +309,56 @@ class ConcreteProductionDetailAPIView(APIView):
                 "successfully."
             ),
             data=None,
+        )
+
+
+class ItemLinkWriteSerializer(serializers.Serializer):
+    concrete_per_unit = serializers.DecimalField(
+        max_digits=10, decimal_places=3, min_value=0
+    )
+    tmt_kg_per_unit = serializers.DecimalField(
+        max_digits=10, decimal_places=3, min_value=0
+    )
+
+
+class ItemLinkListAPIView(APIView):
+    """DPR items with their material consumption and the rates in force."""
+
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    def get(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        return success_response(
+            message="Item links retrieved successfully.",
+            data=costing.item_links(site),
+        )
+
+
+class ItemLinkDetailAPIView(APIView):
+    """Set one DPR item's concrete and TMT use per unit (Admin)."""
+
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            item = DprItem.objects.select_related("site").get(
+                pk=pk
+            )
+        except (DprItem.DoesNotExist, ValueError) as exc:
+            raise NotFound("DPR item not found.") from exc
+        serializer = ItemLinkWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        costing.set_item_link(
+            item=item,
+            actor=request.user,
+            **serializer.validated_data,
+        )
+        links = costing.item_links(item.site)
+        row = next(
+            row for row in links["items"] if row["id"] == item.id
+        )
+        return success_response(
+            message="Item link saved successfully.", data=row
         )

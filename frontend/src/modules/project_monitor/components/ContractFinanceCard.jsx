@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { useUpdateDprContract } from "../../../hooks/useProjectMonitor";
+import { describePercent } from "../utils/boq";
 import {
   apiErrorMessage,
   parseNumber,
@@ -11,6 +12,7 @@ import {
   formatCurrency,
   formatDate,
 } from "../utils/status";
+import { EscalationPanel } from "./EscalationPanel";
 
 const BLANK = {
   contract_no: "",
@@ -18,6 +20,7 @@ const BLANK = {
   opening_billed_value: "",
   opening_bill_no: "",
   opening_bill_date: "",
+  tender_percent: "",
 };
 
 /**
@@ -25,6 +28,21 @@ const BLANK = {
  * LOA number, value as varied, and what was already billed before RA
  * bills were recorded here (so the running total starts right).
  */
+function boqCheck(contract) {
+  const total = Number(contract.boq_total || 0);
+  if (!total) {
+    return "No items yet";
+  }
+  const contractValue = Number(
+    contract.varied_value ?? contract.original_value ?? 0,
+  );
+  const gap = total - contractValue;
+  if (!contractValue || Math.abs(gap) < 1) {
+    return formatCurrency(total);
+  }
+  return `${formatCurrency(total)} - ${formatCurrency(Math.abs(gap))} ${gap > 0 ? "above" : "below"} the contract value`;
+}
+
 export function ContractFinanceCard({
   siteId,
   contract,
@@ -33,6 +51,7 @@ export function ContractFinanceCard({
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState(BLANK);
+  const [notice, setNotice] = useState("");
   const updateContract = useUpdateDprContract(siteId);
 
   const startEditing = () => {
@@ -43,7 +62,9 @@ export function ContractFinanceCard({
         contract.opening_billed_value ?? "",
       opening_bill_no: contract.opening_bill_no ?? "",
       opening_bill_date: contract.opening_bill_date ?? "",
+      tender_percent: contract.tender_percent ?? "",
     });
+    setNotice("");
     setIsOpen(true);
     setIsEditing(true);
   };
@@ -54,14 +75,25 @@ export function ContractFinanceCard({
   const handleSave = async (event) => {
     event.preventDefault();
     try {
-      await updateContract.mutateAsync({
+      const saved = await updateContract.mutateAsync({
         contract_no: form.contract_no,
         varied_value: parseNumber(form.varied_value),
         opening_billed_value:
           parseNumber(form.opening_billed_value) ?? 0,
         opening_bill_no: form.opening_bill_no,
         opening_bill_date: form.opening_bill_date || null,
+        tender_percent: parseNumber(form.tender_percent),
       });
+      const recalculated = saved?.recalculated;
+      setNotice(
+        recalculated?.items_changed
+          ? `${recalculated.items_changed} item rate(s) re-worked from their authority rate.${
+              recalculated.entries_on_old_rate
+                ? ` ${recalculated.entries_on_old_rate} DPR entr${recalculated.entries_on_old_rate === 1 ? "y" : "ies"} already recorded on those items keep the rate they were entered at.`
+                : ""
+            }`
+          : "",
+      );
       setIsEditing(false);
     } catch {
       // The inline alert below shows the error.
@@ -76,6 +108,17 @@ export function ContractFinanceCard({
       contract.varied_value === null
         ? "Same as original"
         : formatCurrency(contract.varied_value),
+    ],
+    [
+      "Tender % over the authority rate",
+      contract.tender_percent === null ||
+      contract.tender_percent === undefined
+        ? "Not set"
+        : describePercent(contract.tender_percent),
+    ],
+    [
+      "BOQ total (at bid rates)",
+      boqCheck(contract),
     ],
     [
       "Billed before this system",
@@ -158,6 +201,23 @@ export function ContractFinanceCard({
             />
           </label>
           <label className="form-field">
+            <span>Tender % over (+) / under (-) the authority rate</span>
+            <input
+              type="number"
+              step="0.001"
+              min="-100"
+              max="500"
+              value={form.tender_percent}
+              onChange={(event) =>
+                setField(
+                  "tender_percent",
+                  event.target.value,
+                )
+              }
+              placeholder="e.g. -5.5"
+            />
+          </label>
+          <label className="form-field">
             <span>Billed before this system (₹, gross)</span>
             <input
               type="number"
@@ -214,6 +274,12 @@ export function ContractFinanceCard({
               Cancel
             </button>
           </div>
+          <p className="form-help" style={{ gridColumn: "1 / -1" }}>
+            The tender percentage re-works the bid rate of every item
+            that has an authority rate (unless it has its own
+            percentage). DPR entries and bills already recorded keep
+            the rate they were entered at.
+          </p>
           {updateContract.isError ? (
             <div className="inline-alert inline-alert--error">
               {apiErrorMessage(updateContract.error)}
@@ -221,14 +287,25 @@ export function ContractFinanceCard({
           ) : null}
         </form>
       ) : (
-        <dl className="pm-detail-cards">
-          {cards.map(([label, value]) => (
-            <div className="pm-detail-card" key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
+        <>
+          {notice ? (
+            <div className="pm-notice" role="status">
+              {notice}
             </div>
-          ))}
-        </dl>
+          ) : null}
+          <dl className="pm-detail-cards">
+            {cards.map(([label, value]) => (
+              <div className="pm-detail-card" key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <EscalationPanel
+            siteId={siteId}
+            canEnter={canEnter}
+          />
+        </>
       )}
     </SurfaceCard>
   );

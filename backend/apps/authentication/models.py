@@ -26,6 +26,22 @@ class UserRole(models.TextChoices):
         "PROJECT_INCHARGE",
         "Project Incharge",
     )
+    # Company-wide Project Management roles (see
+    # apps.project_monitor.services.project_scope): the head-office
+    # owner of project set-up, and the two departments that alone
+    # enter HR and machinery data.
+    PROJECT_HO = (
+        "PROJECT_HO",
+        "Project Management HO",
+    )
+    HR_DEPARTMENT = (
+        "HR_DEPARTMENT",
+        "HR Department",
+    )
+    MACHINERY_DEPARTMENT = (
+        "MACHINERY_DEPARTMENT",
+        "Machinery Department",
+    )
 
 
 class AccountStatus(models.TextChoices):

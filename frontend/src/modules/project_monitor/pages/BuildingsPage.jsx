@@ -6,7 +6,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -21,7 +20,7 @@ import {
   useReviewBuilding,
   useUpdateActivity,
 } from "../../../hooks/useProjectMonitor";
-import { ActivitySheetDrawer } from "../components/ActivitySheetDrawer";
+import { ActivityWorkspace } from "../components/ActivityWorkspace";
 import { AddBuildingForm } from "../components/AddBuildingForm";
 import { ItemGroupSection } from "../components/ItemGroupSection";
 import { NoTaskAccess } from "../components/NoTaskAccess";
@@ -54,7 +53,7 @@ export function BuildingsPage() {
     !siteTasks.isLoading &&
     !siteTasks.has("BUILDINGS");
   const canEdit =
-    isProjectEntryRole(user?.role) && !lacksTask;
+    !lacksTask && siteTasks.canEnter("BUILDINGS");
 
   const createBuilding = useCreateBuilding(
     selectedSite,
@@ -115,15 +114,6 @@ export function BuildingsPage() {
     );
     return map;
   }, [buildingsQuery.data]);
-
-  const selectedBuilding = useMemo(
-    () =>
-      (buildingsQuery.data || []).find(
-        (building) =>
-          building.id === selectedBuildingId,
-      ) || null,
-    [buildingsQuery.data, selectedBuildingId],
-  );
 
   const handleDelete = (buildingId) => {
     if (
@@ -264,9 +254,51 @@ export function BuildingsPage() {
                 label={station}
                 items={items}
                 onView={(id) => {
-                  setSelectedBuildingId(id);
+                  setSelectedBuildingId((current) =>
+                    current === id ? null : id,
+                  );
                   setActiveActivityId(null);
                 }}
+                expandedId={selectedBuildingId}
+                renderExpanded={(building) => (
+                  <ActivityWorkspace
+                    item={building}
+                    metaLine={`${
+                      building.chainage_km != null
+                        ? `Ch. ${building.chainage_km} km`
+                        : "Chainage not set"
+                    } · ${building.overall_progress.done}/${
+                      building.overall_progress.total
+                    } activities complete`}
+                    activeActivityId={activeActivityId}
+                    onSelectActivity={setActiveActivityId}
+                    canEdit={canEdit}
+                    onSubmitUpdate={(activityId, payload) =>
+                      updateActivity.mutate({
+                        activityId,
+                        payload,
+                      })
+                    }
+                    updateStatus={updateActivity}
+                    onReviewActivity={(activityId, remarks) =>
+                      reviewActivity.mutate({
+                        activityId,
+                        payload: { remarks },
+                      })
+                    }
+                    reviewActivityStatus={reviewActivity}
+                    onReviewAll={(remarks, options) =>
+                      reviewBuilding.mutate(
+                        {
+                          buildingId: building.id,
+                          payload: { remarks },
+                        },
+                        options,
+                      )
+                    }
+                    reviewAllStatus={reviewBuilding}
+                  />
+                )}
                 onDelete={handleDelete}
                 canEdit={canEdit}
                 deleteTitle="Delete this building sheet and all its data"
@@ -275,61 +307,6 @@ export function BuildingsPage() {
           )}
         </SurfaceCard>
       )}
-
-      <ActivitySheetDrawer
-        item={selectedBuilding}
-        eyebrow={
-          selectedBuilding?.station_label ||
-          "Building"
-        }
-        metaLine={
-          selectedBuilding
-            ? `${
-                selectedBuilding.chainage_km !=
-                null
-                  ? `Ch. ${selectedBuilding.chainage_km} km`
-                  : "Chainage not set"
-              } · ${
-                selectedBuilding
-                  .overall_progress.done
-              }/${
-                selectedBuilding
-                  .overall_progress.total
-              } activities complete`
-            : ""
-        }
-        activeActivityId={activeActivityId}
-        onSelectActivity={setActiveActivityId}
-        canEdit={canEdit}
-        onClose={() => {
-          setSelectedBuildingId(null);
-          setActiveActivityId(null);
-        }}
-        onSubmitUpdate={(activityId, payload) =>
-          updateActivity.mutate({
-            activityId,
-            payload,
-          })
-        }
-        updateStatus={updateActivity}
-        onReviewActivity={(activityId, remarks) =>
-          reviewActivity.mutate({
-            activityId,
-            payload: { remarks },
-          })
-        }
-        reviewActivityStatus={reviewActivity}
-        onReviewAll={(remarks, options) =>
-          reviewBuilding.mutate(
-            {
-              buildingId: selectedBuilding?.id,
-              payload: { remarks },
-            },
-            options,
-          )
-        }
-        reviewAllStatus={reviewBuilding}
-      />
     </div>
   );
 }

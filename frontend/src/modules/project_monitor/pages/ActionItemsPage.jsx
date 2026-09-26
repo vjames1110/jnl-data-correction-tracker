@@ -6,7 +6,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -49,7 +48,7 @@ export function ActionItemsPage() {
     !siteTasks.isLoading &&
     !siteTasks.has("ACTION_ITEMS");
   const canEdit =
-    isProjectEntryRole(user?.role) && !lacksTask;
+    !lacksTask && siteTasks.canEnter("ACTION_ITEMS");
 
   const createActionItem = useCreateActionItem(
     selectedSite,

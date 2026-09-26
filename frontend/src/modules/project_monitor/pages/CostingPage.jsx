@@ -2,9 +2,7 @@ import { Beaker, Gauge, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
-import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { useAuth } from "../../../hooks/useAuth";
 import {
@@ -16,10 +14,12 @@ import {
 import { ConcreteProductionPanel } from "../components/ConcreteProductionPanel";
 import { CostingGlancePanel } from "../components/CostingGlancePanel";
 import { CostingTable } from "../components/CostingTable";
+import { DprCostingHelp } from "../components/DprCostingHelp";
+import { ItemLinksPanel } from "../components/ItemLinksPanel";
 import { MaterialRatesPanel } from "../components/MaterialRatesPanel";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { WorkspaceSwitch } from "../components/WorkspaceSwitch";
-import { apiErrorMessage, todayIso } from "../utils/finance";
+import { todayIso } from "../utils/finance";
 
 const SUB_TABS = [
   { key: "glance", label: "Today at a glance", icon: Gauge },
@@ -56,8 +56,11 @@ export function CostingPage() {
   const sitesQuery = useProjectSites();
   const accessQuery = useCostingAccess(selectedSite);
   const canEnter = Boolean(accessQuery.data?.can_enter);
+  const [glancePeriod, setGlancePeriod] = useState("today");
+  const [glanceDate, setGlanceDate] = useState(() => todayIso());
   const glanceQuery = useCostingGlance(
     selectedSite,
+    { period: glancePeriod, on: glanceDate },
     subTab === "glance",
   );
 
@@ -82,7 +85,8 @@ export function CostingPage() {
           <h1>Costing</h1>
           <p>
             Expense vs value of work done, day by day, and a
-            glance at today, yesterday and the project so far.
+            glance at any day or period - today, yesterday, the
+            week, the month or the project so far.
           </p>
         </div>
 
@@ -129,19 +133,18 @@ export function CostingPage() {
 
           {subTab === "glance" ? (
             <SurfaceCard>
-              {glanceQuery.isLoading ? (
-                <AppLoader label="Loading today at a glance..." />
-              ) : glanceQuery.isError ? (
-                <ErrorState
-                  title="Costing unavailable"
-                  message={apiErrorMessage(
-                    glanceQuery.error,
-                  )}
-                  onRetry={() => glanceQuery.refetch()}
-                />
-              ) : (
-                <CostingGlancePanel glance={glanceQuery.data} />
-              )}
+              <CostingGlancePanel
+                glance={glanceQuery.data}
+                period={glancePeriod}
+                onPeriodChange={setGlancePeriod}
+                pickedDate={glanceDate}
+                onDateChange={setGlanceDate}
+                isLoading={glanceQuery.isLoading}
+                error={
+                  glanceQuery.isError ? glanceQuery.error : null
+                }
+                onRetry={() => glanceQuery.refetch()}
+              />
             </SurfaceCard>
           ) : null}
 
@@ -153,11 +156,21 @@ export function CostingPage() {
 
           {subTab === "rates" ? (
             <div className="pm-stack">
+              <DprCostingHelp />
               <SurfaceCard>
                 <div className="surface-card__header">
                   <h2>Material rates</h2>
                 </div>
                 <MaterialRatesPanel
+                  siteId={selectedSite}
+                  canEnter={canEnter}
+                />
+              </SurfaceCard>
+              <SurfaceCard>
+                <div className="surface-card__header">
+                  <h2>DPR items and material use</h2>
+                </div>
+                <ItemLinksPanel
                   siteId={selectedSite}
                   canEnter={canEnter}
                 />

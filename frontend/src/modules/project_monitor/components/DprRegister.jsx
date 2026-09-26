@@ -15,6 +15,7 @@ import {
   formatDate,
   formatQty,
 } from "../utils/status";
+import { DprMeasurementRegister } from "./DprMeasurementRegister";
 
 const SOURCE_LABELS = {
   MANUAL_GRID: "Grid",
@@ -305,6 +306,11 @@ export function DprRegister({ siteId, items, canEnter }) {
           to see the rest.
         </p>
       ) : null}
+      <DprMeasurementRegister
+        params={params}
+        items={items}
+        entries={entries}
+      />
     </div>
   );
 }

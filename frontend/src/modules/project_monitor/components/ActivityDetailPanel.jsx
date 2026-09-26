@@ -15,7 +15,7 @@ import { ActivityUpdateForm } from "./ActivityUpdateForm";
 
 /**
  * The content of one activity row's inline-expanded area (see
- * ActivitySheetDrawer) - status/progress header, the target-date
+ * ActivityWorkspace) - status/progress header, the target-date
  * history with an "Action History" toggle beside it (collapsed by
  * default - shows the full meeting-wise comment log, including who
  * made each entry, only once clicked), the update form for anyone

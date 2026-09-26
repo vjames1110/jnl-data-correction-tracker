@@ -314,3 +314,150 @@ def test_dashboard_api_accessible_to_store_ho(
     )
 
     assert response.status_code == status.HTTP_200_OK
+
+
+# ---- the detail behind each summary card ---------------------------------
+
+
+def _card(user, kind, month="2026-06-01"):
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client.get(
+        reverse(
+            "reconciliation-api:dashboard-card",
+            kwargs={"kind": kind},
+        ),
+        {"month": month},
+    )
+
+
+@pytest.mark.django_db
+def test_sites_reporting_lists_every_active_site_reported_first(
+    dataset, site_a, site_b, company,
+):
+    quiet = Site.objects.create(
+        company=company,
+        site_code="AAA",
+        site_name="Quiet Site",
+    )
+    Site.objects.create(
+        company=company,
+        site_code="OFF",
+        site_name="Closed Site",
+        is_active=False,
+    )
+
+    response = _card(DirectorUserFactory(), "sites_reporting")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.data["data"]
+    assert data["shape"] == "sites"
+    rows = data["rows"]
+    # Reported sites first (worst first), then the rest by code; the
+    # closed site is not a site that should have reported.
+    assert [row["site_code"] for row in rows] == ["BKN", "JPR", "AAA"]
+    assert [row["reported"] for row in rows] == [True, True, False]
+    assert rows[2]["site_id"] == quiet.id
+    assert rows[2]["total_entries"] == 0
+    # The card's own figures: reporting / total.
+    summary = company_summary(period_month=date(2026, 6, 1))
+    assert sum(row["reported"] for row in rows) == summary["sites_reporting"]
+
+
+@pytest.mark.django_db
+def test_an_unreported_site_shows_the_status_of_a_period_it_has(
+    dataset, company,
+):
+    quiet = Site.objects.create(
+        company=company, site_code="AAA", site_name="Quiet Site"
+    )
+    get_or_create_period(site=quiet, period_month=date(2026, 6, 1))
+
+    rows = _card(DirectorUserFactory(), "sites_reporting").data["data"]["rows"]
+
+    row = next(r for r in rows if r["site_code"] == "AAA")
+    assert row["reported"] is False
+    assert row["period_status"] == "DRAFT"
+
+
+@pytest.mark.django_db
+def test_total_entries_lists_only_reporting_sites_busiest_first(
+    dataset, site_a, cement,
+):
+    period_a = dataset[0]
+    period_a.entries.create(
+        item=Item.objects.create(
+            item_name="Sand", reconciliation_type=ReconciliationType.NORM_BASED, uom="CUM",
+        ),
+        opening_stock=Decimal("1.000"),
+        receipts=Decimal("1.000"),
+        closing_stock=Decimal("0.000"),
+    )
+
+    rows = _card(DirectorUserFactory(), "total_entries").data["data"]["rows"]
+
+    assert [row["site_code"] for row in rows] == ["BKN", "JPR"]
+    assert [row["total_entries"] for row in rows] == [2, 1]
+    assert all(row["reported"] for row in rows)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "kind, expected_status, expected_site",
+    [
+        ("over_tolerance", "OVER_TOLERANCE", "BKN"),
+        ("within_tolerance", "WITHIN_TOLERANCE", "JPR"),
+    ],
+)
+def test_status_cards_list_the_entries_behind_them(
+    dataset, kind, expected_status, expected_site,
+):
+    data = _card(DirectorUserFactory(), kind).data["data"]
+
+    assert data["shape"] == "entries"
+    assert data["total"] == 1 and data["truncated"] is False
+    (row,) = data["rows"]
+    assert row["status"] == expected_status
+    assert row["site_code"] == expected_site
+    assert row["item_name"] == "OPC 43 Grade Cement"
+    assert {"actual_quantity", "theoretical_or_book_quantity", "variance_value", "site_id"} <= set(row)
+
+
+@pytest.mark.django_db
+def test_a_status_card_with_nothing_behind_it_is_empty(dataset):
+    data = _card(DirectorUserFactory(), "watch").data["data"]
+
+    assert data["rows"] == []
+    assert data["total"] == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("kind", ["total_variance", "largest_variance"])
+def test_variance_cards_rank_sites_by_variance(dataset, kind):
+    rows = _card(DirectorUserFactory(), kind).data["data"]["rows"]
+
+    assert [row["site_code"] for row in rows] == ["BKN", "JPR"]
+    assert Decimal(rows[0]["total_variance_value"]) > Decimal(rows[1]["total_variance_value"])
+
+
+@pytest.mark.django_db
+def test_an_unknown_card_is_a_404(dataset):
+    assert _card(DirectorUserFactory(), "nonsense").status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_card_details_follow_the_reports_permission(dataset):
+    assert _card(StoreHoUserFactory(), "sites_reporting").status_code == status.HTTP_200_OK
+    assert _card(UserFactory(), "sites_reporting").status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_card_details_default_to_the_latest_reported_month(dataset):
+    client = APIClient()
+    client.force_authenticate(user=DirectorUserFactory())
+
+    response = client.get(
+        reverse("reconciliation-api:dashboard-card", kwargs={"kind": "sites_reporting"})
+    )
+
+    assert response.data["data"]["period_month"] == "2026-06-01"

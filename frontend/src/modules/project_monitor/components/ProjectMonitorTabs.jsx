@@ -17,7 +17,9 @@ import {
   projectMonitorMachineryPath,
   projectMonitorOverviewPath,
   projectMonitorReportsPath,
+  isDepartmentRole,
   projectMonitorStructuresPath,
+  seesCosting,
   seesEveryProject,
 } from "../../../constants/roles";
 
@@ -25,7 +27,10 @@ export function ProjectMonitorTabs({ role, active }) {
   const [searchParams] = useSearchParams();
   const site = searchParams.get("site");
   const query = site ? `?site=${site}` : "";
-  const overdueQuery = useOverdueCounts(site);
+  // The departments see no progress data, so no overdue badges.
+  const overdueQuery = useOverdueCounts(
+    isDepartmentRole(role) ? null : site,
+  );
   const overdue = overdueQuery.data ?? {};
   const visible = useVisibleTasks(site);
 
@@ -100,9 +105,8 @@ export function ProjectMonitorTabs({ role, active }) {
       path: projectMonitorMachineryPath(role),
     },
     // Costing has no per-site grant at all - only Director/Admin
-    // ever see it (the same role set ``seesEveryProject`` already
-    // names). It sits just before Reports.
-    ...(seesEveryProject(role)
+    // ever see it. It sits just before Reports.
+    ...(seesCosting(role)
       ? [
           {
             key: "costing",
@@ -119,10 +123,13 @@ export function ProjectMonitorTabs({ role, active }) {
     },
   ];
 
-  // All Projects and Overview are open to anyone with a grant on
-  // the site; every other tab needs its own task.
-  const shownTabs = tabs.filter(
-    (tab) => !tab.task || visible.has(tab.task),
+  // All Projects and Overview are open to anyone with access to the
+  // module - except the HR and Machinery departments, who only ever
+  // see their own tab. Every other tab needs its own task.
+  const shownTabs = tabs.filter((tab) =>
+    tab.task
+      ? visible.has(tab.task)
+      : !isDepartmentRole(role),
   );
 
   return (

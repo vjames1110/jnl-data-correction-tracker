@@ -5,6 +5,7 @@ from apps.reconciliation.api.views import (
     ItemCategoryViewSet,
     ItemStandardViewSet,
     ItemViewSet,
+    ReconciliationDashboardCardView,
     ReconciliationDashboardView,
     ReconciliationEntryViewSet,
     ReconciliationMiscUsageViewSet,
@@ -76,6 +77,11 @@ urlpatterns = [
         "dashboard/",
         ReconciliationDashboardView.as_view(),
         name="dashboard",
+    ),
+    path(
+        "dashboard/cards/<str:kind>/",
+        ReconciliationDashboardCardView.as_view(),
+        name="dashboard-card",
     ),
     path(
         "statement-pack/",

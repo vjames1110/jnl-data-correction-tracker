@@ -83,4 +83,61 @@ describe("ItemGroupSection", () => {
 
     expect(onEdit).toHaveBeenCalledWith(ITEMS[0]);
   });
+
+  describe("workspace under the row", () => {
+    it("opens the item workspace right under its own row", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          expandedId="s1"
+          renderExpanded={(item) => <div>Workspace of {item.name}</div>}
+        />,
+      );
+
+      expect(
+        screen.getByText("Workspace of Br. No. 214"),
+      ).toBeInTheDocument();
+      const view = screen.getByRole("button", { name: "Hide" });
+      expect(view).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("shows nothing extra while the item is closed, and View opens it", () => {
+      const onView = vi.fn();
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={onView}
+          onDelete={vi.fn()}
+          canEdit
+          expandedId={null}
+          renderExpanded={() => <div>Workspace</div>}
+        />,
+      );
+
+      expect(screen.queryByText("Workspace")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "View" }));
+      expect(onView).toHaveBeenCalledWith("s1");
+    });
+
+    it("keeps its plain View button when no workspace is given", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "View" }),
+      ).not.toHaveAttribute("aria-expanded");
+    });
+  });
 });

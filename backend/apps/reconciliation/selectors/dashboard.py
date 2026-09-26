@@ -242,3 +242,135 @@ def company_trend(
             }
         )
     return rows
+
+
+# --------------------------------------------------------------------
+# Detail behind each summary card on the Reports page: click a card,
+# see the sites or entries it counts (and open a site's statement).
+# --------------------------------------------------------------------
+
+ENTRY_LIMIT = 500
+
+SITE_CARDS = (
+    "sites_reporting",
+    "total_entries",
+    "total_variance",
+    "largest_variance",
+)
+ENTRY_CARDS = {
+    "over_tolerance": (
+        ReconciliationEntryStatus.OVER_TOLERANCE
+    ),
+    "watch": ReconciliationEntryStatus.WATCH,
+    "within_tolerance": (
+        ReconciliationEntryStatus.WITHIN_TOLERANCE
+    ),
+}
+CARD_KINDS = SITE_CARDS + tuple(ENTRY_CARDS)
+
+
+def _site_rows(period_month, *, include_unreported):
+    reported = site_variance_summary(period_month=period_month)
+    rows = [
+        {
+            "site_id": row["site_id"],
+            "site_code": row["site_code"],
+            "site_name": row["site_name"],
+            "reported": True,
+            "period_status": row["period_status"],
+            "total_entries": row["total_entries"],
+            "over_tolerance_count": row["over_tolerance_count"],
+            "watch_count": row["watch_count"],
+            "within_tolerance_count": row[
+                "within_tolerance_count"
+            ],
+            "total_variance_value": row["total_variance_value"],
+            "net_variance_value": row["net_variance_value"],
+        }
+        for row in reported
+    ]
+    if not include_unreported:
+        return rows
+
+    reported_ids = {row["site_id"] for row in rows}
+    period_status = dict(
+        ReconciliationPeriod.objects.filter(
+            period_month=period_month,
+            is_deleted=False,
+        ).values_list("site_id", "status")
+    )
+    rows.extend(
+        {
+            "site_id": site.id,
+            "site_code": site.site_code,
+            "site_name": site.site_name,
+            "reported": False,
+            "period_status": period_status.get(site.id, ""),
+            "total_entries": 0,
+            "over_tolerance_count": 0,
+            "watch_count": 0,
+            "within_tolerance_count": 0,
+            "total_variance_value": ZERO,
+            "net_variance_value": ZERO,
+        }
+        for site in Site.objects.filter(is_active=True).order_by(
+            "site_code"
+        )
+        if site.id not in reported_ids
+    )
+    return rows
+
+
+def _entry_rows(period_month, entry_status):
+    entries = (
+        _entries_for_month(period_month)
+        .filter(status=entry_status)
+        .select_related("period__site", "item")
+        .order_by(Abs(F("variance_value")).desc(), "id")
+    )
+    total = entries.count()
+    return [
+        {
+            "entry_id": entry.id,
+            "site_id": entry.period.site_id,
+            "site_code": entry.period.site.site_code,
+            "site_name": entry.period.site.site_name,
+            "item_code": entry.item.item_code,
+            "item_name": entry.item.item_name,
+            "uom": entry.item.uom,
+            "actual_quantity": entry.actual_quantity,
+            "theoretical_or_book_quantity": (
+                entry.theoretical_or_book_quantity
+            ),
+            "variance_quantity": entry.variance_quantity,
+            "variance_value": entry.variance_value,
+            "status": entry.status,
+        }
+        for entry in entries[:ENTRY_LIMIT]
+    ], total
+
+
+def card_detail(*, kind, period_month) -> dict:
+    """What one summary card counts, for the click-through panel."""
+    if kind in ENTRY_CARDS:
+        rows, total = _entry_rows(period_month, ENTRY_CARDS[kind])
+        return {
+            "kind": kind,
+            "shape": "entries",
+            "rows": rows,
+            "total": total,
+            "truncated": total > len(rows),
+        }
+
+    rows = _site_rows(
+        period_month, include_unreported=kind == "sites_reporting"
+    )
+    if kind == "total_entries":
+        rows.sort(key=lambda row: -row["total_entries"])
+    return {
+        "kind": kind,
+        "shape": "sites",
+        "rows": rows,
+        "total": len(rows),
+        "truncated": False,
+    }

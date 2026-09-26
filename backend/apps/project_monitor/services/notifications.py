@@ -71,6 +71,7 @@ def _overview_deep_link(role: str, site_id) -> str:
     if role in (
         UserRole.PROJECT_MANAGER,
         UserRole.PROJECT_INCHARGE,
+        UserRole.PROJECT_HO,
     ):
         base = "/project-manager/dashboard"
     elif role == UserRole.DIRECTOR:

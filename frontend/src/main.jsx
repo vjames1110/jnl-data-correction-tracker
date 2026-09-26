@@ -10,6 +10,7 @@ import "./styles/components.css";
 import "./styles/auth.css";
 import "./styles/admin.css";
 import "./styles/user.css";
+import "./styles/charts.css";
 import "./styles/project-monitor.css";
 
 createRoot(

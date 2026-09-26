@@ -1,13 +1,17 @@
 """
 The finance tier (DPR and RA bills, HR, Machinery) as tasks of the
-task-wise site access in ``services.project_scope``. These are thin
+task-wise access in ``services.project_scope``. These are thin
 wrappers that keep the names the finance views and importers already
-use; the rules are the same for every task:
+use; the rules come from ``project_scope``:
 
-- Director, Admin and Super Admin see every site (Director is
-  read-only, Admin/Super Admin can also enter data).
-- A Project Incharge or Project Manager needs the task granted on the
-  site by an Admin (Site Access page) - view and enter together.
+- DPR & Bills: Director (read-only), Admin/Super Admin and the
+  Project Management HO (read-only) see every site; a Project
+  Incharge or Project Manager needs the task granted on the site by
+  an Admin (Site Access page) - view and enter together.
+- HR and Machinery: entered and seen only by the HR Department /
+  Machinery Department on every site, plus Admin/Super Admin, with
+  Director able to view. They cannot be granted to a Project
+  Incharge or Project Manager.
 - Unlock a locked DPR day: Admin/Super Admin only.
 """
 
@@ -20,7 +24,6 @@ from apps.project_monitor.models import (
 from apps.project_monitor.services import project_scope
 from apps.project_monitor.services.project_scope import (
     ADMIN_ROLES,
-    ALL_SITE_ROLES as ALWAYS_VIEW_ROLES,
 )
 from apps.project_monitor.services.project_scope import (
     is_active_account as _is_active,
@@ -98,16 +101,21 @@ def can_manage_access(user) -> bool:
 
 def visible_site_ids(user):
     """
-    ``None`` means every site (Director/Admin/Super Admin);
-    otherwise the set of site ids the user may see finance figures
-    for (they hold the DPR & Bills task there). Used to fill the
+    ``None`` means every site (any company-wide role that can see
+    DPR & Bills: Director, Admin, Super Admin, Project Management
+    HO); otherwise the set of site ids the user may see finance
+    figures for (they hold the DPR & Bills task there). Used to fill the
     dashboard's ``money`` slot without ever leaking a site the user
     has no finance access to.
     """
     if not _is_active(user):
         return set()
-    if user.role in ALWAYS_VIEW_ROLES:
-        return None
+    if project_scope.is_company_wide(user):
+        every_site = (
+            ProjectSiteAccessRole.DPR_BILLS.value
+            in project_scope.COMPANY_WIDE[user.role].view
+        )
+        return None if every_site else set()
     if not project_scope._is_grantable(user):
         return set()
     return {
@@ -146,8 +154,7 @@ def ensure_can_view_hr(user, site) -> None:
 def ensure_can_enter_hr(user, site) -> None:
     if not can_enter_hr(user, site):
         raise PermissionDenied(
-            "You are not assigned to enter HR data for "
-            "this site."
+            "HR data is entered by the HR Department."
         )
 
 
@@ -162,6 +169,6 @@ def ensure_can_view_machinery(user, site) -> None:
 def ensure_can_enter_machinery(user, site) -> None:
     if not can_enter_machinery(user, site):
         raise PermissionDenied(
-            "You are not assigned to enter machinery data "
-            "for this site."
+            "Machinery data is entered by the Machinery "
+            "Department."
         )

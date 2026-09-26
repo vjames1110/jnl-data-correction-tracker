@@ -117,6 +117,18 @@ const fallbackOptions = {
       value: "PROJECT_INCHARGE",
       label: "Project Incharge",
     },
+    {
+      value: "PROJECT_HO",
+      label: "Project Management HO",
+    },
+    {
+      value: "HR_DEPARTMENT",
+      label: "HR Department",
+    },
+    {
+      value: "MACHINERY_DEPARTMENT",
+      label: "Machinery Department",
+    },
   ],
   account_statuses: [
     { value: "ACTIVE", label: "Active" },

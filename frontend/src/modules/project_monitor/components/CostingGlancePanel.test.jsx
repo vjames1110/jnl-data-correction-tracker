@@ -1,10 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { CostingGlancePanel } from "./CostingGlancePanel";
 
-function row(overrides = {}) {
+function selected(overrides = {}) {
   return {
+    period: "today",
+    label: "Today",
+    start: "2026-09-19",
+    end: "2026-09-19",
+    days: 1,
+    single_day: true,
     value: "10000.00",
     total_expense: "9500.00",
     margin: "500.00",
@@ -12,90 +18,168 @@ function row(overrides = {}) {
     flagged: true,
     concrete_cum: "5.000",
     concrete_source: "ESTIMATED",
+    tmt_mt: "0.000",
+    labour: { kind: "on_site", value: "42.00" },
+    missing_feeds: { dpr: 0, hr: 0, machinery: 0 },
     ...overrides,
   };
 }
 
-const GLANCE = {
-  as_on: "2026-09-19",
-  today: row(),
-  yesterday: row({
-    value: "8000.00",
-    total_expense: "4000.00",
-    margin: "4000.00",
-    expense_ratio: 0.5,
-    flagged: false,
-  }),
-  month_to_date: row({
-    value: "150000.00",
-    total_expense: "90000.00",
-    margin: "60000.00",
-    expense_ratio: 0.6,
-    flagged: false,
-  }),
-  cumulative: row({
-    value: "900000.00",
-    total_expense: "500000.00",
-    margin: "400000.00",
-    expense_ratio: 0.55,
-    flagged: false,
-  }),
-  labour_on_site_today: "42.00",
-};
+function renderPanel(overrides = {}, props = {}) {
+  const handlers = {
+    onPeriodChange: vi.fn(),
+    onDateChange: vi.fn(),
+  };
+  render(
+    <CostingGlancePanel
+      glance={{ selected: selected(overrides) }}
+      period="today"
+      pickedDate="2026-09-12"
+      {...handlers}
+      {...props}
+    />,
+  );
+  return handlers;
+}
 
 describe("CostingGlancePanel", () => {
-  it("warns when today has passed the 90% expense flag", () => {
-    render(<CostingGlancePanel glance={GLANCE} />);
+  it("has a filter for every period, opening on the chosen one", () => {
+    renderPanel();
 
     expect(
-      screen.getByText(
-        /today's expense has passed 90% of the value of work done/i,
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("shows today, yesterday, month-to-date and cumulative side by side", () => {
-    render(<CostingGlancePanel glance={GLANCE} />);
-
-    ["Today", "Yesterday", "Month to date", "Cumulative (whole project)"].forEach(
-      (title) => expect(screen.getByText(title)).toBeInTheDocument(),
+      screen.getAllByRole("tab").map((tab) => tab.textContent),
+    ).toEqual([
+      "Today",
+      "Yesterday",
+      "Last 7 days",
+      "Month to date",
+      "Last month",
+      "Whole project",
+      "Pick a date",
+    ]);
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Today",
     );
   });
 
-  it("shows labour on site today", () => {
-    render(<CostingGlancePanel glance={GLANCE} />);
+  it("asks for another period when one is picked", () => {
+    const { onPeriodChange } = renderPanel();
 
-    expect(screen.getByText("Labour on site today")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Yesterday" }));
+
+    expect(onPeriodChange).toHaveBeenCalledWith("yesterday");
+  });
+
+  it("shows the selected period's cards under its heading and date", () => {
+    renderPanel();
+
+    expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
+    expect(screen.getByText("19-09-2026")).toBeInTheDocument();
+    [
+      "Value of work done",
+      "Total expense",
+      "Margin before overheads",
+      "Labour on site",
+      "Concrete",
+    ].forEach((label) =>
+      expect(screen.getByText(label)).toBeInTheDocument(),
+    );
     expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("Estimated from DPR")).toBeInTheDocument();
   });
 
-  it("says nothing before any DPR entry has been made", () => {
-    render(
-      <CostingGlancePanel
-        glance={{ ...GLANCE, cumulative: null }}
-      />,
-    );
+  it("shows only the chosen period, not every block at once", () => {
+    renderPanel({
+      label: "Last 7 days",
+      period: "last_7_days",
+      single_day: false,
+      start: "2026-09-13",
+      end: "2026-09-19",
+      days: 7,
+    });
 
     expect(
-      screen.getByText(
-        /cumulative figures appear once a dpr entry/i,
-      ),
+      screen.getByRole("heading", { name: "Last 7 days" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("13-09-2026 to 19-09-2026")).toBeInTheDocument();
+    expect(screen.queryByText("Yesterday", { selector: "h3" })).toBeNull();
+    expect(screen.queryByText("Month to date", { selector: "h3" })).toBeNull();
+  });
+
+  it("counts man-days for a range and people on site for a day", () => {
+    renderPanel({
+      single_day: false,
+      labour: { kind: "man_days", value: "310.00" },
+    });
+
+    expect(screen.getByText("Labour man-days")).toBeInTheDocument();
+    expect(screen.getByText("310")).toBeInTheDocument();
+  });
+
+  it("warns when the period's expense has passed 90% of the value", () => {
+    renderPanel();
+    expect(
+      screen.getByText(/this day's expense has passed 90%/i),
     ).toBeInTheDocument();
   });
 
-  it("does not warn when today is not flagged", () => {
-    render(
-      <CostingGlancePanel
-        glance={{
-          ...GLANCE,
-          today: { ...GLANCE.today, flagged: false },
-        }}
-      />,
-    );
+  it("words the warning for a range", () => {
+    renderPanel({ single_day: false, days: 7 });
 
     expect(
-      screen.queryByText(/has passed 90%/i),
-    ).toBeNull();
+      screen.getByText(/expense over this period has passed 90%/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not warn when it is not flagged", () => {
+    renderPanel({ flagged: false });
+
+    expect(screen.queryByText(/has passed 90%/i)).toBeNull();
+  });
+
+  it("names the feeds with nothing recorded", () => {
+    renderPanel({
+      single_day: false,
+      days: 7,
+      missing_feeds: { dpr: 4, hr: 6, machinery: 0 },
+    });
+
+    expect(
+      screen.getByText(/DPR 4, HR 6/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/of 7/)).toBeInTheDocument();
+  });
+
+  it("offers a date box only for Pick a date", () => {
+    const { onDateChange } = renderPanel(
+      { label: "12-09-2026", period: "date" },
+      { period: "date" },
+    );
+
+    const input = screen.getByLabelText("Date");
+    expect(input).toHaveValue("2026-09-12");
+    fireEvent.change(input, { target: { value: "2026-09-10" } });
+    expect(onDateChange).toHaveBeenCalledWith("2026-09-10");
+  });
+
+  it("has no date box for the other periods", () => {
+    renderPanel();
+
+    expect(screen.queryByLabelText("Date")).toBeNull();
+  });
+
+  it("says nothing to show for a project with no DPR entry yet", () => {
+    renderPanel({
+      period: "whole_project",
+      label: "Whole project",
+      start: null,
+      end: "2026-09-19",
+      days: 0,
+    });
+
+    expect(
+      screen.getByText(/nothing to show yet/i),
+    ).toBeInTheDocument();
   });
 
   it("renders nothing without data", () => {

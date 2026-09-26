@@ -1,16 +1,7 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Link } from "react-router-dom";
 
+import { CountBars } from "../../../components/charts/CountBars";
+import { TrendChart } from "../../../components/charts/kit/TrendChart";
 import { AppLoader } from "../../../components/common/AppLoader";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
@@ -18,46 +9,39 @@ import {
   useCorrectionAnalytics,
 } from "../../../hooks/useCorrectionRequests";
 
+const TREND_SERIES = [
+  { key: "count", label: "Requests", token: "progress" },
+];
+
 function AnalyticsChart({
   data,
   dataKey,
   nameKey,
   type = "bar",
 }) {
+  if (type === "line") {
+    return (
+      <TrendChart
+        data={data ?? []}
+        xKey={nameKey}
+        series={TREND_SERIES.map((item) => ({
+          ...item,
+          key: dataKey,
+        }))}
+        emptyTitle="No trend yet"
+        emptyMessage="Your monthly trend appears once you have requests."
+      />
+    );
+  }
   return (
-    <div className="user-analytics-chart">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
-        {type === "line" ? (
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={nameKey} />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey={dataKey}
-              stroke="#0a6ed1"
-              strokeWidth={2}
-            />
-          </LineChart>
-        ) : (
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={nameKey} />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Bar
-              dataKey={dataKey}
-              fill="#0a6ed1"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        )}
-      </ResponsiveContainer>
-    </div>
+    <CountBars
+      data={data}
+      nameKey={nameKey}
+      dataKey={dataKey}
+      valueLabel="requests"
+      emptyTitle="No requests yet"
+      emptyMessage="This breakdown appears once you have requests."
+    />
   );
 }
 

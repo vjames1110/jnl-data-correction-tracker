@@ -693,6 +693,35 @@ class ReconciliationDashboardView(APIView):
         )
 
 
+class ReconciliationDashboardCardView(APIView):
+    """
+    The sites or entries behind one Reports summary card
+    (``sites_reporting``, ``total_entries``, ``over_tolerance``,
+    ``watch``, ``within_tolerance``, ``total_variance``,
+    ``largest_variance``) for a month.
+    """
+
+    permission_classes = [
+        HasReconciliationReportingAccess,
+    ]
+
+    def get(self, request, kind, *args, **kwargs):
+        if kind not in dashboard_selectors.CARD_KINDS:
+            raise NotFound("Unknown summary card.")
+        period_month = _resolve_period_month(request)
+
+        data = {
+            "period_month": period_month.isoformat(),
+            **dashboard_selectors.card_detail(
+                kind=kind, period_month=period_month
+            ),
+        }
+        return success_response(
+            message="Card details retrieved successfully.",
+            data=data,
+        )
+
+
 class ReconciliationStatementPackView(APIView):
     permission_classes = [
         HasReconciliationReportingAccess,

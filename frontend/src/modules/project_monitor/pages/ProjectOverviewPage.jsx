@@ -12,7 +12,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -348,9 +347,7 @@ export function ProjectOverviewPage() {
     selectedSite,
   );
   const siteTasks = useSiteTasks(selectedSite);
-  const canEdit =
-    isProjectEntryRole(user?.role) &&
-    siteTasks.has("OVERVIEW");
+  const canEdit = siteTasks.canEnter("OVERVIEW");
   const financeAccess = useDprAccess(selectedSite);
   const financeSummary = useFinancialSummary(
     selectedSite,

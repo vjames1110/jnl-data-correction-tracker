@@ -24,11 +24,17 @@ import {
   Factory,
   FolderKanban,
   Files,
+  HardHat,
+  Truck,
 } from "lucide-react";
 
 import {
   isAdminRole,
+  projectMonitorHrPath,
+  projectMonitorMachineryPath,
   projectMonitorOverviewPath,
+  projectMonitorRdsoPath,
+  projectMonitorStructureTypesPath,
   USER_ROLES,
 } from "../constants/roles";
 
@@ -277,6 +283,27 @@ function adminNav(moduleKey) {
   }
 }
 
+// Structure Types and the RDSO span library: Admin (in its own
+// nav), Director and the Project Management HO.
+function projectMasterItems(role) {
+  return [
+    item(
+      "structure-types",
+      "Structure Types",
+      projectMonitorStructureTypesPath(role),
+      Layers,
+      "master",
+    ),
+    item(
+      "rdso-span-library",
+      "RDSO Span Library",
+      projectMonitorRdsoPath(role),
+      Ruler,
+      "master",
+    ),
+  ];
+}
+
 function directorNav(moduleKey) {
   switch (moduleKey) {
     case MODULE_KEYS.APPROVAL:
@@ -344,6 +371,7 @@ function directorNav(moduleKey) {
           Milestone,
           "transaction",
         ),
+        ...projectMasterItems(USER_ROLES.DIRECTOR),
       ];
     default:
       return [];
@@ -455,20 +483,44 @@ function storeNav(moduleKey) {
   ];
 }
 
-function projectManagerNav(moduleKey) {
+function projectPortalNav(moduleKey, role) {
   if (moduleKey !== MODULE_KEYS.PROJECT) {
     return [];
+  }
+  // The departments have one page each - their own data, every site.
+  if (role === USER_ROLES.HR_DEPARTMENT) {
+    return [
+      item(
+        "hr",
+        "HR",
+        projectMonitorHrPath(role),
+        HardHat,
+        "transaction",
+      ),
+    ];
+  }
+  if (role === USER_ROLES.MACHINERY_DEPARTMENT) {
+    return [
+      item(
+        "machinery",
+        "Machinery",
+        projectMonitorMachineryPath(role),
+        Truck,
+        "transaction",
+      ),
+    ];
   }
   return [
     item(
       "project-monitor",
       "Project Monitor",
-      projectMonitorOverviewPath(
-        USER_ROLES.PROJECT_MANAGER,
-      ),
+      projectMonitorOverviewPath(role),
       Milestone,
       "transaction",
     ),
+    ...(role === USER_ROLES.PROJECT_HO
+      ? projectMasterItems(role)
+      : []),
   ];
 }
 
@@ -487,6 +539,11 @@ const ROLE_MODULES = Object.freeze({
     MODULE_KEYS.PROJECT,
   ],
   [USER_ROLES.PROJECT_INCHARGE]: [
+    MODULE_KEYS.PROJECT,
+  ],
+  [USER_ROLES.PROJECT_HO]: [MODULE_KEYS.PROJECT],
+  [USER_ROLES.HR_DEPARTMENT]: [MODULE_KEYS.PROJECT],
+  [USER_ROLES.MACHINERY_DEPARTMENT]: [
     MODULE_KEYS.PROJECT,
   ],
 });
@@ -528,7 +585,10 @@ function rawNav(role, moduleKey) {
       return storeNav(moduleKey);
     case USER_ROLES.PROJECT_MANAGER:
     case USER_ROLES.PROJECT_INCHARGE:
-      return projectManagerNav(moduleKey);
+    case USER_ROLES.PROJECT_HO:
+    case USER_ROLES.HR_DEPARTMENT:
+    case USER_ROLES.MACHINERY_DEPARTMENT:
+      return projectPortalNav(moduleKey, role);
     default:
       return [];
   }

@@ -6,7 +6,6 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
-import { isProjectEntryRole } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
@@ -59,7 +58,7 @@ export function LinearWorksPage() {
     !siteTasks.isLoading &&
     !siteTasks.has("LINEAR_WORKS");
   const canEdit =
-    isProjectEntryRole(user?.role) && !lacksTask;
+    !lacksTask && siteTasks.canEnter("LINEAR_WORKS");
 
   const createLinearItem = useCreateLinearItem(
     selectedSite,

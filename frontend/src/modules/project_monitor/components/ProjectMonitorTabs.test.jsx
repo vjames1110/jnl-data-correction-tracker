@@ -141,3 +141,43 @@ describe("ProjectMonitorTabs", () => {
     },
   );
 });
+
+describe("ProjectMonitorTabs - Project Management HO and departments", () => {
+  it("shows the HR department only its own tab", () => {
+    renderTabs(["HR"], false, "HR_DEPARTMENT");
+
+    expect(names()).toEqual(["HR"]);
+  });
+
+  it("shows the Machinery department only its own tab", () => {
+    renderTabs(["MACHINERY"], false, "MACHINERY_DEPARTMENT");
+
+    expect(names()).toEqual(["Machinery"]);
+  });
+
+  it("calls the first tab All Projects for the Project Management HO", () => {
+    renderTabs(
+      [
+        "OVERVIEW",
+        "STRUCTURES",
+        "BUILDINGS",
+        "GIRDERS",
+        "ACTION_ITEMS",
+        "LINEAR_WORKS",
+        "DPR_BILLS",
+        "REPORTS",
+      ],
+      false,
+      "PROJECT_HO",
+    );
+
+    const list = names();
+    expect(list[0]).toBe("All Projects");
+    expect(list).toContain("DPR & Bills");
+    expect(list).toContain("Reports");
+    // Payroll, machinery cost and margins are not the HO's.
+    expect(list).not.toContain("HR");
+    expect(list).not.toContain("Machinery");
+    expect(list).not.toContain("Costing");
+  });
+});

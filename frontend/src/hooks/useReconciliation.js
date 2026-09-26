@@ -799,6 +799,24 @@ export function useReconciliationDashboard(
   });
 }
 
+export function useReconciliationCardDetail(
+  kind,
+  params = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.reconciliationCardDetail(
+      kind,
+      params,
+    ),
+    queryFn: () =>
+      reconciliationService.getDashboardCardDetail(
+        kind,
+        params,
+      ),
+    enabled: Boolean(kind),
+  });
+}
+
 export function useReconciliationAttachments(
   periodId,
 ) {

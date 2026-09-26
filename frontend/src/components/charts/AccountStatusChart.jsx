@@ -1,18 +1,20 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
 import { EmptyState } from "../common/EmptyState";
+import { shareOf } from "./kit/chartData";
+import { SegmentBar } from "./kit/SegmentBar";
+import { useChartTooltip } from "./kit/useChartTooltip";
 
-export function AccountStatusChart({
-  data = [],
-}) {
+// Same colours as everywhere else: green = good, grey = dormant,
+// orange = needs attention, red = stopped.
+const TOKENS = {
+  ACTIVE: "complete",
+  INACTIVE: "idle",
+  LOCKED: "hold",
+  SUSPENDED: "critical",
+};
+
+export function AccountStatusChart({ data = [] }) {
+  const { frameRef, bind, node } = useChartTooltip();
+
   if (!data.length) {
     return (
       <EmptyState
@@ -22,41 +24,49 @@ export function AccountStatusChart({
     );
   }
 
+  const segments = data.map((item) => ({
+    key: item.key,
+    label: item.label,
+    token: TOKENS[item.key] ?? "progress",
+    value: item.count,
+  }));
+  const total = segments.reduce(
+    (sum, segment) => sum + segment.value,
+    0,
+  );
+
   return (
-    <div className="chart-container">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
-        <BarChart
-          data={data}
-          margin={{
-            top: 10,
-            right: 10,
-            left: -18,
-            bottom: 0,
-          }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 12 }}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 12 }}
-          />
-          <Tooltip />
-          <Bar
-            dataKey="count"
-            fill="#0A6ED1"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="pm-viz" ref={frameRef}>
+      <div className="pm-viz__hero">
+        <span className="pm-viz__hero-number">{total}</span>
+        <span className="pm-viz__hero-caption">
+          {total === 1 ? "account" : "accounts"}
+        </span>
+      </div>
+      <SegmentBar
+        title="Accounts by status"
+        segments={segments}
+        bind={bind}
+        height={18}
+      />
+      <ul className="pm-viz__breakdown">
+        {segments.map((segment) => (
+          <li key={segment.key}>
+            <span
+              className={`pm-viz__key pm-viz__key--${segment.token}`}
+              aria-hidden="true"
+            />
+            <span className="pm-viz__breakdown-name">
+              {segment.label}
+            </span>
+            <strong>{segment.value}</strong>
+            <span className="pm-viz__breakdown-share">
+              {shareOf(segment.value, total)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+      {node}
     </div>
   );
 }

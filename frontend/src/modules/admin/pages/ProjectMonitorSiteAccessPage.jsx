@@ -234,13 +234,14 @@ export function ProjectMonitorSiteAccessPage() {
           <p>
             Choose a site, then tick what each Project Incharge
             and Project Manager may do on it - all tasks, one
-            task such as DPR &amp; Bills or HR, or any mix.
+            task such as DPR &amp; Bills, or any mix.
             Several people can work on the same site. Setting a
             person&apos;s site in User Management, or making them a
             site&apos;s Project Manager in Organization Setup, gives
             them a starting set of tasks here - trim or extend it as
             you need. Director and Admins always see every task on
-            every site.
+            every site. HR and Machinery are entered only by the HR
+            and Machinery departments, so they are not listed here.
           </p>
         </div>
         <div className="page-actions">

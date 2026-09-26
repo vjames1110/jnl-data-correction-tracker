@@ -4,7 +4,7 @@ import {
 } from "react-router-dom";
 
 import {
-  portalBasePath,
+  landingPath,
 } from "../constants/roles";
 import { AppLoader } from "../components/common/AppLoader";
 import { useAuth } from "../hooks/useAuth";
@@ -28,9 +28,7 @@ export function GuestRoute() {
   if (isAuthenticated) {
     return (
       <Navigate
-        to={`${portalBasePath(
-          user?.role,
-        )}/dashboard`}
+        to={landingPath(user?.role)}
         replace
       />
     );

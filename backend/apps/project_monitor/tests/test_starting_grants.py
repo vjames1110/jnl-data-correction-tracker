@@ -22,7 +22,7 @@ from apps.project_monitor.services import grants, project_scope
 
 pytestmark = [pytest.mark.real_scope, pytest.mark.django_db]
 
-ALL = set(project_scope.ALL_TASKS)
+ALL = set(project_scope.GRANTABLE_TASKS)
 PM_DEFAULT = set(project_scope.PROGRESS_TASKS) | set(project_scope.REPORT_TASKS)
 
 
@@ -149,7 +149,7 @@ def test_tasks_an_admin_removed_are_not_put_back_by_an_unrelated_edit(site):
     site.save()
 
     ProjectSiteAccess.objects.filter(
-        user=incharge, role__in=["HR", "MACHINERY"]
+        user=incharge, role="DPR_BILLS"
     ).delete()
     ProjectSiteAccess.objects.filter(user=pm, role="BUILDINGS").delete()
 
@@ -159,18 +159,24 @@ def test_tasks_an_admin_removed_are_not_put_back_by_an_unrelated_edit(site):
     site.site_name = "Renamed project"
     site.save()
 
-    assert tasks(incharge, site) == ALL - {"HR", "MACHINERY"}
+    assert tasks(incharge, site) == ALL - {"DPR_BILLS"}
     assert tasks(pm, site) == PM_DEFAULT - {"BUILDINGS"}
 
 
 def test_ensure_default_grants_only_adds_what_is_missing(site):
     incharge = ProjectInchargeUserFactory()
-    ProjectSiteAccess.objects.create(site=site, user=incharge, role="HR")
+    ProjectSiteAccess.objects.create(site=site, user=incharge, role="STRUCTURES")
 
     added = grants.ensure_default_grants(incharge, site)
 
     assert added == len(ALL) - 1
     assert grants.ensure_default_grants(incharge, site) == 0
+
+
+def test_an_incharge_is_never_given_hr_or_machinery():
+    starting_tasks = set(grants.default_tasks_for(UserRole.PROJECT_INCHARGE))
+
+    assert not starting_tasks & {"HR", "MACHINERY"}
 
 
 def test_default_tasks_by_role():
@@ -224,4 +230,8 @@ def test_backfill_is_safe_to_run_twice(site):
     first = ProjectSiteAccess.objects.count()
     _backfill()
 
-    assert ProjectSiteAccess.objects.count() == first == len(ALL)
+    # The historical backfill (migration 0016) still hands an Incharge
+    # all ten tasks; migration 0019 then removes HR and Machinery.
+    assert ProjectSiteAccess.objects.count() == first == len(
+        project_scope.ALL_TASKS
+    )

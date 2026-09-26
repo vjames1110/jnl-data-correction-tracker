@@ -13,6 +13,9 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    HrDepartmentUserFactory,
+    MachineryDepartmentUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -36,21 +39,14 @@ def api():
 
 
 @pytest.fixture
-def mech_pm(site):
-    user = ProjectManagerUserFactory()
-    ProjectSiteAccess.objects.create(
-        site=site, user=user, role=ProjectSiteAccessRole.MACHINERY
-    )
-    return user
+def mech_user():
+    """The Machinery Department account: company-wide, machinery only."""
+    return MachineryDepartmentUserFactory()
 
 
 @pytest.fixture
-def hr_pm(site):
-    user = ProjectManagerUserFactory()
-    ProjectSiteAccess.objects.create(
-        site=site, user=user, role=ProjectSiteAccessRole.HR
-    )
-    return user
+def hr_user():
+    return HrDepartmentUserFactory()
 
 
 def url(name, *args):
@@ -111,16 +107,17 @@ def upload(api, rows, **extra):
 
 
 @pytest.mark.django_db
-def test_access_flags_per_role(api, site, mech_pm, hr_pm, assigned_pm, pm):
+def test_access_flags_per_role(api, site, mech_user, hr_user, assigned_pm, pm):
     def flags(user):
         api.force_authenticate(user=user)
         return api.get(
             url("machinery-access"), {"site": str(site.id)}
         ).data["data"]
 
-    assert flags(mech_pm) == {"can_view": True, "can_enter": True}
+    assert flags(mech_user) == {"can_view": True, "can_enter": True}
     # HR and DPR roles are separate feeds: no machinery rights.
-    assert flags(hr_pm) == {"can_view": False, "can_enter": False}
+    assert flags(hr_user) == {"can_view": False, "can_enter": False}
+    assert flags(ProjectHoUserFactory())["can_view"] is False
     assert flags(assigned_pm)["can_view"] is False
     assert flags(pm)["can_view"] is False
     assert flags(DirectorUserFactory()) == {
@@ -134,7 +131,7 @@ def test_access_flags_per_role(api, site, mech_pm, hr_pm, assigned_pm, pm):
 
 
 @pytest.mark.django_db
-def test_read_and_write_matrix(api, site, other_site, mech_pm, hr_pm, pm):
+def test_read_and_write_matrix(api, site, other_site, mech_user, hr_user, pm):
     payload = {"site": str(site.id), "name": "Roller"}
 
     def attempt(user):
@@ -152,25 +149,26 @@ def test_read_and_write_matrix(api, site, other_site, mech_pm, hr_pm, pm):
             ).status_code,
         )
 
-    assert attempt(mech_pm) == (200, 200)
+    assert attempt(mech_user) == (200, 200)
     assert attempt(DirectorUserFactory()) == (200, FORBIDDEN)
     assert attempt(AdminUserFactory()) == (200, 200)
-    assert attempt(hr_pm) == (FORBIDDEN, FORBIDDEN)
+    assert attempt(hr_user) == (FORBIDDEN, FORBIDDEN)
     assert attempt(pm) == (FORBIDDEN, FORBIDDEN)
     assert attempt(UserFactory()) == (FORBIDDEN, FORBIDDEN)
 
-    api.force_authenticate(user=mech_pm)
+    # The Machinery Department works on every site.
+    api.force_authenticate(user=mech_user)
     assert (
         api.get(
             url("machinery-summary"), {"site": str(other_site.id)}
         ).status_code
-        == FORBIDDEN
+        == 200
     )
 
 
 @pytest.mark.django_db
-def test_bad_site_is_a_400(api, mech_pm):
-    api.force_authenticate(user=mech_pm)
+def test_bad_site_is_a_400(api, mech_user):
+    api.force_authenticate(user=mech_user)
     assert api.get(url("machinery-summary")).status_code == BAD
     assert (
         api.get(
@@ -184,8 +182,8 @@ def test_bad_site_is_a_400(api, mech_pm):
 
 
 @pytest.mark.django_db
-def test_machine_crud_and_duplicate_guard(api, site, mech_pm):
-    api.force_authenticate(user=mech_pm)
+def test_machine_crud_and_duplicate_guard(api, site, mech_user):
+    api.force_authenticate(user=mech_user)
     body = {
         "site": str(site.id),
         "name": "Excavator",
@@ -226,12 +224,12 @@ def test_machine_crud_and_duplicate_guard(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_a_machine_with_history_cannot_be_deleted(api, site, mech_pm):
+def test_a_machine_with_history_cannot_be_deleted(api, site, mech_user):
     machine = make_machine(site)
     machinery.save_usage(
         machine=machine, day=days_ago(1), qty=Decimal("1")
     )
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     response = api.delete(
         url("machinery-machine-detail", machine.id)
     )
@@ -248,9 +246,9 @@ def test_a_machine_with_history_cannot_be_deleted(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_setting_the_rate_clears_the_review_flag(api, site, mech_pm):
+def test_setting_the_rate_clears_the_review_flag(api, site, mech_user):
     machine = make_machine(site, rate=Decimal("0"), needs_review=True)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     api.patch(
         url("machinery-machine-detail", machine.id),
         {"name": "Renamed"},
@@ -269,9 +267,9 @@ def test_setting_the_rate_clears_the_review_flag(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_only_the_owner_can_edit_a_machine(api, site, hr_pm):
+def test_only_the_owner_can_edit_a_machine(api, site, hr_user):
     machine = make_machine(site)
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     assert (
         api.patch(
             url("machinery-machine-detail", machine.id),
@@ -286,9 +284,9 @@ def test_only_the_owner_can_edit_a_machine(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_usage_flow_and_summary(api, site, mech_pm):
+def test_usage_flow_and_summary(api, site, mech_user):
     machine = make_machine(site)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     saved = api.post(
         url("machinery-usage-list"),
         {
@@ -344,27 +342,40 @@ def test_usage_flow_and_summary(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_usage_cannot_be_entered_for_a_foreign_machine(
-    api, site, other_site, mech_pm
+def test_usage_follows_the_machines_own_site(
+    api, site, other_site, mech_user
 ):
     foreign = make_machine(other_site)
-    api.force_authenticate(user=mech_pm)
-    response = api.post(
-        url("machinery-usage-list"),
-        {
-            "machine": str(foreign.id),
-            "date": days_ago(1).isoformat(),
-            "qty": "1",
-        },
-        format="json",
+    payload = {
+        "machine": str(foreign.id),
+        "date": days_ago(1).isoformat(),
+        "qty": "1",
+    }
+
+    # The department may enter for a machine on any site...
+    api.force_authenticate(user=mech_user)
+    assert (
+        api.post(
+            url("machinery-usage-list"), payload, format="json"
+        ).status_code
+        == 200
     )
-    assert response.status_code == FORBIDDEN
+    # ...but nobody without machinery rights may, on any site.
+    api.force_authenticate(user=DirectorUserFactory())
+    assert (
+        api.post(
+            url("machinery-usage-list"),
+            {**payload, "date": days_ago(2).isoformat()},
+            format="json",
+        ).status_code
+        == FORBIDDEN
+    )
 
 
 @pytest.mark.django_db
-def test_future_and_empty_usage_are_rejected(api, site, mech_pm):
+def test_future_and_empty_usage_are_rejected(api, site, mech_user):
     machine = make_machine(site)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     future = api.post(
         url("machinery-usage-list"),
         {
@@ -384,9 +395,9 @@ def test_future_and_empty_usage_are_rejected(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_fuel_flow(api, site, mech_pm):
+def test_fuel_flow(api, site, mech_user):
     machine = make_machine(site)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     created = api.post(
         url("machinery-fuel-list"),
         {
@@ -441,11 +452,11 @@ def test_fuel_flow(api, site, mech_pm):
 
 @pytest.mark.django_db
 def test_upload_creates_usage_fuel_and_flags_new_machines(
-    api, site, mech_pm
+    api, site, mech_user
 ):
     make_machine(site)
     day = days_ago(2)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     result = upload(
         api,
         [
@@ -475,14 +486,14 @@ def test_upload_creates_usage_fuel_and_flags_new_machines(
 
 
 @pytest.mark.django_db
-def test_reuploading_the_same_file_changes_nothing(api, site, mech_pm):
+def test_reuploading_the_same_file_changes_nothing(api, site, mech_user):
     make_machine(site)
     day = days_ago(2)
     rows = [
         HEADER,
         [site.site_code, day, "JCB 3DX", "Market", 1, None, 40, 4000, 0, 0, ""],
     ]
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     upload(api, rows)
     again = upload(api, rows).data["data"]
 
@@ -498,10 +509,10 @@ def test_reuploading_the_same_file_changes_nothing(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_a_changed_row_updates_that_day(api, site, mech_pm):
+def test_a_changed_row_updates_that_day(api, site, mech_user):
     make_machine(site)
     day = days_ago(2)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     upload(
         api,
         [HEADER, [site.site_code, day, "JCB 3DX", "", 1, None, None, None, 0, 0, ""]],
@@ -515,11 +526,11 @@ def test_a_changed_row_updates_that_day(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_rows_are_routed_and_permission_checked_per_site(
-    api, site, other_site, mech_pm
+def test_rows_are_routed_by_site_code_to_every_site(
+    api, site, other_site, mech_user
 ):
     day = days_ago(1)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     result = upload(
         api,
         [
@@ -529,17 +540,48 @@ def test_rows_are_routed_and_permission_checked_per_site(
             ["NOPE", day, "Roller", "", 1, 5000, None, None, 0, 0, ""],
         ],
     ).data["data"]
-    assert result["usage_created"] == 1
-    assert result["not_permitted"] == 1
+    # The Machinery Department works on every site.
+    assert result["usage_created"] == 2
+    assert result["not_permitted"] == 0
     assert result["site_not_found"] == 1
-    assert Machine.objects.get().site_id == site.id
+    assert set(
+        Machine.objects.values_list("site__site_code", flat=True)
+    ) == {"CHK", "OTH"}
 
 
 @pytest.mark.django_db
-def test_bad_rows_are_reported_without_stopping(api, site, mech_pm):
+@pytest.mark.parametrize(
+    "uploader_factory",
+    [
+        DirectorUserFactory,
+        ProjectManagerUserFactory,
+        HrDepartmentUserFactory,
+    ],
+)
+def test_upload_rows_are_refused_for_anyone_who_cannot_enter_machinery(
+    api, site, uploader_factory
+):
+    day = days_ago(1)
+    api.force_authenticate(user=uploader_factory())
+    response = upload(
+        api,
+        [
+            HEADER,
+            [site.site_code, day, "Roller", "", 1, 5000, None, None, 0, 0, ""],
+        ],
+    )
+    if response.status_code == 200:
+        assert response.data["data"]["not_permitted"] == 1
+    else:
+        assert response.status_code == FORBIDDEN
+    assert Machine.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_bad_rows_are_reported_without_stopping(api, site, mech_user):
     make_machine(site, name="Idle", is_active=False)
     day = days_ago(1)
-    api.force_authenticate(user=mech_pm)
+    api.force_authenticate(user=mech_user)
     result = upload(
         api,
         [
@@ -561,8 +603,8 @@ def test_bad_rows_are_reported_without_stopping(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_upload_default_site_and_missing_headers(api, site, mech_pm):
-    api.force_authenticate(user=mech_pm)
+def test_upload_default_site_and_missing_headers(api, site, mech_user):
+    api.force_authenticate(user=mech_user)
     filled = upload(
         api,
         [HEADER, [None, days_ago(1), "Roller", "", 1, 5000, None, None, 0, 0, ""]],
@@ -580,8 +622,8 @@ def test_upload_default_site_and_missing_headers(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_template_downloads(api, site, mech_pm):
-    api.force_authenticate(user=mech_pm)
+def test_template_downloads(api, site, mech_user):
+    api.force_authenticate(user=mech_user)
     response = api.get(
         url("machinery-template"), {"site": str(site.id)}
     )
@@ -595,9 +637,9 @@ def test_template_downloads(api, site, mech_pm):
 
 
 @pytest.mark.django_db
-def test_admin_can_grant_the_machinery_role(api, site, pm):
+def test_machinery_cannot_be_granted_to_a_pm_per_site(api, site, pm):
     api.force_authenticate(user=AdminUserFactory())
-    response = api.post(
+    refused = api.post(
         url("site-access-list"),
         {
             "site": str(site.id),
@@ -606,7 +648,5 @@ def test_admin_can_grant_the_machinery_role(api, site, pm):
         },
         format="json",
     )
-    assert response.status_code == 200
-    assert (
-        ProjectSiteAccess.objects.get(user=pm).role == "MACHINERY"
-    )
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    assert ProjectSiteAccess.objects.count() == 0

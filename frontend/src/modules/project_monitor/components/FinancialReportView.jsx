@@ -9,7 +9,63 @@ import {
   formatCurrency,
   formatDate,
   formatQty,
+  formatRate,
 } from "../utils/status";
+
+/**
+ * The report rows with a heading line for each BOQ group they sit in
+ * and a subtotal after the last row of each top-level group. Flat
+ * (ungrouped) items come through as plain rows, exactly as before.
+ */
+function withGroups(rows) {
+  const lines = [];
+  let previous = [];
+  let subtotal = null;
+
+  const flush = () => {
+    if (subtotal) {
+      lines.push({ type: "subtotal", ...subtotal });
+      subtotal = null;
+    }
+  };
+
+  rows.forEach((row) => {
+    const path = row.group ?? [];
+    if (path[0] !== previous[0]) {
+      flush();
+    }
+    let common = 0;
+    while (
+      common < path.length &&
+      path[common] === previous[common]
+    ) {
+      common += 1;
+    }
+    path.slice(common).forEach((label, offset) => {
+      lines.push({
+        type: "group",
+        label,
+        level: common + offset,
+        key: `${path.slice(0, common + offset + 1).join("/")}`,
+      });
+    });
+    if (path.length) {
+      subtotal ??= {
+        label: path[0],
+        executed_value: 0,
+        today_value: 0,
+        unbilled_value: 0,
+      };
+      subtotal.executed_value += Number(row.executed_value || 0);
+      subtotal.today_value += Number(row.today_value || 0);
+      subtotal.unbilled_value += Number(row.unbilled_value || 0);
+    }
+    lines.push({ type: "row", row });
+    previous = path;
+  });
+  flush();
+  return lines;
+}
 
 /** The printable table itself - reused by the Reports builder. */
 export function FinancialReportSheet({ report, title }) {
@@ -85,28 +141,64 @@ export function FinancialReportSheet({ report, title }) {
               </tr>
             </thead>
             <tbody>
-              {report.rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.item_no || "-"}</td>
-                  <td className="pm-report__col-task">
-                    {row.description}
-                  </td>
-                  <td>{row.unit || "-"}</td>
-                  <td>{formatCurrency(row.rate)}</td>
-                  <td>{formatQty(row.scope_qty)}</td>
-                  <td>{formatQty(row.executed_qty)}</td>
-                  <td>{formatCurrency(row.executed_value)}</td>
-                  <td>
-                    {row.percent_of_item === null
-                      ? "-"
-                      : `${row.percent_of_item}%`}
-                  </td>
-                  <td>{formatQty(row.today_qty)}</td>
-                  <td>{formatCurrency(row.today_value)}</td>
-                  <td>{formatQty(row.billed_qty)}</td>
-                  <td>{formatCurrency(row.unbilled_value)}</td>
-                </tr>
-              ))}
+              {withGroups(report.rows).map((line, index) => {
+                if (line.type === "group") {
+                  return (
+                    <tr
+                      key={`group-${line.key}-${index}`}
+                      className="pm-report__group-row"
+                    >
+                      <td
+                        colSpan={12}
+                        style={{
+                          paddingLeft: `${8 + line.level * 14}px`,
+                        }}
+                      >
+                        {line.label}
+                      </td>
+                    </tr>
+                  );
+                }
+                if (line.type === "subtotal") {
+                  return (
+                    <tr
+                      key={`subtotal-${line.label}-${index}`}
+                      className="pm-report__subtotal-row"
+                    >
+                      <td colSpan={6}>Subtotal - {line.label}</td>
+                      <td>{formatCurrency(line.executed_value)}</td>
+                      <td />
+                      <td />
+                      <td>{formatCurrency(line.today_value)}</td>
+                      <td />
+                      <td>{formatCurrency(line.unbilled_value)}</td>
+                    </tr>
+                  );
+                }
+                const { row } = line;
+                return (
+                  <tr key={row.id}>
+                    <td>{row.item_no || "-"}</td>
+                    <td className="pm-report__col-task">
+                      {row.description}
+                    </td>
+                    <td>{row.unit || "-"}</td>
+                    <td>{formatRate(row.rate)}</td>
+                    <td>{formatQty(row.scope_qty)}</td>
+                    <td>{formatQty(row.executed_qty)}</td>
+                    <td>{formatCurrency(row.executed_value)}</td>
+                    <td>
+                      {row.percent_of_item === null
+                        ? "-"
+                        : `${row.percent_of_item}%`}
+                    </td>
+                    <td>{formatQty(row.today_qty)}</td>
+                    <td>{formatCurrency(row.today_value)}</td>
+                    <td>{formatQty(row.billed_qty)}</td>
+                    <td>{formatCurrency(row.unbilled_value)}</td>
+                  </tr>
+                );
+              })}
               <tr className="pm-dpr-grid__total">
                 <td colSpan={6}>Total</td>
                 <td>
@@ -131,8 +223,8 @@ export function FinancialReportSheet({ report, title }) {
         </div>
       )}
       <p className="pm-report__generated">
-        Values at contract rates, as recorded when each
-        quantity was entered or billed.
+        Values at the bid rate (with any escalation in force), as
+        recorded when each quantity was entered or billed.
       </p>
     </div>
   );

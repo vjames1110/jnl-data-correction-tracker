@@ -13,6 +13,9 @@ from rest_framework.test import APIClient
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    HrDepartmentUserFactory,
+    MachineryDepartmentUserFactory,
+    ProjectHoUserFactory,
     ProjectManagerUserFactory,
     UserFactory,
 )
@@ -33,12 +36,9 @@ def api():
 
 
 @pytest.fixture
-def hr_pm(site):
-    user = ProjectManagerUserFactory()
-    ProjectSiteAccess.objects.create(
-        site=site, user=user, role=ProjectSiteAccessRole.HR
-    )
-    return user
+def hr_user():
+    """The HR Department account: company-wide, HR only."""
+    return HrDepartmentUserFactory()
 
 
 def url(name, *args):
@@ -89,20 +89,24 @@ def make_staff(site, **overrides):
 
 
 @pytest.mark.django_db
-def test_access_flags_per_role(api, site, hr_pm, assigned_pm, pm):
+def test_access_flags_per_role(api, site, hr_user, assigned_pm, pm):
     def flags(user):
         api.force_authenticate(user=user)
         return api.get(
             url("hr-access"), {"site": str(site.id)}
         ).data["data"]
 
-    assert flags(hr_pm) == {"can_view": True, "can_enter": True}
+    assert flags(hr_user) == {"can_view": True, "can_enter": True}
     # Holding the DPR role gives no HR rights (separate feed).
     assert flags(assigned_pm) == {
         "can_view": False,
         "can_enter": False,
     }
     assert flags(pm)["can_view"] is False
+    # Only the HR Department enters HR: not the Machinery
+    # Department, and not the Project Management HO.
+    assert flags(MachineryDepartmentUserFactory())["can_view"] is False
+    assert flags(ProjectHoUserFactory())["can_view"] is False
     assert flags(DirectorUserFactory()) == {
         "can_view": True,
         "can_enter": False,
@@ -114,7 +118,7 @@ def test_access_flags_per_role(api, site, hr_pm, assigned_pm, pm):
 
 
 @pytest.mark.django_db
-def test_read_and_write_matrix(api, site, other_site, hr_pm, assigned_pm, pm):
+def test_read_and_write_matrix(api, site, other_site, hr_user, assigned_pm, pm):
     payload = {
         "site": str(site.id),
         "date": days_ago(1).isoformat(),
@@ -134,18 +138,27 @@ def test_read_and_write_matrix(api, site, other_site, hr_pm, assigned_pm, pm):
             ).status_code,
         )
 
-    assert attempt(hr_pm) == (200, 200)
+    assert attempt(hr_user) == (200, 200)
     assert attempt(DirectorUserFactory()) == (200, FORBIDDEN)
     assert attempt(AdminUserFactory()) == (200, 200)
     assert attempt(assigned_pm) == (FORBIDDEN, FORBIDDEN)
     assert attempt(pm) == (FORBIDDEN, FORBIDDEN)
     assert attempt(UserFactory()) == (FORBIDDEN, FORBIDDEN)
 
-    # HR on one site gives nothing on another.
-    api.force_authenticate(user=hr_pm)
+    # The HR Department works on every site.
+    api.force_authenticate(user=hr_user)
     assert (
         api.get(
             url("hr-summary"), {"site": str(other_site.id)}
+        ).status_code
+        == 200
+    )
+    # Salaries stay with HR, the Director and Admin: the Project
+    # Management HO can see many things but not payroll.
+    api.force_authenticate(user=ProjectHoUserFactory())
+    assert (
+        api.get(
+            url("hr-staff-list"), {"site": str(site.id)}
         ).status_code
         == FORBIDDEN
     )
@@ -165,8 +178,8 @@ def test_salaries_are_never_shown_to_an_unassigned_pm(
 
 
 @pytest.mark.django_db
-def test_bad_site_is_a_400(api, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_bad_site_is_a_400(api, hr_user):
+    api.force_authenticate(user=hr_user)
     assert (
         api.get(url("hr-summary")).status_code
         == status.HTTP_400_BAD_REQUEST
@@ -183,8 +196,8 @@ def test_bad_site_is_a_400(api, hr_pm):
 
 
 @pytest.mark.django_db
-def test_add_list_and_delete_labour(api, site, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_add_list_and_delete_labour(api, site, hr_user):
+    api.force_authenticate(user=hr_user)
     created = api.post(
         url("hr-labour-list"),
         {
@@ -215,8 +228,8 @@ def test_add_list_and_delete_labour(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_future_and_invalid_labour_are_rejected(api, site, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_future_and_invalid_labour_are_rejected(api, site, hr_user):
+    api.force_authenticate(user=hr_user)
     base = {
         "site": str(site.id),
         "category": "Mason",
@@ -238,7 +251,7 @@ def test_future_and_invalid_labour_are_rejected(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_only_the_owner_can_delete_labour(api, site, hr_pm, assigned_pm):
+def test_only_the_owner_can_delete_labour(api, site, hr_user, assigned_pm):
     entry = LabourEntry.objects.create(
         site=site,
         date=days_ago(1),
@@ -259,8 +272,8 @@ def test_only_the_owner_can_delete_labour(api, site, hr_pm, assigned_pm):
 
 
 @pytest.mark.django_db
-def test_staff_crud_and_validation(api, site, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_staff_crud_and_validation(api, site, hr_user):
+    api.force_authenticate(user=hr_user)
     created = api.post(
         url("hr-staff-list"),
         {
@@ -299,9 +312,9 @@ def test_staff_crud_and_validation(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_override_flow_and_summary(api, site, hr_pm):
+def test_override_flow_and_summary(api, site, hr_user):
     member = make_staff(site, from_date=days_ago(3))
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     saved = api.post(
         url("hr-override-list"),
         {
@@ -340,9 +353,9 @@ def test_override_flow_and_summary(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_override_outside_the_window_is_a_400(api, site, hr_pm):
+def test_override_outside_the_window_is_a_400(api, site, hr_user):
     member = make_staff(site, from_date=days_ago(3))
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     response = api.post(
         url("hr-override-list"),
         {
@@ -367,10 +380,10 @@ def upload(api, rows, **extra):
 
 
 @pytest.mark.django_db
-def test_upload_adds_labour_and_staff_overrides(api, site, hr_pm):
+def test_upload_adds_labour_and_staff_overrides(api, site, hr_user):
     make_staff(site, from_date=days_ago(20))
     day = days_ago(2)
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
 
     response = upload(
         api,
@@ -398,7 +411,7 @@ def test_upload_adds_labour_and_staff_overrides(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_reuploading_the_same_file_changes_nothing(api, site, hr_pm):
+def test_reuploading_the_same_file_changes_nothing(api, site, hr_user):
     make_staff(site, from_date=days_ago(20))
     day = days_ago(2)
     rows = [
@@ -406,7 +419,7 @@ def test_reuploading_the_same_file_changes_nothing(api, site, hr_pm):
         [site.site_code, day, "Labour", "Mason", 10, 900, None, "ABC", ""],
         [site.site_code, day, "Staff", "Ravi Kumar", None, None, 0, "", ""],
     ]
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     upload(api, rows)
     again = upload(api, rows).data["data"]
 
@@ -419,11 +432,11 @@ def test_reuploading_the_same_file_changes_nothing(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_rows_are_routed_by_site_code_and_checked_per_site(
-    api, site, other_site, hr_pm
+def test_rows_are_routed_by_site_code_to_every_site(
+    api, site, other_site, hr_user
 ):
     day = days_ago(1)
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     result = upload(
         api,
         [
@@ -434,10 +447,45 @@ def test_rows_are_routed_by_site_code_and_checked_per_site(
         ],
     ).data["data"]
 
-    assert result["labour_created"] == 1
-    assert result["not_permitted"] == 1
+    # The HR Department works on every site, so one file lands on
+    # each site; only the unknown code is refused.
+    assert result["labour_created"] == 2
+    assert result["not_permitted"] == 0
     assert result["site_not_found"] == 1
-    assert LabourEntry.objects.get().site_id == site.id
+    assert set(
+        LabourEntry.objects.values_list("site__site_code", flat=True)
+    ) == {"CHK", "OTH"}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "uploader_factory",
+    [
+        DirectorUserFactory,
+        ProjectManagerUserFactory,
+        MachineryDepartmentUserFactory,
+    ],
+)
+def test_upload_rows_are_refused_for_anyone_who_cannot_enter_hr(
+    api, site, other_site, uploader_factory
+):
+    day = days_ago(1)
+    api.force_authenticate(user=uploader_factory())
+    response = upload(
+        api,
+        [
+            HEADER,
+            [site.site_code, day, "Labour", "Mason", 2, 100, None, "", ""],
+            [other_site.site_code, day, "Labour", "Mason", 2, 100, None, "", ""],
+        ],
+    )
+
+    # Either the role gate or the per-row check refuses every row.
+    if response.status_code == 200:
+        assert response.data["data"]["not_permitted"] == 2
+    else:
+        assert response.status_code == FORBIDDEN
+    assert LabourEntry.objects.count() == 0
 
 
 @pytest.mark.django_db
@@ -461,11 +509,11 @@ def test_admin_upload_can_cover_several_sites(
 
 
 @pytest.mark.django_db
-def test_upload_reports_bad_rows_without_stopping(api, site, hr_pm):
+def test_upload_reports_bad_rows_without_stopping(api, site, hr_user):
     make_staff(site, from_date=days_ago(20))
     day = days_ago(1)
     future = today() + timedelta(days=2)
-    api.force_authenticate(user=hr_pm)
+    api.force_authenticate(user=hr_user)
     result = upload(
         api,
         [
@@ -485,8 +533,8 @@ def test_upload_reports_bad_rows_without_stopping(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_upload_default_site_fills_blank_project(api, site, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_upload_default_site_fills_blank_project(api, site, hr_user):
+    api.force_authenticate(user=hr_user)
     result = upload(
         api,
         [
@@ -499,8 +547,8 @@ def test_upload_default_site_fills_blank_project(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_upload_without_a_site_or_project_is_rejected(api, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_upload_without_a_site_or_project_is_rejected(api, hr_user):
+    api.force_authenticate(user=hr_user)
     response = upload(
         api,
         [
@@ -512,15 +560,15 @@ def test_upload_without_a_site_or_project_is_rejected(api, hr_pm):
 
 
 @pytest.mark.django_db
-def test_upload_rejects_a_file_without_headers(api, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_upload_rejects_a_file_without_headers(api, hr_user):
+    api.force_authenticate(user=hr_user)
     response = upload(api, [["a", "b"], [1, 2]])
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.django_db
-def test_template_downloads(api, site, hr_pm):
-    api.force_authenticate(user=hr_pm)
+def test_template_downloads(api, site, hr_user):
+    api.force_authenticate(user=hr_user)
     response = api.get(url("hr-template"), {"site": str(site.id)})
     assert response.status_code == 200
     sheet = openpyxl.load_workbook(
@@ -534,18 +582,18 @@ def test_template_downloads(api, site, hr_pm):
 
 
 @pytest.mark.django_db
-def test_admin_can_grant_the_hr_role_to_a_pm(api, site, pm):
+def test_hr_cannot_be_granted_to_a_pm_per_site(api, site, pm):
     api.force_authenticate(user=AdminUserFactory())
-    response = api.post(
+    refused = api.post(
         url("site-access-list"),
         {"site": str(site.id), "user": str(pm.id), "role": "HR"},
         format="json",
     )
-    assert response.status_code == 200
-    assert ProjectSiteAccess.objects.get(user=pm).role == "HR"
+    assert refused.status_code == status.HTTP_400_BAD_REQUEST
+    assert ProjectSiteAccess.objects.count() == 0
 
-    # The same PM can also hold the DPR role - it is a separate row.
-    both = api.post(
+    # DPR & Bills is still something an Admin grants per site.
+    granted = api.post(
         url("site-access-list"),
         {
             "site": str(site.id),
@@ -554,10 +602,5 @@ def test_admin_can_grant_the_hr_role_to_a_pm(api, site, pm):
         },
         format="json",
     )
-    assert both.status_code == 200
-    duplicate = api.post(
-        url("site-access-list"),
-        {"site": str(site.id), "user": str(pm.id), "role": "HR"},
-        format="json",
-    )
-    assert duplicate.status_code == status.HTTP_400_BAD_REQUEST
+    assert granted.status_code == 200
+    assert ProjectSiteAccess.objects.get(user=pm).role == "DPR_BILLS"

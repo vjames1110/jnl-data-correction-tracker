@@ -44,10 +44,11 @@ from rest_framework.exceptions import ValidationError
 from apps.project_monitor.models import (
     ConcreteProduction,
     DprEntry,
+    DprItem,
     MaterialKind,
     MaterialRate,
 )
-from apps.project_monitor.services import dpr, hr, machinery
+from apps.project_monitor.services import boq, dpr, hr, machinery
 
 ZERO = Decimal("0")
 KG_PER_MT = Decimal("1000")
@@ -156,6 +157,127 @@ def create_rate(
 
 def delete_rate(rate: MaterialRate) -> None:
     rate.delete()
+
+
+# ---------------------------------------------------------------
+# DPR items <-> material rates: which contract items consume concrete
+# and TMT, and what that costs per unit against the contract rate
+# ---------------------------------------------------------------
+
+CENT = Decimal("0.01")
+
+
+def _cents(value) -> Decimal:
+    return Decimal(value).quantize(CENT)
+
+
+def _item_link_row(
+    item, concrete_rate, tmt_rate, rate=None
+) -> dict:
+    uses_concrete = item.concrete_per_unit > 0
+    uses_tmt = item.tmt_kg_per_unit > 0
+    concrete_cost = _cents(
+        item.concrete_per_unit * (concrete_rate or ZERO)
+    )
+    tmt_cost = _cents(
+        item.tmt_kg_per_unit / KG_PER_MT * (tmt_rate or ZERO)
+    )
+    material_cost = concrete_cost + tmt_cost
+    # The rate new work is paid at today (bid rate x escalation).
+    rate = item.rate if rate is None else rate
+    margin = _cents(rate - material_cost)
+    return {
+        "id": item.id,
+        "item_no": item.item_no,
+        "description": item.description,
+        "unit": item.unit,
+        "contract_rate": rate,
+        "bid_rate": item.rate,
+        "concrete_per_unit": item.concrete_per_unit,
+        "tmt_kg_per_unit": item.tmt_kg_per_unit,
+        "concrete_cost_per_unit": concrete_cost,
+        "tmt_cost_per_unit": tmt_cost,
+        "material_cost_per_unit": material_cost,
+        "margin_per_unit": margin,
+        "margin_percent": (
+            _cents(margin * 100 / rate)
+            if rate > 0
+            else None
+        ),
+        "linked": uses_concrete or uses_tmt,
+        # Uses a material that has no rate yet: its cost reads as 0,
+        # so the row is flagged rather than looking free.
+        "missing_rate": (
+            (uses_concrete and not concrete_rate)
+            or (uses_tmt and not tmt_rate)
+        ),
+    }
+
+
+def item_links(site, today=None) -> dict:
+    """
+    Every active DPR item of the site with what it consumes per unit
+    (cum of concrete, kg of TMT), the material rate in force today,
+    the material cost per unit that implies and its margin against
+    the contract rate.
+    """
+    today = today or timezone.localdate()
+    rates = current_rates(site, today)
+    concrete_rate = rates[MaterialKind.CONCRETE]["rate"]
+    tmt_rate = rates[MaterialKind.TMT]["rate"]
+    series = boq.escalation_series(site)
+    rows = [
+        _item_link_row(
+            item,
+            concrete_rate,
+            tmt_rate,
+            boq.effective_rate(item, today, series),
+        )
+        for item in DprItem.objects.filter(
+            site=site, is_active=True, is_heading=False
+        )
+    ]
+    return {
+        "rates": rates,
+        "items": rows,
+        "summary": {
+            "total": len(rows),
+            "linked": sum(1 for row in rows if row["linked"]),
+            "unlinked": sum(
+                1 for row in rows if not row["linked"]
+            ),
+            "missing_rate": sum(
+                1 for row in rows if row["missing_rate"]
+            ),
+        },
+    }
+
+
+def set_item_link(
+    *, item, concrete_per_unit, tmt_kg_per_unit, actor=None
+) -> DprItem:
+    """Set what a DPR item consumes per unit (the same two fields the
+    DPR item form edits)."""
+    for name, value in (
+        ("concrete_per_unit", concrete_per_unit),
+        ("tmt_kg_per_unit", tmt_kg_per_unit),
+    ):
+        if value is None or value < 0:
+            raise ValidationError(
+                {name: "Enter zero or a positive number."}
+            )
+    item.concrete_per_unit = concrete_per_unit
+    item.tmt_kg_per_unit = tmt_kg_per_unit
+    item.updated_by = actor
+    item.save(
+        update_fields=[
+            "concrete_per_unit",
+            "tmt_kg_per_unit",
+            "updated_by",
+            "updated_at",
+        ]
+    )
+    return item
 
 
 # ---------------------------------------------------------------
@@ -429,8 +551,136 @@ def cost_on(site, day, today=None) -> dict:
     }
 
 
-def today_at_a_glance(site, today=None) -> dict:
+GLANCE_PERIODS = (
+    "today",
+    "yesterday",
+    "last_7_days",
+    "month_to_date",
+    "last_month",
+    "whole_project",
+    "date",
+)
+_GLANCE_LABELS = {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last_7_days": "Last 7 days",
+    "month_to_date": "Month to date",
+    "last_month": "Last month",
+    "whole_project": "Whole project",
+}
+
+
+def glance_window(site, period, today, on=None):
+    """
+    ``(start, end, label)`` for a "Today at a glance" period; ``start``
+    is ``None`` for the whole project of a site with no DPR entry yet.
+    """
+    if period not in GLANCE_PERIODS:
+        raise ValidationError(
+            {"period": "Choose one of: "
+             + ", ".join(GLANCE_PERIODS) + "."}
+        )
+    if period == "today":
+        return today, today, _GLANCE_LABELS[period]
+    if period == "yesterday":
+        day = today - timedelta(days=1)
+        return day, day, _GLANCE_LABELS[period]
+    if period == "last_7_days":
+        return (
+            today - timedelta(days=6),
+            today,
+            _GLANCE_LABELS[period],
+        )
+    if period == "month_to_date":
+        return (
+            today.replace(day=1),
+            today,
+            _GLANCE_LABELS[period],
+        )
+    if period == "last_month":
+        end = today.replace(day=1) - timedelta(days=1)
+        return end.replace(day=1), end, _GLANCE_LABELS[period]
+    if period == "whole_project":
+        first = (
+            DprEntry.objects.filter(item__site=site)
+            .order_by("date")
+            .values_list("date", flat=True)
+            .first()
+        )
+        return first, today, _GLANCE_LABELS[period]
+    # A single chosen day.
+    if on is None:
+        raise ValidationError(
+            {"on": "Pick the date to show."}
+        )
+    if on > today:
+        raise ValidationError(
+            {"on": "That day has not happened yet."}
+        )
+    return on, on, f"{on:%d-%m-%Y}"
+
+
+def _period_summary(site, start, end, label, period, today):
+    """One block of figures for the chosen period."""
+    rows = (
+        cost_range(site, start, end, today=today)
+        if start is not None
+        else []
+    )
+    single_day = start is not None and start == end
+    labour_rows = (
+        hr.day_costs(site, start, end, today=today)
+        if start is not None
+        else []
+    )
+    labour_total = sum(
+        (row["labour_nos"] for row in labour_rows), ZERO
+    )
+    totals = _totals(rows)
+    ratio = totals["expense_ratio"]
+    return {
+        "period": period,
+        "label": label,
+        "start": start,
+        "end": end,
+        "days": len(rows),
+        "single_day": single_day,
+        **totals,
+        "flagged": (
+            ratio is not None and ratio > EXPENSE_RATIO_FLAG
+        ),
+        "concrete_cum": sum(
+            (row["concrete_cum"] for row in rows), ZERO
+        ),
+        "concrete_source": (
+            rows[0]["concrete_source"] if single_day and rows else None
+        ),
+        "tmt_mt": sum((row["tmt_mt"] for row in rows), ZERO),
+        # A day shows how many were on site; a range shows man-days.
+        "labour": {
+            "kind": "on_site" if single_day else "man_days",
+            "value": labour_total,
+        },
+        # Days in the period with no DPR / HR / machinery figure at
+        # all - a missing feed makes the margin look better than it
+        # is. (Stores is often estimated on purpose, so not listed.)
+        "missing_feeds": {
+            feed: sum(
+                1 for row in rows if not row["complete"][feed]
+            )
+            for feed in ("dpr", "hr", "machinery")
+        },
+    }
+
+
+def today_at_a_glance(
+    site, today=None, period="today", on=None
+) -> dict:
     today = today or timezone.localdate()
+    start, end, label = glance_window(site, period, today, on)
+    selected = _period_summary(
+        site, start, end, label, period, today
+    )
     yesterday = today - timedelta(days=1)
 
     month_start = today.replace(day=1)
@@ -472,4 +722,5 @@ def today_at_a_glance(site, today=None) -> dict:
         "month_to_date": month_to_date,
         "cumulative": cumulative,
         "labour_on_site_today": labour_on_site_today,
+        "selected": selected,
     }

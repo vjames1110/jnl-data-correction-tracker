@@ -19,6 +19,7 @@ import { USER_ROLES } from "../constants/roles";
 import { AdminRoute } from "./AdminRoute";
 import { DirectorRoute } from "./DirectorRoute";
 import { GuestRoute } from "./GuestRoute";
+import { ProjectMasterRoute } from "./ProjectMasterRoute";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { ResponsibleRoute } from "./ResponsibleRoute";
 import { UserRoute } from "./UserRoute";
@@ -192,6 +193,27 @@ function renderUserRoute(
           path="/admin/change-password"
           element={<div>Change Password</div>}
         />
+        <Route
+          path="/forbidden"
+          element={<div>Forbidden</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderProjectMasterRoute() {
+  render(
+    <MemoryRouter
+      initialEntries={["/project-manager/structure-types"]}
+    >
+      <Routes>
+        <Route element={<ProjectMasterRoute />}>
+          <Route
+            path="/project-manager/structure-types"
+            element={<div>Structure Types</div>}
+          />
+        </Route>
         <Route
           path="/forbidden"
           element={<div>Forbidden</div>}
@@ -414,6 +436,39 @@ describe("route guards", () => {
     });
 
     renderResponsibleRoute();
+
+    expect(
+      await screen.findByText("Forbidden"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    USER_ROLES.ADMIN,
+    USER_ROLES.DIRECTOR,
+    USER_ROLES.PROJECT_HO,
+  ])("lets %s open the Project Management masters", (role) => {
+    useAuthMock.mockReturnValue({
+      user: { role, must_change_password: false },
+    });
+
+    renderProjectMasterRoute();
+
+    expect(
+      screen.getByText("Structure Types"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    USER_ROLES.PROJECT_MANAGER,
+    USER_ROLES.PROJECT_INCHARGE,
+    USER_ROLES.HR_DEPARTMENT,
+    USER_ROLES.STORE_HO,
+  ])("keeps %s out of the Project Management masters", async (role) => {
+    useAuthMock.mockReturnValue({
+      user: { role, must_change_password: false },
+    });
+
+    renderProjectMasterRoute();
 
     expect(
       await screen.findByText("Forbidden"),

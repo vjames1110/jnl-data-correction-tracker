@@ -354,3 +354,81 @@ describe("resolving the module from the URL", () => {
     ).toBe(MODULE_KEYS.PROJECT);
   });
 });
+
+describe("Project Management HO, departments and the Director's masters", () => {
+  const labels = (role) =>
+    getModuleNav(role, MODULE_KEYS.PROJECT).map(
+      (entry) => entry.label,
+    );
+
+  it("gives the Project Management HO the Project module with a Master group", () => {
+    expect(keysFor(USER_ROLES.PROJECT_HO)).toEqual([
+      MODULE_KEYS.PROJECT,
+    ]);
+    expect(labels(USER_ROLES.PROJECT_HO)).toEqual([
+      "Project Monitor",
+      "Structure Types",
+      "RDSO Span Library",
+    ]);
+    expect(
+      getModuleNav(USER_ROLES.PROJECT_HO, MODULE_KEYS.PROJECT).map(
+        (entry) => entry.path,
+      ),
+    ).toEqual([
+      "/project-manager/dashboard",
+      "/project-manager/structure-types",
+      "/project-manager/rdso-span-library",
+    ]);
+  });
+
+  it("gives the Director the two masters too, under the director portal", () => {
+    const nav = getModuleNav(
+      USER_ROLES.DIRECTOR,
+      MODULE_KEYS.PROJECT,
+    );
+    expect(nav.map((entry) => entry.label)).toEqual([
+      "Project Monitor",
+      "Structure Types",
+      "RDSO Span Library",
+    ]);
+    expect(
+      nav.filter((entry) => entry.group === "master").map(
+        (entry) => entry.path,
+      ),
+    ).toEqual([
+      "/director/project-monitor/structure-types",
+      "/director/project-monitor/rdso-span-library",
+    ]);
+  });
+
+  it("does not give a Project Manager or Incharge the masters", () => {
+    expect(labels(USER_ROLES.PROJECT_MANAGER)).toEqual([
+      "Project Monitor",
+    ]);
+    expect(labels(USER_ROLES.PROJECT_INCHARGE)).toEqual([
+      "Project Monitor",
+    ]);
+  });
+
+  it("gives each department one page of its own, on the project module only", () => {
+    expect(keysFor(USER_ROLES.HR_DEPARTMENT)).toEqual([
+      MODULE_KEYS.PROJECT,
+    ]);
+    expect(labels(USER_ROLES.HR_DEPARTMENT)).toEqual(["HR"]);
+    expect(
+      getModuleHome(USER_ROLES.HR_DEPARTMENT, MODULE_KEYS.PROJECT),
+    ).toBe("/project-manager/hr");
+    expect(labels(USER_ROLES.MACHINERY_DEPARTMENT)).toEqual([
+      "Machinery",
+    ]);
+    expect(
+      getModuleHome(
+        USER_ROLES.MACHINERY_DEPARTMENT,
+        MODULE_KEYS.PROJECT,
+      ),
+    ).toBe("/project-manager/machinery");
+    expect(
+      getDefaultModuleKey(USER_ROLES.HR_DEPARTMENT),
+    ).toBe(MODULE_KEYS.PROJECT);
+  });
+});

@@ -22,10 +22,12 @@ def _is_active_authenticated(user) -> bool:
 class HasProjectMonitorPortalAccess(BasePermission):
     """
     Project Incharge and Project Manager (and Admin/Super Admin as
-    a backup) can enter and edit Project Monitor data. This is only
-    the role gate - which SITES a person may work on is enforced per
-    request by ``services.project_scope`` (Project Incharge and
-    Project Manager are limited to their own sites).
+    a backup) can enter and edit Project Monitor data, and the
+    Project Management HO can enter the project Overview. This is only
+    the role gate - which SITES and TASKS a person may use is
+    enforced per request by ``services.project_scope`` (Incharge and
+    Manager are limited to the tasks granted on their sites; the HO
+    to the Overview).
     """
 
     message = (
@@ -40,6 +42,7 @@ class HasProjectMonitorPortalAccess(BasePermission):
         return user.role in {
             UserRole.PROJECT_MANAGER,
             UserRole.PROJECT_INCHARGE,
+            UserRole.PROJECT_HO,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
@@ -67,6 +70,34 @@ class HasProjectMonitorReportingAccess(BasePermission):
             UserRole.DIRECTOR,
             UserRole.PROJECT_MANAGER,
             UserRole.PROJECT_INCHARGE,
+            UserRole.PROJECT_HO,
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        }
+
+
+class HasProjectSitePickerAccess(BasePermission):
+    """
+    The site picker (``project-monitor/sites/``): everyone with any
+    Project Monitor role, including the HR and Machinery departments,
+    whose only page needs the list of sites. Every other endpoint
+    keeps its own, narrower gate.
+    """
+
+    message = "Project Monitor access is required."
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not _is_active_authenticated(user):
+            return False
+
+        return user.role in {
+            UserRole.DIRECTOR,
+            UserRole.PROJECT_MANAGER,
+            UserRole.PROJECT_INCHARGE,
+            UserRole.PROJECT_HO,
+            UserRole.HR_DEPARTMENT,
+            UserRole.MACHINERY_DEPARTMENT,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
@@ -74,13 +105,14 @@ class HasProjectMonitorReportingAccess(BasePermission):
 
 class HasProjectMonitorMasterAccess(BasePermission):
     """
-    The Structure Type master (which config fields/activity groups
-    a structure type generates) is Admin/Super Admin configuration,
-    not day-to-day entry - same "masters are Admin-only" convention
-    as Reconciliation's Item Categories/Site Overrides. Read access
-    (so the Add-a-structure form and matrix can list active types)
-    is open to anyone with portal or reporting access; only
-    writes are restricted here.
+    The Project Management masters (the Structure Type master - which
+    config fields/activity groups a structure type generates - and the
+    RDSO span library) are configuration, not day-to-day entry.
+    Read access (so the Add-a-structure form and matrix can list
+    active types) is open to anyone with portal or reporting access;
+    writes are for Admin/Super Admin, the Director and the Project
+    Management HO. (Who may use which site stays on Site Access, which
+    is Admin-only.)
     """
 
     message = (
@@ -97,11 +129,14 @@ class HasProjectMonitorMasterAccess(BasePermission):
                 UserRole.DIRECTOR,
                 UserRole.PROJECT_MANAGER,
                 UserRole.PROJECT_INCHARGE,
+                UserRole.PROJECT_HO,
                 UserRole.ADMIN,
                 UserRole.SUPER_ADMIN,
             }
 
         return user.role in {
+            UserRole.DIRECTOR,
+            UserRole.PROJECT_HO,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }
@@ -109,11 +144,13 @@ class HasProjectMonitorMasterAccess(BasePermission):
 
 class HasFinanceRoleAccess(BasePermission):
     """
-    The role-level gate for DPR/billing endpoints: only the roles
-    that can ever see finance data get past it. Whether the caller
-    may see or enter a *particular site* is decided per request by
-    ``services.site_access`` (``ensure_can_view``/``ensure_can_enter``),
-    since that depends on the site's assignments, not just the role.
+    The role-level gate for the finance endpoints (DPR/billing, HR,
+    Machinery): only the roles that can ever see finance data get past
+    it. Whether the caller may see or enter a *particular site and
+    task* is decided per request by ``services.site_access``
+    (``ensure_can_view``/``ensure_can_enter`` and their HR and
+    machinery versions), since that depends on the task, not just the
+    role - e.g. the HR Department passes this gate but sees only HR.
     """
 
     message = "Project Monitor finance access is required."
@@ -127,6 +164,9 @@ class HasFinanceRoleAccess(BasePermission):
             UserRole.DIRECTOR,
             UserRole.PROJECT_MANAGER,
             UserRole.PROJECT_INCHARGE,
+            UserRole.PROJECT_HO,
+            UserRole.HR_DEPARTMENT,
+            UserRole.MACHINERY_DEPARTMENT,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,
         }

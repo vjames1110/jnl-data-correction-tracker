@@ -1,13 +1,5 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
+import { CountBars } from "../../../components/charts/CountBars";
 import { AppLoader } from "../../../components/common/AppLoader";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
@@ -18,30 +10,15 @@ import {
   buildApprovalAnalytics,
 } from "../utils/approvalMetrics";
 
-function AnalyticsChart({
-  data,
-  dataKey,
-  nameKey,
-}) {
+function AnalyticsChart({ data, nameKey }) {
   return (
-    <div className="user-analytics-chart">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={nameKey} />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Bar
-            dataKey={dataKey}
-            fill="#0a6ed1"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <CountBars
+      data={data}
+      nameKey={nameKey}
+      valueLabel="requests"
+      emptyTitle="No requests yet"
+      emptyMessage="This ranking appears once requests are recorded."
+    />
   );
 }
 

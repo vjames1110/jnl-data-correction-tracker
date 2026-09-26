@@ -10,19 +10,10 @@ import {
   Printer,
   TrendingDown,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Link } from "react-router-dom";
 
+import { DivergingBars } from "../../../components/charts/kit/DivergingBars";
+import { StackedColumns } from "../../../components/charts/kit/StackedColumns";
 import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
@@ -30,121 +21,57 @@ import { SurfaceCard } from "../../../components/common/SurfaceCard";
 import { USER_ROLES } from "../../../constants/roles";
 import { useAuth } from "../../../hooks/useAuth";
 import { KpiCard } from "../../admin/components/KpiCard";
+import { ReconciliationCardDetail } from "../components/ReconciliationCardDetail";
 import { downloadCsv } from "../../admin/utils/organizationUtils";
 import { useReconciliationDashboard } from "../../../hooks/useReconciliation";
 import { varianceCellClass } from "../../../utils/formatters";
 
-function TrendChart({ data }) {
-  if (!data.length) {
-    return (
-      <EmptyState
-        title="No trend data"
-        message="Not enough history yet to chart a trend."
-      />
-    );
-  }
+const TREND_SERIES = [
+  {
+    key: "within_tolerance_count",
+    label: "Within Tolerance",
+    token: "complete",
+  },
+  { key: "watch_count", label: "Watch", token: "hold" },
+  {
+    key: "over_tolerance_count",
+    label: "Over Tolerance",
+    token: "critical",
+  },
+];
 
+function TrendChart({ data }) {
   return (
-    <div className="chart-container chart-container--wide">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Legend />
-          <Bar
-            dataKey="within_tolerance_count"
-            name="Within Tolerance"
-            stackId="status"
-            fill="#107E3E"
-          />
-          <Bar
-            dataKey="watch_count"
-            name="Watch"
-            stackId="status"
-            fill="#e9730c"
-          />
-          <Bar
-            dataKey="over_tolerance_count"
-            name="Over Tolerance"
-            stackId="status"
-            fill="#BB0000"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <StackedColumns
+      data={data}
+      xKey="month"
+      series={TREND_SERIES}
+      unit="entries"
+      emptyTitle="No trend data"
+      emptyMessage="Not enough history yet to chart a trend."
+    />
   );
 }
 
+const rupees = (value) =>
+  `${value < 0 ? "-" : ""}\u20b9${Math.abs(
+    Number(value),
+  ).toLocaleString("en-IN")}`;
+
 function SiteVarianceChart({ rows }) {
-  if (!rows.length) {
-    return (
-      <EmptyState
-        title="No site variance yet"
-        message="No site has recorded any reconciliation entries for this month yet."
-      />
-    );
-  }
-
-  const chartData = rows.map((row) => ({
-    site: row.site_code,
-    siteName: row.site_name,
-    netVariance:
-      Number(row.net_variance_value) || 0,
-  }));
-
   return (
-    <div className="chart-container chart-container--wide">
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-      >
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="site" />
-          <YAxis
-            tickFormatter={(value) =>
-              `₹${Number(
-                value,
-              ).toLocaleString("en-IN")}`
-            }
-          />
-          <Tooltip
-            formatter={(value) => [
-              `₹${Number(
-                value,
-              ).toLocaleString("en-IN")}`,
-              "Net variance",
-            ]}
-            labelFormatter={(label, payload) =>
-              payload?.[0]?.payload?.siteName ??
-              label
-            }
-          />
-          <Bar
-            dataKey="netVariance"
-            name="Net Variance"
-            radius={[4, 4, 0, 0]}
-          >
-            {chartData.map((entry) => (
-              <Cell
-                key={entry.site}
-                fill={
-                  entry.netVariance >= 0
-                    ? "#107E3E"
-                    : "#BB0000"
-                }
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <DivergingBars
+      rows={rows.map((row) => ({
+        key: row.site_id ?? row.site_code,
+        label: row.site_code,
+        sub: row.site_name,
+        value: Number(row.net_variance_value) || 0,
+      }))}
+      format={rupees}
+      valueLabel="Net variance"
+      emptyTitle="No site variance yet"
+      emptyMessage="No site has recorded any reconciliation entries for this month yet."
+    />
   );
 }
 
@@ -367,6 +294,14 @@ export function StoreReconciliationReportsPage() {
       ? data.period_month.slice(0, 7)
       : "");
   const worstSite = data?.site_summary?.[0];
+  // Which summary card is open (its sites/entries show below).
+  const [openCard, setOpenCard] = useState(null);
+  const toggleCard = (kind) =>
+    setOpenCard((current) => (current === kind ? null : kind));
+  const cardProps = (kind) => ({
+    onClick: () => toggleCard(kind),
+    selected: openCard === kind,
+  });
 
   return (
     <div className="organization-page">
@@ -431,6 +366,7 @@ export function StoreReconciliationReportsPage() {
           <section className="kpi-grid kpi-grid--compact">
             <KpiCard
               label="Sites Reporting"
+              {...cardProps("sites_reporting")}
               value={`${data.company_summary.sites_reporting} / ${data.company_summary.total_sites}`}
               icon={Building2}
               tone={
@@ -448,6 +384,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Total Entries"
+              {...cardProps("total_entries")}
               value={
                 data.company_summary.total_entries
               }
@@ -455,6 +392,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Over Tolerance"
+              {...cardProps("over_tolerance")}
               value={
                 data.company_summary
                   .over_tolerance_count
@@ -464,6 +402,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Watch"
+              {...cardProps("watch")}
               value={
                 data.company_summary.watch_count
               }
@@ -472,6 +411,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Within Tolerance"
+              {...cardProps("within_tolerance")}
               value={
                 data.company_summary
                   .within_tolerance_count
@@ -481,6 +421,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Total Variance Value"
+              {...cardProps("total_variance")}
               value={`₹${Number(
                 data.company_summary
                   .total_variance_value ?? 0,
@@ -498,6 +439,7 @@ export function StoreReconciliationReportsPage() {
             />
             <KpiCard
               label="Largest Single Variance"
+              {...cardProps("largest_variance")}
               value={
                 worstSite
                   ? `₹${Number(
@@ -514,6 +456,16 @@ export function StoreReconciliationReportsPage() {
               }
             />
           </section>
+
+          {openCard ? (
+            <ReconciliationCardDetail
+              key={openCard}
+              kind={openCard}
+              month={displayMonth}
+              packPath={statementPackPath(user?.role)}
+              onClose={() => setOpenCard(null)}
+            />
+          ) : null}
 
           <SurfaceCard
             title="6-Month Trend"

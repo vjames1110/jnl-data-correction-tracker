@@ -25,6 +25,7 @@ from apps.project_monitor.models import (
 )
 from apps.project_monitor.services import (
     hr,
+    hr_bulk_import,
     hr_import,
     site_access,
 )
@@ -65,6 +66,9 @@ class LabourWriteSerializer(serializers.Serializer):
 
 
 class StaffWriteSerializer(serializers.Serializer):
+    staff_code = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
     name = serializers.CharField(max_length=150)
     designation = serializers.CharField(
         max_length=100, required=False, allow_blank=True
@@ -143,6 +147,7 @@ def _labour_row(entry):
 def _staff_row(member, today):
     return {
         "id": member.id,
+        "staff_code": member.staff_code,
         "name": member.name,
         "designation": member.designation,
         "monthly_salary": member.monthly_salary,
@@ -441,4 +446,105 @@ class HrUploadAPIView(APIView):
         )
         return success_response(
             message="HR file processed.", data=result
+        )
+
+
+def _optional_enterable_site(request):
+    """The default site for blank rows, when one is chosen."""
+    if request.query_params.get("site") or request.data.get("site"):
+        return _enterable_site(request)
+    return None
+
+
+def _uploaded_file(request):
+    uploaded = request.FILES.get("file")
+    if uploaded is None:
+        raise serializers.ValidationError(
+            {"file": "Choose a file to upload."}
+        )
+    return uploaded
+
+
+def _xlsx_response(content, filename):
+    response = HttpResponse(content, content_type=XLSX_TYPE)
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
+    return response
+
+
+class HrStaffTemplateAPIView(APIView):
+    permission_classes = [HasFinanceRoleAccess]
+
+    def get(self, request, *args, **kwargs):
+        return _xlsx_response(
+            hr_bulk_import.build_staff_template(
+                _optional_enterable_site(request)
+            ),
+            "hr-staff-register-template.xlsx",
+        )
+
+
+class HrStaffUploadAPIView(APIView):
+    """
+    Staff register for many sites in one file: each row goes to its
+    own site by site code, is added or left as it is, and a different
+    salary is refused unless the row carries an Effective from date.
+    Every row is checked against the caller's HR right for its site.
+    """
+
+    permission_classes = [HasFinanceRoleAccess]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        result = hr_bulk_import.import_staff_register(
+            _uploaded_file(request),
+            request.user,
+            default_site=_optional_enterable_site(request),
+        )
+        return success_response(
+            message="Staff register file processed.",
+            data=result,
+        )
+
+
+class HrMusterTemplateAPIView(APIView):
+    permission_classes = [HasFinanceRoleAccess]
+
+    def get(self, request, *args, **kwargs):
+        kind = (
+            "grid"
+            if request.query_params.get("layout") == "grid"
+            else "flat"
+        )
+        return _xlsx_response(
+            hr_bulk_import.build_muster_template(
+                kind=kind,
+                month=request.query_params.get("month"),
+                site=_optional_enterable_site(request),
+            ),
+            f"hr-muster-{kind}-template.xlsx",
+        )
+
+
+class HrMusterUploadAPIView(APIView):
+    """
+    The muster (attendance) for many sites in one file, either as one
+    row per person per day or as a month grid. Absent and half days
+    become that day's staff cost; re-uploading changes nothing.
+    ``month`` (YYYY-MM) names the month for a grid numbered 1-31.
+    """
+
+    permission_classes = [HasFinanceRoleAccess]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        result = hr_bulk_import.import_muster(
+            _uploaded_file(request),
+            request.user,
+            default_site=_optional_enterable_site(request),
+            month=request.data.get("month") or None,
+        )
+        return success_response(
+            message="Muster file processed.", data=result
         )

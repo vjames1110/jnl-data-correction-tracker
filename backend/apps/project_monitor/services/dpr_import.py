@@ -27,6 +27,7 @@ from apps.project_monitor.models import (
     DprEntrySource,
     DprItem,
 )
+from apps.project_monitor.services import boq
 from apps.project_monitor.services import dpr as dpr_service
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -35,11 +36,20 @@ HEADER_SCAN_ROWS = 30
 MAX_REPORTED_ERRORS = 20
 ZERO = Decimal("0")
 
+# A header that names an amount / value is never a rate column.
+_NOT_AMOUNT = r"(?!.*(amount|value|total))"
 ITEM_PATTERNS = [
+    # Most specific first: a header goes to the first key it matches.
+    (
+        "authority",
+        rf"^{_NOT_AMOUNT}(?=.*rate)"
+        r".*(authority|estimat|schedule|sor\b|railway)",
+    ),
+    ("percent", r"%|percent|(above|below)\b|premium"),
     ("desc", r"desc|particular|item of work|name of work"),
     ("unit", r"^unit|uom"),
     ("qty", r"qty|quantity"),
-    ("rate", r"rate"),
+    ("rate", rf"^{_NOT_AMOUNT}.*rate"),
     ("no", r"^(item|s\.?\s*no|sl|sr|item\s*no)"),
 ]
 DPR_PATTERNS = [
@@ -204,12 +214,72 @@ def _record_error(errors, row_number, message):
         errors.append(f"Row {row_number}: {message}")
 
 
+def _item_key(item_no: str) -> str:
+    """An item number as used for the group tree: ``4.1.`` -> ``4.1``."""
+    return item_no.strip().rstrip(".")
+
+
+def _parent_keys(key: str) -> list[str]:
+    """``4.1.2`` -> ``["4.1", "4"]``: the numbers of the groups above."""
+    parts = key.split(".")
+    return [
+        ".".join(parts[:end]) for end in range(len(parts) - 1, 0, -1)
+    ]
+
+
+def _percent(value):
+    """
+    A tender percentage cell: ``5.25``, ``-3``, ``5.25%`` or
+    ``Below 3.5%``. Blank stays ``None`` (use the contract-wide %).
+    """
+    text = _text(value)
+    if not text:
+        return None
+    number = _number(value)
+    lowered = text.lower()
+    if "below" in lowered or "less" in lowered:
+        number = -abs(number)
+    elif "above" in lowered or "premium" in lowered:
+        number = abs(number)
+    return number.quantize(Decimal("0.001"))
+
+
+def _find_group(by_no, key):
+    """
+    The nearest group above ``key`` an item may sit under: it must
+    exist, be a group and leave room for another level. ``None`` =
+    top level (also what a flat list gets, as before).
+    """
+    for parent_key in _parent_keys(key):
+        candidate = by_no.get(parent_key)
+        if (
+            candidate is not None
+            and candidate.is_heading
+            and candidate.level() < DprItem.MAX_LEVEL
+        ):
+            return candidate
+    return None
+
+
 @transaction.atomic
 def import_items(site, uploaded_file, actor=None) -> dict:
+    """
+    Import a Railway BOQ / item list. Columns found by name: Item no,
+    Description, Unit, Qty, and any of Authority rate, Tender %
+    (above / below) and Quoted / bid rate. Rows nest by item number
+    (4 -> 4.1 -> 4.1.1); a numbered row with no quantity or rate that
+    has rows nested under it becomes a group. Idempotent: an item
+    already on the site (same item no, else same description) is
+    skipped.
+    """
     rows = read_rows(uploaded_file)
     header_index, columns = _find_header(
-        rows, ITEM_PATTERNS, ("desc", "qty", "rate")
+        rows, ITEM_PATTERNS, ("desc", "qty")
     )
+    if header_index is not None and not (
+        "rate" in columns or "authority" in columns
+    ):
+        header_index = None
     if header_index is None:
         raise ValidationError(
             {
@@ -220,9 +290,24 @@ def import_items(site, uploaded_file, actor=None) -> dict:
             }
         )
 
+    body = [
+        (offset, row)
+        for offset, row in enumerate(
+            rows[header_index + 1 :], start=header_index + 2
+        )
+        if any(_text(cell) for cell in row)
+    ]
+
+    # Every group number that has something nested under it.
+    group_keys = set()
+    for _offset, row in body:
+        key = _item_key(_text(_cell(row, columns, "no")))
+        if key:
+            group_keys.update(_parent_keys(key))
+
     existing = list(DprItem.objects.filter(site=site))
     by_no = {
-        item.item_no: item
+        _item_key(item.item_no): item
         for item in existing
         if item.item_no
     }
@@ -231,19 +316,32 @@ def import_items(site, uploaded_file, actor=None) -> dict:
     }
 
     created = 0
+    headings = 0
     skipped_existing = 0
     skipped_invalid = 0
     errors = []
-    for offset, row in enumerate(
-        rows[header_index + 1 :], start=header_index + 2
-    ):
-        if not any(_text(cell) for cell in row):
-            continue
+    notes = []
+    for offset, row in body:
         description = _text(_cell(row, columns, "desc"))
         item_no = _text(_cell(row, columns, "no"))
+        key = _item_key(item_no)
         qty = _qty(_cell(row, columns, "qty"))
         rate = _money(_cell(row, columns, "rate"))
-        if not description or qty <= 0 or rate <= 0:
+        authority = _money(_cell(row, columns, "authority"))
+        percent = _percent(_cell(row, columns, "percent"))
+
+        is_heading = bool(
+            description
+            and key in group_keys
+            and qty <= 0
+            and rate <= 0
+            and authority <= 0
+        )
+        if not is_heading and (
+            not description
+            or qty <= 0
+            or (rate <= 0 and authority <= 0)
+        ):
             skipped_invalid += 1
             _record_error(
                 errors,
@@ -253,14 +351,57 @@ def import_items(site, uploaded_file, actor=None) -> dict:
             )
             continue
 
-        if (
-            item_no and item_no in by_no
-        ) or (
-            not item_no
-            and description.lower() in by_desc
+        if (item_no and key in by_no) or (
+            not item_no and description.lower() in by_desc
         ):
             skipped_existing += 1
             continue
+
+        fields = {}
+        if not is_heading:
+            authority_rate = authority if authority > 0 else None
+            tender_percent = percent
+            if (
+                authority_rate is not None
+                and percent is None
+                and rate > 0
+            ):
+                # Only the quoted rate was given: work back to the
+                # percentage that produces it.
+                tender_percent = (
+                    (rate / authority_rate - 1) * 100
+                ).quantize(Decimal("0.001"))
+            if tender_percent is not None and not (
+                Decimal("-100") <= tender_percent <= Decimal("500")
+            ):
+                skipped_invalid += 1
+                _record_error(
+                    errors,
+                    offset,
+                    "the tender percentage must be between "
+                    "-100 and 500.",
+                )
+                continue
+            if (
+                authority_rate is not None
+                and percent is None
+                and rate > 0
+            ):
+                bid = (
+                    authority_rate * (1 + tender_percent / 100)
+                ).quantize(Decimal("0.01"))
+                if bid != rate:
+                    notes.append(
+                        f"Row {offset}: the quoted rate {rate} "
+                        f"became {bid} after rounding the "
+                        "percentage."
+                    )
+            fields = {
+                "scope_qty": qty,
+                "rate": rate,
+                "authority_rate": authority_rate,
+                "tender_percent": tender_percent,
+            }
 
         try:
             item = dpr_service.create_item(
@@ -268,9 +409,12 @@ def import_items(site, uploaded_file, actor=None) -> dict:
                 description=description,
                 item_no=item_no,
                 unit=_text(_cell(row, columns, "unit")),
-                scope_qty=qty,
-                rate=rate,
+                parent=(
+                    _find_group(by_no, key) if key else None
+                ),
+                is_heading=is_heading,
                 actor=actor,
+                **fields,
             )
         except DjangoValidationError as exc:
             skipped_invalid += 1
@@ -279,15 +423,18 @@ def import_items(site, uploaded_file, actor=None) -> dict:
             )
             continue
         if item_no:
-            by_no[item_no] = item
+            by_no[key] = item
         by_desc[item.description.lower()] = item
         created += 1
+        headings += 1 if is_heading else 0
 
     return {
         "created": created,
+        "headings": headings,
         "skipped_existing": skipped_existing,
         "skipped_invalid": skipped_invalid,
         "errors": errors,
+        "notes": notes[:MAX_REPORTED_ERRORS],
     }
 
 
@@ -318,6 +465,7 @@ def import_dpr_entries(
         item.item_no: item for item in items if item.item_no
     }
     by_desc = {item.description.lower(): item for item in items}
+    series = boq.escalation_series(site)
 
     parsed = []
     for offset, row in enumerate(
@@ -377,6 +525,15 @@ def import_dpr_entries(
             )
             continue
 
+        if item.is_heading:
+            invalid += 1
+            _record_error(
+                errors,
+                offset,
+                "that row is a group - use the item under it.",
+            )
+            continue
+
         if day not in locked_cache:
             locked_cache[day] = not dpr_service.is_day_editable(
                 site, day, today=today
@@ -398,7 +555,7 @@ def import_dpr_entries(
             item=item,
             date=day,
             qty=qty,
-            rate=item.rate,
+            rate=boq.effective_rate(item, day, series),
             location=location,
             agency=agency,
             remarks=remarks,
@@ -423,9 +580,27 @@ def build_item_template() -> bytes:
     sheet = workbook.active
     sheet.title = "DPR items"
     sheet.append(
-        ["Item no", "Description", "Unit", "Qty", "Rate"]
+        [
+            "Item no",
+            "Description",
+            "Unit",
+            "Qty",
+            "Authority rate",
+            "Tender % (+ above / - below)",
+            "Quoted rate",
+        ]
     )
-    sheet.append(["1.1", "Earthwork in embankment", "cum", 1000, 250])
+    # A group has a number and a name only; the rows nested under it
+    # (4.1, 4.2 ...) are its items. Leave Tender % blank to use the
+    # contract-wide percentage; give Quoted rate instead of a
+    # percentage if that is what the tender sheet shows.
+    sheet.append(["4", "Earthwork"])
+    sheet.append(
+        ["4.1", "Earthwork in embankment", "cum", 1000, 250, -5.5]
+    )
+    sheet.append(
+        ["4.2", "Blanketing", "cum", 400, 900, None, 936]
+    )
     buffer = io.BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()

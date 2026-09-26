@@ -13,6 +13,9 @@ from apps.authentication.models import AccountStatus
 from apps.authentication.tests.factories import (
     AdminUserFactory,
     DirectorUserFactory,
+    HrDepartmentUserFactory,
+    MachineryDepartmentUserFactory,
+    ProjectHoUserFactory,
     ProjectInchargeUserFactory,
     ProjectManagerUserFactory,
     SuperAdminUserFactory,
@@ -33,20 +36,28 @@ from apps.project_monitor.tests.scope_helpers import grant
 pytestmark = [pytest.mark.real_scope, pytest.mark.django_db]
 
 ALL = project_scope.ALL_TASKS
+GRANTABLE = project_scope.GRANTABLE_TASKS
 
 
 # ---- the task list ---------------------------------------------------
 
 
 def test_every_task_has_a_label_and_group():
+    # What the Site Access grid offers: every task except the two
+    # that belong to the HR and Machinery departments.
     keys = [meta["key"] for meta in project_scope.TASK_META]
-    assert keys == list(ALL)
-    assert set(keys) == {t.value for t in Task}
+    assert keys == list(GRANTABLE)
+    assert set(keys) == {t.value for t in Task} - {"HR", "MACHINERY"}
     assert {m["group"] for m in project_scope.TASK_META} == {
         "progress",
         "finance",
         "reports",
     }
+
+
+def test_hr_and_machinery_are_department_tasks_not_grantable():
+    assert set(project_scope.DEPARTMENT_TASKS) == {"HR", "MACHINERY"}
+    assert not set(project_scope.DEPARTMENT_TASKS) & set(GRANTABLE)
 
 
 def test_task_keys_fit_the_role_column():
@@ -77,30 +88,49 @@ def test_a_grant_is_view_and_enter_for_that_task_on_that_site(site, other_site):
 
 def test_holding_any_task_lets_you_see_the_site(site, other_site):
     pm = ProjectManagerUserFactory()
-    grant(pm, site, Task.HR.value)
+    grant(pm, site, Task.REPORTS.value)
 
     assert project_scope.can_view_site(pm, site)
     assert not project_scope.can_view_site(pm, other_site)
     assert project_scope.user_site_ids(pm) == {site.id}
 
 
+def test_a_stray_hr_grant_is_inert(site):
+    # Old HR/Machinery grants (before they became department tasks)
+    # do nothing even if a row is still in the table.
+    pm = ProjectManagerUserFactory()
+    ProjectSiteAccess.objects.bulk_create(
+        [
+            ProjectSiteAccess(site=site, user=pm, role="HR"),
+            ProjectSiteAccess(site=site, user=pm, role="MACHINERY"),
+        ]
+    )
+
+    assert project_scope.granted_tasks(pm, site) == set()
+    assert not project_scope.can_view_site(pm, site)
+    assert project_scope.user_site_ids(pm) == set()
+    assert not site_access.can_view_hr(pm, site)
+
+
 def test_several_people_can_hold_tasks_on_one_site_independently(site):
     first = grant(ProjectInchargeUserFactory(), site)
     second = grant(ProjectInchargeUserFactory(), site, Task.DPR_BILLS.value)
-    manager = grant(ProjectManagerUserFactory(), site, Task.HR.value)
+    manager = grant(
+        ProjectManagerUserFactory(), site, Task.STRUCTURES.value
+    )
 
-    assert project_scope.granted_tasks(first, site) == set(ALL)
+    assert project_scope.granted_tasks(first, site) == set(GRANTABLE)
     assert project_scope.granted_tasks(second, site) == {"DPR_BILLS"}
-    assert project_scope.granted_tasks(manager, site) == {"HR"}
+    assert project_scope.granted_tasks(manager, site) == {"STRUCTURES"}
 
 
 def test_one_person_can_hold_different_tasks_on_different_sites(site, other_site):
     pm = ProjectManagerUserFactory()
     grant(pm, site, Task.STRUCTURES.value)
-    grant(pm, other_site, Task.HR.value, Task.MACHINERY.value)
+    grant(pm, other_site, Task.BUILDINGS.value, Task.GIRDERS.value)
 
     assert project_scope.granted_tasks(pm, site) == {"STRUCTURES"}
-    assert project_scope.granted_tasks(pm, other_site) == {"HR", "MACHINERY"}
+    assert project_scope.granted_tasks(pm, other_site) == {"BUILDINGS", "GIRDERS"}
     assert project_scope.user_site_ids(pm) == {site.id, other_site.id}
 
 
@@ -124,7 +154,7 @@ def test_grants_only_count_for_incharge_and_project_manager(site):
     # A stray row for another role (e.g. after a role change) is inert.
     user = UserFactory()
     ProjectSiteAccess.objects.bulk_create(
-        [ProjectSiteAccess(site=site, user=user, role="HR")]
+        [ProjectSiteAccess(site=site, user=user, role="STRUCTURES")]
     )
     assert project_scope.granted_tasks(user, site) == set()
 
@@ -160,9 +190,11 @@ def test_plain_users_get_nothing(site):
 
 
 def test_ensure_helpers_name_the_missing_task(site):
-    incharge = grant(ProjectInchargeUserFactory(), site, Task.HR.value)
+    incharge = grant(
+        ProjectInchargeUserFactory(), site, Task.STRUCTURES.value
+    )
 
-    project_scope.ensure_can_enter_task(incharge, site, "HR")
+    project_scope.ensure_can_enter_task(incharge, site, "STRUCTURES")
     with pytest.raises(PermissionDenied) as denied:
         project_scope.ensure_can_view_task(incharge, site, "GIRDERS")
     assert "Girders" in str(denied.value.detail)
@@ -171,7 +203,9 @@ def test_ensure_helpers_name_the_missing_task(site):
     # A row with no site is an Admin matter.
     with pytest.raises(PermissionDenied):
         project_scope.ensure_can_view_site(incharge, None)
-    project_scope.ensure_can_enter_task(AdminUserFactory(), None, "HR")
+    project_scope.ensure_can_enter_task(
+        AdminUserFactory(), None, "STRUCTURES"
+    )
 
 
 # ---- pickers, modules, sites ---------------------------------------------------
@@ -191,17 +225,23 @@ def test_project_sites_queryset(site, other_site):
 
 def test_site_task_map_is_in_display_order(site):
     pm = ProjectManagerUserFactory()
-    grant(pm, site, Task.REPORTS.value, Task.STRUCTURES.value, Task.HR.value)
+    grant(
+        pm,
+        site,
+        Task.REPORTS.value,
+        Task.STRUCTURES.value,
+        Task.DPR_BILLS.value,
+    )
 
     assert project_scope.site_task_map(pm) == {
-        site.id: ["STRUCTURES", "HR", "REPORTS"]
+        site.id: ["STRUCTURES", "DPR_BILLS", "REPORTS"]
     }
 
 
 def test_activity_modules_follow_the_tasks_held(site, other_site):
     pm = ProjectManagerUserFactory()
-    grant(pm, site, Task.STRUCTURES.value, Task.ACTION_ITEMS.value, Task.HR.value)
-    grant(pm, other_site, Task.HR.value)
+    grant(pm, site, Task.STRUCTURES.value, Task.ACTION_ITEMS.value, Task.DPR_BILLS.value)
+    grant(pm, other_site, Task.DPR_BILLS.value)
 
     assert project_scope.granted_modules(pm, site) == {
         "structures",
@@ -219,27 +259,54 @@ def test_activity_modules_follow_the_tasks_held(site, other_site):
 # ---- the finance tasks ---------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "task, can_view, can_enter",
-    [
-        (Task.DPR_BILLS.value, site_access.can_view_finance, site_access.can_enter_dpr_bills),
-        (Task.HR.value, site_access.can_view_hr, site_access.can_enter_hr),
-        (Task.MACHINERY.value, site_access.can_view_machinery, site_access.can_enter_machinery),
-    ],
-)
-def test_each_finance_task_needs_its_own_grant(site, other_site, task, can_view, can_enter):
+def test_dpr_and_bills_needs_its_own_grant(site, other_site):
     for factory in (ProjectInchargeUserFactory, ProjectManagerUserFactory):
         user = factory()
-        assert not can_view(user, site)
+        assert not site_access.can_view_finance(user, site)
 
-        grant(user, site, task)
-        assert can_view(user, site)
-        assert can_enter(user, site)
-        assert not can_view(user, other_site)
+        grant(user, site, Task.DPR_BILLS.value)
+        assert site_access.can_view_finance(user, site)
+        assert site_access.can_enter_dpr_bills(user, site)
+        assert not site_access.can_view_finance(user, other_site)
 
     director = DirectorUserFactory()
-    assert can_view(director, site)
-    assert not can_enter(director, site)
+    assert site_access.can_view_finance(director, site)
+    assert not site_access.can_enter_dpr_bills(director, site)
+
+
+@pytest.mark.parametrize(
+    "factory, can_view, can_enter",
+    [
+        (
+            HrDepartmentUserFactory,
+            site_access.can_view_hr,
+            site_access.can_enter_hr,
+        ),
+        (
+            MachineryDepartmentUserFactory,
+            site_access.can_view_machinery,
+            site_access.can_enter_machinery,
+        ),
+    ],
+)
+def test_hr_and_machinery_belong_to_their_department(
+    site, other_site, factory, can_view, can_enter
+):
+    department = factory()
+    # The department works on every site, nothing to grant.
+    for s in (site, other_site):
+        assert can_view(department, s)
+        assert can_enter(department, s)
+
+    # Nobody else enters it - granted roles cannot hold it, and the
+    # Director only views.
+    for other in (ProjectInchargeUserFactory(), ProjectManagerUserFactory()):
+        grant(other, site)
+        assert not can_view(other, site)
+        assert not can_enter(other, site)
+    assert can_view(DirectorUserFactory(), site)
+    assert not can_enter(DirectorUserFactory(), site)
+    assert can_enter(AdminUserFactory(), site)
 
 
 def test_a_finance_grant_gives_nothing_on_the_other_finance_tasks(site):
@@ -321,12 +388,14 @@ def test_migration_carries_todays_access_into_grants(site, other_site):
     progress = set(migration.PROGRESS_AND_REPORTS)
     # A Project Manager in scope: every progress task + Reports, and
     # only the finance grant they already held.
-    assert project_scope.granted_tasks(profile_pm, site) == progress | {"HR"}
+    # (The HR grant it also held is inert now: HR is a department task.)
+    assert project_scope.granted_tasks(profile_pm, site) == progress
     # The Site's Project Manager, via the HOD mapping.
     assert project_scope.granted_tasks(site_pm, other_site) == progress
     assert project_scope.granted_tasks(site_pm, site) == set()
-    # An Incharge also got the three finance tasks that used to come free.
-    assert project_scope.granted_tasks(incharge, site) == set(ALL)
+    # An Incharge also got the finance tasks that used to come free
+    # (of which DPR & Bills is still grantable).
+    assert project_scope.granted_tasks(incharge, site) == set(GRANTABLE)
     # A grant outside anyone's scope never worked - it is not revived.
     assert project_scope.granted_tasks(stray, site) == set()
     assert project_scope.granted_tasks(nobody, site) == set()
@@ -344,3 +413,84 @@ def test_migration_is_safe_to_run_twice(site, other_site):
     migration.copy_scope_into_grants(django_apps, None)
 
     assert ProjectSiteAccess.objects.count() == first
+
+
+# ---- the company-wide roles --------------------------------------------------
+
+
+def test_project_ho_sees_progress_and_billing_on_every_site_but_enters_only_overview(
+    site, other_site
+):
+    ho = ProjectHoUserFactory()
+
+    assert project_scope.scoped_site_ids(ho) is None
+    for s in (site, other_site):
+        assert project_scope.can_view_site(ho, s)
+        for task in (*project_scope.PROGRESS_TASKS, "DPR_BILLS", "REPORTS"):
+            assert project_scope.can_view_task(ho, s, task)
+        # Payroll and machinery cost stay with their departments.
+        assert not project_scope.can_view_task(ho, s, "HR")
+        assert not project_scope.can_view_task(ho, s, "MACHINERY")
+        assert project_scope.can_enter_task(ho, s, "OVERVIEW")
+        for task in ALL:
+            if task != "OVERVIEW":
+                assert not project_scope.can_enter_task(ho, s, task)
+    assert project_scope.granted_modules(ho, site) is None
+    assert project_scope.module_access(ho) is None
+    assert site_access.visible_site_ids(ho) is None
+
+
+@pytest.mark.parametrize(
+    "factory, task",
+    [
+        (HrDepartmentUserFactory, "HR"),
+        (MachineryDepartmentUserFactory, "MACHINERY"),
+    ],
+)
+def test_a_department_account_holds_only_its_own_task_on_every_site(
+    site, other_site, factory, task
+):
+    dept = factory()
+
+    assert project_scope.scoped_site_ids(dept) is None
+    for s in (site, other_site):
+        assert project_scope.view_tasks_for(dept, s) == {task}
+        assert project_scope.enter_tasks_for(dept, s) == {task}
+        # Not the site's Overview or progress, only its own feed.
+        assert not project_scope.can_view_site(dept, s)
+        assert not project_scope.can_view_task(dept, s, "STRUCTURES")
+    # No activity modules, so no due tracker or overdue rows.
+    assert project_scope.granted_modules(dept, site) == set()
+    assert project_scope.module_access(dept) == {}
+    assert site_access.visible_site_ids(dept) == set()
+
+
+def test_director_stays_read_only_everywhere(site):
+    director = DirectorUserFactory()
+
+    assert project_scope.enter_tasks_for(director, site) == set()
+    assert project_scope.view_tasks_for(director, site) == set(ALL)
+
+
+# ---- the migration that removed HR / Machinery grants ----------------------
+
+
+def test_migration_removes_only_the_hr_and_machinery_grants(site, other_site):
+    migration = importlib.import_module(
+        "apps.project_monitor.migrations.0019_remove_hr_machinery_grants"
+    )
+    pm = ProjectManagerUserFactory()
+    ProjectSiteAccess.objects.bulk_create(
+        [
+            ProjectSiteAccess(site=site, user=pm, role="HR"),
+            ProjectSiteAccess(site=other_site, user=pm, role="MACHINERY"),
+            ProjectSiteAccess(site=site, user=pm, role="STRUCTURES"),
+            ProjectSiteAccess(site=site, user=pm, role="DPR_BILLS"),
+        ]
+    )
+
+    migration.remove_department_task_grants(django_apps, None)
+
+    assert set(
+        ProjectSiteAccess.objects.values_list("role", flat=True)
+    ) == {"STRUCTURES", "DPR_BILLS"}

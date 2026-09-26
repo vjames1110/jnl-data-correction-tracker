@@ -29,6 +29,12 @@ TASK_ORDER = {
 }
 
 
+_DEPARTMENT_TASK_MESSAGE = (
+    "HR and Machinery are entered by the HR and Machinery "
+    "departments and cannot be granted per site."
+)
+
+
 def _check_grantable(user):
     if user.role not in GRANTABLE_USER_ROLES:
         raise serializers.ValidationError(
@@ -107,6 +113,10 @@ class ProjectSiteAccessSerializer(
         role = attrs.get(
             "role", ProjectSiteAccessRole.DPR_BILLS
         )
+        if role not in project_scope.GRANTABLE_TASKS:
+            raise serializers.ValidationError(
+                {"role": _DEPARTMENT_TASK_MESSAGE}
+            )
         if ProjectSiteAccess.objects.filter(
             site=attrs["site"], user=user, role=role
         ).exists():
@@ -126,7 +136,13 @@ class SiteAccessSetSerializer(serializers.Serializer):
     user = serializers.UUIDField()
     tasks = serializers.ListField(
         child=serializers.ChoiceField(
-            choices=ProjectSiteAccessRole.choices
+            choices=[
+                (task, ProjectSiteAccessRole(task).label)
+                for task in project_scope.GRANTABLE_TASKS
+            ],
+            error_messages={
+                "invalid_choice": _DEPARTMENT_TASK_MESSAGE,
+            },
         ),
         allow_empty=True,
     )
@@ -149,7 +165,8 @@ class SiteAccessListCreateAPIView(APIView):
 
         grants: dict = {}
         for grant in ProjectSiteAccess.objects.filter(
-            site=site
+            site=site,
+            role__in=project_scope.GRANTABLE_TASKS,
         ).select_related("user"):
             grants.setdefault(grant.user, set()).add(grant.role)
         people = sorted(

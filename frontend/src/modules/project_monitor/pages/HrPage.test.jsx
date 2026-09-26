@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import {
   beforeEach,
@@ -9,6 +9,8 @@ import {
 } from "vitest";
 
 import { HrPage } from "./HrPage";
+
+const auth = vi.hoisted(() => ({ role: "PROJECT_MANAGER" }));
 
 const hooks = vi.hoisted(() => ({
   useHrAccess: vi.fn(),
@@ -39,11 +41,13 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useSaveStaffOverride: () => mutation,
   useDeleteStaffOverride: () => mutation,
   useUploadHr: () => mutation,
+  useUploadHrStaff: () => mutation,
+  useUploadHrMuster: () => mutation,
   useOverdueCounts: () => ({ data: {} }),
 }));
 
 vi.mock("../../../hooks/useAuth", () => ({
-  useAuth: () => ({ user: { role: "PROJECT_MANAGER" } }),
+  useAuth: () => ({ user: { role: auth.role } }),
 }));
 
 const SUMMARY = {
@@ -76,6 +80,7 @@ function renderPage() {
 
 describe("HrPage", () => {
   beforeEach(() => {
+    auth.role = "PROJECT_MANAGER";
     hooks.useHrSummary.mockReturnValue({ data: SUMMARY });
     hooks.useLabourEntries.mockReturnValue({ data: [] });
     hooks.useStaffMembers.mockReturnValue({ data: [] });
@@ -131,5 +136,54 @@ describe("HrPage", () => {
         name: /add labour/i,
       }),
     ).toBeInTheDocument();
+  });
+
+  describe("bulk upload scope", () => {
+    beforeEach(() => {
+      hooks.useHrAccess.mockReturnValue({
+        data: { can_view: true, can_enter: true },
+      });
+    });
+
+    it("opens the HR Department on the all-sites upload", () => {
+      auth.role = "HR_DEPARTMENT";
+      renderPage();
+
+      expect(
+        screen.getByRole("region", { name: "Staff register" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "Muster (attendance)" }),
+      ).toBeInTheDocument();
+    });
+
+    it("lets an Admin switch between one site and the bulk upload", () => {
+      auth.role = "ADMIN";
+      renderPage();
+
+      expect(
+        screen.queryByRole("region", { name: "Staff register" }),
+      ).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole("tab", { name: /bulk upload/i }),
+      );
+      expect(
+        screen.getByRole("region", { name: "Staff register" }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("tab", { name: /one site/i }));
+      expect(
+        screen.queryByRole("region", { name: "Staff register" }),
+      ).toBeNull();
+    });
+
+    it("gives a Project Manager no bulk upload at all", () => {
+      renderPage();
+
+      expect(
+        screen.queryByRole("tab", { name: /bulk upload/i }),
+      ).toBeNull();
+    });
   });
 });

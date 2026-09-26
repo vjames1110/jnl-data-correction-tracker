@@ -9,6 +9,7 @@ const hooks = vi.hoisted(() => ({
   useCostingGlance: vi.fn(),
   useCostingTable: vi.fn(),
   useMaterialRates: vi.fn(),
+  useItemLinks: vi.fn(),
   useConcreteProduction: vi.fn(),
 }));
 
@@ -30,6 +31,8 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useCostingGlance: (...a) => hooks.useCostingGlance(...a),
   useCostingTable: (...a) => hooks.useCostingTable(...a),
   useMaterialRates: (...a) => hooks.useMaterialRates(...a),
+  useItemLinks: (...a) => hooks.useItemLinks(...a),
+  useSaveItemLink: () => mutation,
   useCreateMaterialRate: () => mutation,
   useDeleteMaterialRate: () => mutation,
   useConcreteProduction: (...a) =>
@@ -43,8 +46,13 @@ vi.mock("../../../hooks/useAuth", () => ({
 }));
 
 const GLANCE = {
-  as_on: "2026-09-19",
-  today: {
+  selected: {
+    period: "today",
+    label: "Today",
+    start: "2026-09-19",
+    end: "2026-09-19",
+    days: 1,
+    single_day: true,
     value: "0.00",
     total_expense: "0.00",
     margin: "0.00",
@@ -52,22 +60,9 @@ const GLANCE = {
     flagged: false,
     concrete_cum: "0.000",
     concrete_source: "NONE",
+    labour: { kind: "on_site", value: "0.00" },
+    missing_feeds: { dpr: 0, hr: 0, machinery: 0 },
   },
-  yesterday: {
-    value: "0.00",
-    total_expense: "0.00",
-    margin: "0.00",
-    expense_ratio: null,
-    flagged: false,
-  },
-  month_to_date: {
-    value: "0.00",
-    total_expense: "0.00",
-    margin: "0.00",
-    expense_ratio: null,
-  },
-  cumulative: null,
-  labour_on_site_today: "0.00",
 };
 
 function renderPage() {
@@ -96,6 +91,13 @@ describe("CostingPage", () => {
       data: { start: "", end: "", days: [], totals: {} },
     });
     hooks.useMaterialRates.mockReturnValue({ data: [] });
+    hooks.useItemLinks.mockReturnValue({
+      data: {
+        rates: {},
+        summary: { total: 0, linked: 0, unlinked: 0, missing_rate: 0 },
+        items: [],
+      },
+    });
     hooks.useConcreteProduction.mockReturnValue({ data: [] });
   });
 
@@ -103,8 +105,26 @@ describe("CostingPage", () => {
     renderPage();
 
     expect(
-      screen.getByText("Labour on site today"),
+      screen.getByRole("tab", { name: "Today", selected: true }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Labour on site")).toBeInTheDocument();
+    expect(hooks.useCostingGlance).toHaveBeenLastCalledWith(
+      "site-1",
+      expect.objectContaining({ period: "today" }),
+      true,
+    );
+  });
+
+  it("asks for the chosen period when the filter changes", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Yesterday" }));
+
+    expect(hooks.useCostingGlance).toHaveBeenLastCalledWith(
+      "site-1",
+      expect.objectContaining({ period: "yesterday" }),
+      true,
+    );
   });
 
   it("switches to the cost table workspace", () => {
@@ -127,6 +147,10 @@ describe("CostingPage", () => {
     );
 
     expect(screen.getByText("Material rates")).toBeInTheDocument();
+    // The DPR items sit right under the rates they are priced at.
+    expect(
+      screen.getByText("DPR items and material use"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Concrete production (stores)"),
     ).toBeInTheDocument();

@@ -10,7 +10,12 @@ from decimal import Decimal
 from django.utils import timezone
 
 from apps.project_monitor.models import DprItem
-from apps.project_monitor.services import billing, dpr, timeline
+from apps.project_monitor.services import (
+    billing,
+    boq,
+    dpr,
+    timeline,
+)
 
 ZERO = Decimal("0")
 
@@ -87,6 +92,24 @@ def financial_summary(site, today=None) -> dict:
     }
 
 
+def _group_paths(items) -> dict:
+    """``{item id: ["4 Earthwork", "4.1 Embankment"]}`` - the group
+    headings above each item, outermost first."""
+    by_id = {item.pk: item for item in items}
+    paths = {}
+    for item in items:
+        labels = []
+        node, guard = by_id.get(item.parent_id), 0
+        while node is not None and guard < 10:
+            labels.append(
+                f"{node.item_no} {node.description}".strip()
+            )
+            node = by_id.get(node.parent_id)
+            guard += 1
+        paths[item.pk] = list(reversed(labels))
+    return paths
+
+
 def financial_report(site, as_on=None) -> dict:
     """
     Per-item position as on a date: what was executed up to it and on
@@ -98,6 +121,7 @@ def financial_report(site, as_on=None) -> dict:
 
     executed = dpr.executed_totals(site, as_on)
     executed_before = dpr.executed_totals(site, previous)
+    series = boq.escalation_series(site)
     billed = dpr.billed_qty_map(site, as_on)
 
     rows = []
@@ -106,7 +130,13 @@ def financial_report(site, as_on=None) -> dict:
         "today_value": ZERO,
         "unbilled_value": ZERO,
     }
-    for item in DprItem.objects.filter(site=site):
+    all_items = boq.tree_order(
+        list(DprItem.objects.filter(site=site))
+    )
+    group_path = _group_paths(all_items)
+    for item in all_items:
+        if item.is_heading:
+            continue
         qty, value = executed.get(item.id, (ZERO, ZERO))
         if qty <= 0:
             continue
@@ -116,10 +146,13 @@ def financial_report(site, as_on=None) -> dict:
         today_qty = qty - before_qty
         today_value = value - before_value
         billed_qty = billed.get(item.id, ZERO)
-        unbilled = (qty - billed_qty) * item.rate
+        unbilled = (qty - billed_qty) * boq.effective_rate(
+            item, as_on, series
+        )
         rows.append(
             {
                 "id": item.id,
+                "group": group_path.get(item.id, []),
                 "item_no": item.item_no,
                 "description": item.description,
                 "unit": item.unit,
