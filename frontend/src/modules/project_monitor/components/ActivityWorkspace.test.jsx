@@ -8,7 +8,6 @@ function renderWorkspace(props = {}) {
   render(
     <ActivityWorkspace
       item={STRUCTURE}
-      metaLine="Ch. 12.345 km · 2/6 activities complete"
       onReviewAll={vi.fn()}
       reviewAllStatus={{ isPending: false }}
       {...handlers()}
@@ -18,21 +17,23 @@ function renderWorkspace(props = {}) {
 }
 
 describe("ActivityWorkspace", () => {
-  it("summarises the sheet and offers to review all of it", () => {
+  it("offers to review all of the sheet", () => {
     renderWorkspace();
 
     expect(
       screen.getByRole("region", { name: "Br. No. 214 tasks" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Ch. 12.345 km · 2/6 activities complete"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("1 cell box, 12 m barrel"),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("button", { name: /review all tasks/i }),
     ).toBeInTheDocument();
+  });
+
+  it("does not repeat the chainage, description or progress the row above already shows", () => {
+    renderWorkspace();
+
+    expect(screen.queryByText(/12\.345/)).toBeNull();
+    expect(screen.queryByText(/1 cell box/)).toBeNull();
+    expect(screen.queryByText(/activities complete/)).toBeNull();
   });
 
   it("shows the sheet groups as segments", () => {
@@ -47,7 +48,6 @@ describe("ActivityWorkspace", () => {
     const { rerender } = render(
       <ActivityWorkspace
         item={STRUCTURE}
-        metaLine=""
         {...handlers()}
       />,
     );
@@ -57,7 +57,6 @@ describe("ActivityWorkspace", () => {
     rerender(
       <ActivityWorkspace
         item={{ ...STRUCTURE, id: "s2", name: "Br. No. 300" }}
-        metaLine=""
         {...handlers()}
       />,
     );

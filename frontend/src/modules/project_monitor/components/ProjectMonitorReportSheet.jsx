@@ -1,4 +1,5 @@
 import { FinancialReportSheet } from "./FinancialReportView";
+import { bandClasses, rowBands } from "../utils/rowBands";
 import {
   formatDate,
   formatQty,
@@ -82,12 +83,16 @@ function countdownText(site) {
 }
 
 function ActivityTable({ groups }) {
-  const rows = groups.flatMap((group) =>
-    group.rows.map((row) => ({
+  // Rows that repeat per span keep the same light grey / white
+  // blocks as on screen, worked out within their own group.
+  const rows = groups.flatMap((group) => {
+    const bands = rowBands(group.rows);
+    return group.rows.map((row, index) => ({
       ...row,
       group_title: group.group_title,
-    })),
-  );
+      band: bands[index],
+    }));
+  });
 
   return (
     <table className="pm-report__table">
@@ -104,7 +109,7 @@ function ActivityTable({ groups }) {
       </thead>
       <tbody>
         {rows.map((row) => (
-          <tr key={row.id}>
+          <tr key={row.id} className={bandClasses(row.band)}>
             <td className="pm-report__col-task">
               {row.group_title
                 ? `${row.group_title} - `

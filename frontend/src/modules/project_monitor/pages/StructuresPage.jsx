@@ -326,28 +326,21 @@ export function StructuresPage() {
                 renderExpanded={(structure) => (
                   <ActivityWorkspace
                     item={structure}
-                    metaLine={`${
-                      structure.chainage_km != null
-                        ? `Ch. ${structure.chainage_km} km`
-                        : "Chainage not set"
-                    } · ${structure.overall_progress.done}/${
-                      structure.overall_progress.total
-                    } activities complete`}
                     activeActivityId={activeActivityId}
                     onSelectActivity={setActiveActivityId}
                     canEdit={canEdit}
-                    onSubmitUpdate={(activityId, payload) =>
-                      updateActivity.mutate({
-                        activityId,
-                        payload,
-                      })
+                    onSubmitUpdate={(activityId, payload, options) =>
+                      updateActivity.mutate(
+                        { activityId, payload },
+                        options,
+                      )
                     }
                     updateStatus={updateActivity}
-                    onReviewActivity={(activityId, remarks) =>
-                      reviewActivity.mutate({
-                        activityId,
-                        payload: { remarks },
-                      })
+                    onReviewActivity={(activityId, remarks, options) =>
+                      reviewActivity.mutate(
+                        { activityId, payload: { remarks } },
+                        options,
+                      )
                     }
                     reviewActivityStatus={reviewActivity}
                     onReviewAll={(remarks, options) =>

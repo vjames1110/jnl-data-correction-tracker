@@ -22,7 +22,7 @@ function progressOf(group) {
  * with one segment per group (Approvals | Box Structure | ...), each
  * showing how much of it is done, and the selected group's activity
  * table underneath. A row still expands to its input fields and
- * Action History exactly as before (``ActivityGroupsTable``); this
+ * Action History as ``ActivityGroupsTable`` renders them; this
  * only decides which group is on screen. A sheet with a single group
  * skips the switch.
  */
@@ -66,6 +66,9 @@ export function GroupSegments({
       ) : null}
 
       <ActivityGroupsTable
+        // A fresh table per group: an open History / review popup
+        // belongs to the group being left.
+        key={keyOf(selected)}
         groups={[selected]}
         onSelectActivity={onSelectActivity}
         {...tableProps}

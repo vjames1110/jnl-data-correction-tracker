@@ -65,7 +65,6 @@ function renderWorkspace(props = {}) {
   render(
     <GirderJobWorkspace
       job={JOB}
-      metaLine="Ch. 15.500 km"
       onReviewAll={vi.fn()}
       reviewAllStatus={{ isPending: false }}
       onUpdateSpan={vi.fn()}

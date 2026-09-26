@@ -54,13 +54,44 @@ describe("GroupSegments", () => {
     expect(onSelectActivity).toHaveBeenCalledWith(null);
   });
 
-  it("opens a row into the existing detail panel with its Action History", () => {
+  it("opens a row into a popup with its update form", () => {
     renderSegments({ activeActivityId: "a1" });
 
+    const dialog = screen.getByRole("dialog");
     expect(
-      screen.getByRole("button", { name: /action history/i }),
+      within(dialog).getByRole("button", { name: "Save update" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Update this meeting")).toBeInTheDocument();
+  });
+
+  it("gives every row its own Action History and review icons", () => {
+    renderSegments();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Action history for GAD Approval",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Mark Structural drawing approval as reviewed",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("forgets an open History popup when the group changes", () => {
+    renderSegments();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Action history for GAD Approval",
+      }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Box Structure/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Approvals/ }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("skips the switch for a sheet with a single group", () => {

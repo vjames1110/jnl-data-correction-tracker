@@ -266,21 +266,23 @@ export function ActionItemsPage() {
               onSubmitUpdate={(
                 activityId,
                 payload,
+                options,
               ) =>
-                updateActivity.mutate({
-                  activityId,
-                  payload,
-                })
+                updateActivity.mutate(
+                  { activityId, payload },
+                  options,
+                )
               }
               updateStatus={updateActivity}
               onReviewActivity={(
                 activityId,
                 remarks,
+                options,
               ) =>
-                reviewActivity.mutate({
-                  activityId,
-                  payload: { remarks },
-                })
+                reviewActivity.mutate(
+                  { activityId, payload: { remarks } },
+                  options,
+                )
               }
               reviewActivityStatus={
                 reviewActivity
@@ -322,21 +324,23 @@ export function ActionItemsPage() {
               onSubmitUpdate={(
                 activityId,
                 payload,
+                options,
               ) =>
-                updateActivity.mutate({
-                  activityId,
-                  payload,
-                })
+                updateActivity.mutate(
+                  { activityId, payload },
+                  options,
+                )
               }
               updateStatus={updateActivity}
               onReviewActivity={(
                 activityId,
                 remarks,
+                options,
               ) =>
-                reviewActivity.mutate({
-                  activityId,
-                  payload: { remarks },
-                })
+                reviewActivity.mutate(
+                  { activityId, payload: { remarks } },
+                  options,
+                )
               }
               reviewActivityStatus={
                 reviewActivity

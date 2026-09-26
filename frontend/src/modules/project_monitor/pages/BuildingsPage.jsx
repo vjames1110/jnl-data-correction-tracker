@@ -263,28 +263,21 @@ export function BuildingsPage() {
                 renderExpanded={(building) => (
                   <ActivityWorkspace
                     item={building}
-                    metaLine={`${
-                      building.chainage_km != null
-                        ? `Ch. ${building.chainage_km} km`
-                        : "Chainage not set"
-                    } · ${building.overall_progress.done}/${
-                      building.overall_progress.total
-                    } activities complete`}
                     activeActivityId={activeActivityId}
                     onSelectActivity={setActiveActivityId}
                     canEdit={canEdit}
-                    onSubmitUpdate={(activityId, payload) =>
-                      updateActivity.mutate({
-                        activityId,
-                        payload,
-                      })
+                    onSubmitUpdate={(activityId, payload, options) =>
+                      updateActivity.mutate(
+                        { activityId, payload },
+                        options,
+                      )
                     }
                     updateStatus={updateActivity}
-                    onReviewActivity={(activityId, remarks) =>
-                      reviewActivity.mutate({
-                        activityId,
-                        payload: { remarks },
-                      })
+                    onReviewActivity={(activityId, remarks, options) =>
+                      reviewActivity.mutate(
+                        { activityId, payload: { remarks } },
+                        options,
+                      )
                     }
                     reviewActivityStatus={reviewActivity}
                     onReviewAll={(remarks, options) =>

@@ -79,9 +79,11 @@
   --table-row-height: 44px;
   --table-row-height-compact: 32px;
 
+  /* The one place the app's typeface is chosen (loaded at the top of
+     global.css). */
   --font-ui:
+    Geist,
     "IBM Plex Sans",
-    "72",
     Inter,
     -apple-system,
     BlinkMacSystemFont,

@@ -130,7 +130,6 @@ const BRIDGE = "bridge";
  */
 export function GirderJobWorkspace({
   job,
-  metaLine,
   onReviewAll,
   reviewAllStatus,
   canEdit,
@@ -162,7 +161,6 @@ export function GirderJobWorkspace({
       aria-label={`${job.bridge_name} tasks`}
     >
       <div className="pm-workspace-panel__head">
-        <p className="pm-workspace-panel__meta">{metaLine}</p>
         <ReviewAllControl
           label="Review all tasks on this bridge"
           onReviewAll={onReviewAll}

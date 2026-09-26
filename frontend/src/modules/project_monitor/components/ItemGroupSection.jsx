@@ -1,23 +1,19 @@
 import clsx from "clsx";
-import {
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 
 /**
  * A labeled group of Structures/Buildings (grouped by type for
  * Structures, by site/station for Buildings) with a summary row per
- * item - name/chainage, description, progress - and View/Edit/Delete
+ * item - name/chainage, description, progress - and Edit/Delete
  * actions. Shared because both sections render identically once you
  * have ``{id, name, chainage_km, description, overall_progress}``.
  * ``onEdit`` is optional - a section that has no edit form yet (e.g.
  * Buildings, for now) simply omits it and gets no Edit button.
  *
- * With ``renderExpanded`` the View button opens that item's workspace
- * right under its own row (``expandedId`` says which item is open;
- * View again closes it) instead of leaving the list.
+ * Clicking the item's details opens (or closes) it like a dropdown:
+ * with ``renderExpanded`` its workspace opens right under its own row
+ * (``expandedId`` says which item is open), and a chevron on the row
+ * shows the state - there is no separate View button.
  */
 export function ItemGroupSection({
   label,
@@ -48,77 +44,72 @@ export function ItemGroupSection({
           const isOpen =
             Boolean(renderExpanded) && expandedId === item.id;
           return (
-          <div
-            className={clsx(
-              "pm-structure-item",
-              isOpen && "pm-structure-item--open",
-            )}
-            key={item.id}
-          >
-          <div className="pm-structure-row">
-            <div className="pm-structure-row__main">
-              <strong>
-                {item.name}
-                {item.chainage_km != null
-                  ? ` · Ch. ${item.chainage_km} km`
-                  : ""}
-              </strong>
-              <span>
-                {item.description}
-                {" — "}
-                {item.overall_progress.done}/
-                {item.overall_progress.total}{" "}
-                activities complete
-              </span>
-            </div>
-            <div className="pm-structure-row__actions">
-              <button
-                type="button"
-                className="button button--tertiary"
-                onClick={() => onView(item.id)}
-                aria-expanded={
-                  renderExpanded ? isOpen : undefined
-                }
-              >
-                {renderExpanded ? (
-                  isOpen ? (
-                    <ChevronDown size={14} />
-                  ) : (
-                    <ChevronRight size={14} />
-                  )
+            <div
+              className={clsx(
+                "pm-structure-item",
+                isOpen && "pm-structure-item--open",
+              )}
+              key={item.id}
+            >
+              <div className="pm-structure-row">
+                <button
+                  type="button"
+                  className="pm-structure-row__main"
+                  onClick={() => onView(item.id)}
+                  aria-expanded={
+                    renderExpanded ? isOpen : undefined
+                  }
+                >
+                  <span className="pm-structure-row__text">
+                    <strong>
+                      {item.name}
+                      {item.chainage_km != null
+                        ? ` \u00b7 Ch. ${item.chainage_km} km`
+                        : ""}
+                    </strong>
+                    <span>
+                      {item.description}
+                      {" \u2014 "}
+                      {item.overall_progress.done}/
+                      {item.overall_progress.total}{" "}
+                      activities complete
+                    </span>
+                  </span>
+                  {renderExpanded ? (
+                    <ChevronDown
+                      size={18}
+                      className="pm-structure-row__chevron"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </button>
+                {canEdit ? (
+                  <div className="pm-structure-row__actions">
+                    {canEdit && onEdit ? (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => onEdit(item)}
+                        aria-label="Edit"
+                        title="Edit name/chainage"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="icon-button icon-button--danger"
+                      onClick={() => onDelete(item.id)}
+                      aria-label="Delete"
+                      title={deleteTitle}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 ) : null}
-                {isOpen ? "Hide" : "View"}
-              </button>
-              {canEdit && onEdit ? (
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() =>
-                    onEdit(item)
-                  }
-                  aria-label="Edit"
-                  title="Edit name/chainage"
-                >
-                  <Pencil size={16} />
-                </button>
-              ) : null}
-              {canEdit ? (
-                <button
-                  type="button"
-                  className="icon-button icon-button--danger"
-                  onClick={() =>
-                    onDelete(item.id)
-                  }
-                  aria-label="Delete"
-                  title={deleteTitle}
-                >
-                  <Trash2 size={16} />
-                </button>
-              ) : null}
+              </div>
+              {isOpen ? renderExpanded(item) : null}
             </div>
-          </div>
-          {isOpen ? renderExpanded(item) : null}
-          </div>
           );
         })
       )}

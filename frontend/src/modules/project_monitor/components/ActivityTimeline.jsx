@@ -1,5 +1,20 @@
 import { formatDate } from "../utils/status";
 
+function initialsOf(name) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return "?";
+  }
+  return (
+    parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")
+  ).toUpperCase();
+}
+
+/**
+ * An activity's Action History as a thread: newest update first, each
+ * with who made it and when, hung on a vertical line so the order of
+ * events reads at a glance.
+ */
 export function ActivityTimeline({ activity }) {
   const comments = [...(activity.comments || [])].sort(
     (a, b) =>
@@ -15,22 +30,26 @@ export function ActivityTimeline({ activity }) {
   }
 
   return (
-    <ul className="pm-timeline">
+    <ol className="pm-thread">
       {comments.map((comment) => (
-        <li key={comment.id}>
-          <span />
-          <div>
-            <p>{comment.text}</p>
-            <small>
-              {formatDate(comment.meeting_date)}
-              {comment.created_by_name
-                ? ` · ${comment.created_by_name}`
-                : ""}
-            </small>
+        <li className="pm-thread__item" key={comment.id}>
+          <span className="pm-thread__node" aria-hidden="true">
+            {initialsOf(comment.created_by_name)}
+          </span>
+          <div className="pm-thread__body">
+            <div className="pm-thread__meta">
+              <strong>
+                {comment.created_by_name || "Someone"}
+              </strong>
+              <time dateTime={comment.meeting_date}>
+                {formatDate(comment.meeting_date)}
+              </time>
+            </div>
+            <p className="pm-thread__text">{comment.text}</p>
           </div>
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 

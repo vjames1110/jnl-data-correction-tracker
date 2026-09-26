@@ -313,30 +313,21 @@ export function GirdersPage() {
               renderExpanded={({ job }) => (
                 <GirderJobWorkspace
                   job={job}
-                  metaLine={`${
-                    job.chainage_km != null
-                      ? `Ch. ${job.chainage_km} km`
-                      : "Chainage not set"
-                  } · ${job.girder_scope_display} · ${
-                    job.overall_progress.done
-                  }/${
-                    job.overall_progress.total
-                  } activities complete`}
                   activeActivityId={activeActivityId}
                   onSelectActivity={setActiveActivityId}
                   canEdit={canEdit}
-                  onSubmitUpdate={(activityId, payload) =>
-                    updateActivity.mutate({
-                      activityId,
-                      payload,
-                    })
+                  onSubmitUpdate={(activityId, payload, options) =>
+                    updateActivity.mutate(
+                      { activityId, payload },
+                      options,
+                    )
                   }
                   updateStatus={updateActivity}
-                  onReviewActivity={(activityId, remarks) =>
-                    reviewActivity.mutate({
-                      activityId,
-                      payload: { remarks },
-                    })
+                  onReviewActivity={(activityId, remarks, options) =>
+                    reviewActivity.mutate(
+                      { activityId, payload: { remarks } },
+                      options,
+                    )
                   }
                   reviewActivityStatus={reviewActivity}
                   onReviewAll={(remarks, options) =>

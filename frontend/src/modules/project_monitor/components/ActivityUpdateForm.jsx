@@ -80,10 +80,7 @@ export function ActivityUpdateForm({
   };
 
   return (
-    <form
-      className="pm-drawer-form"
-      onSubmit={handleSubmit}
-    >
+    <form className="pm-update-form" onSubmit={handleSubmit}>
       <label className="form-field">
         <span>Meeting date</span>
         <input
@@ -113,9 +110,7 @@ export function ActivityUpdateForm({
         <span>Status</span>
         <select
           value={status}
-          onChange={(event) =>
-            setStatus(event.target.value)
-          }
+          onChange={(event) => setStatus(event.target.value)}
         >
           {Object.entries(STATUS_LABELS).map(
             ([value, label]) => (
@@ -139,14 +134,10 @@ export function ActivityUpdateForm({
             type="number"
             min="0"
             max={
-              activity.kind === "LENGTH"
-                ? undefined
-                : 100
+              activity.kind === "LENGTH" ? undefined : 100
             }
             value={doneQty}
-            onChange={(event) =>
-              setDoneQty(event.target.value)
-            }
+            onChange={(event) => setDoneQty(event.target.value)}
           />
         </label>
       ) : null}
@@ -156,110 +147,86 @@ export function ActivityUpdateForm({
           <select
             value={materialStatus}
             onChange={(event) =>
-              setMaterialStatus(
-                event.target.value,
-              )
+              setMaterialStatus(event.target.value)
             }
           >
-            {Object.entries(
-              MATERIAL_STATUS_LABELS,
-            ).map(([value, label]) => (
-              <option
-                key={value}
-                value={value}
-              >
-                {label}
-              </option>
-            ))}
+            {Object.entries(MATERIAL_STATUS_LABELS).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
           </select>
         </label>
       ) : null}
-      <label className="toggle-field pm-drawer-form__full">
+
+      <label className="pm-update-form__check">
         <input
           type="checkbox"
           checked={isHindrance}
           onChange={(event) =>
-            setIsHindrance(
-              event.target.checked,
-            )
+            setIsHindrance(event.target.checked)
           }
         />
-        <span>
-          Blocked by Railways/Authority
-          (hindrance)
-        </span>
+        <span>Blocked by Railways/Authority (hindrance)</span>
       </label>
       {isHindrance ? (
-        <div className="pm-hindrance-fields pm-drawer-form__full">
-          <div className="pm-drawer-form">
-            <label className="form-field">
-              <span>
-                Expected removal date
-              </span>
-              <input
-                type="date"
-                value={
-                  hindranceExpectedDate
-                }
-                onChange={(event) =>
-                  setHindranceExpectedDate(
-                    event.target.value,
-                  )
-                }
-              />
-            </label>
-            <label className="form-field">
-              <span>
-                Actual/final removal date
-              </span>
-              <input
-                type="date"
-                value={hindranceActualDate}
-                onChange={(event) =>
-                  setHindranceActualDate(
-                    event.target.value,
-                  )
-                }
-              />
-            </label>
-            <label className="form-field pm-drawer-form__full">
-              <span>Hindrance remarks</span>
-              <input
-                type="text"
-                value={hindranceRemarks}
-                onChange={(event) =>
-                  setHindranceRemarks(
-                    event.target.value,
-                  )
-                }
-                placeholder="e.g. Awaiting Railway block clearance"
-              />
-            </label>
-          </div>
+        <div className="pm-update-form__hindrance">
+          <label className="form-field">
+            <span>Expected removal date</span>
+            <input
+              type="date"
+              value={hindranceExpectedDate}
+              onChange={(event) =>
+                setHindranceExpectedDate(event.target.value)
+              }
+            />
+          </label>
+          <label className="form-field">
+            <span>Actual/final removal date</span>
+            <input
+              type="date"
+              value={hindranceActualDate}
+              onChange={(event) =>
+                setHindranceActualDate(event.target.value)
+              }
+            />
+          </label>
+          <label className="form-field">
+            <span>Hindrance remarks</span>
+            <input
+              type="text"
+              value={hindranceRemarks}
+              onChange={(event) =>
+                setHindranceRemarks(event.target.value)
+              }
+              placeholder="e.g. Awaiting Railway block clearance"
+            />
+          </label>
         </div>
       ) : null}
-      <label className="form-field pm-drawer-form__full">
-        <span>Remark for this meeting</span>
-        <input
-          type="text"
-          value={comment}
-          onChange={(event) =>
-            setComment(event.target.value)
-          }
-          placeholder="e.g. Shuttering in progress"
-        />
-      </label>
-      <div className="pm-inline-row pm-drawer-form__full">
+
+      <div className="pm-update-form__footer">
+        <label className="form-field">
+          <span>Remark for this meeting</span>
+          <input
+            type="text"
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            placeholder="e.g. Shuttering in progress"
+          />
+        </label>
         <button
           type="submit"
           className="button button--primary"
           disabled={isPending}
         >
-          Save update
+          {isPending ? "Saving..." : "Save update"}
         </button>
       </div>
       {error ? (
-        <div className="inline-alert inline-alert--error pm-drawer-form__full">
+        <div className="inline-alert inline-alert--error pm-update-form__full">
           {error.message}
         </div>
       ) : null}
