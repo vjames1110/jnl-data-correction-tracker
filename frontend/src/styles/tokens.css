@@ -82,7 +82,7 @@
   /* The one place the app's typeface is chosen (loaded at the top of
      global.css). */
   --font-ui:
-    Geist,
+    "Public Sans",
     "IBM Plex Sans",
     Inter,
     -apple-system,

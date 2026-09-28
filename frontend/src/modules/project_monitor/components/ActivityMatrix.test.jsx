@@ -493,6 +493,66 @@ describe("ActivityMatrix popup", () => {
     expect(screen.getByLabelText("Hindrance remarks")).toBeInTheDocument();
   });
 
+  it("fills % done to 100 as soon as Status is set to Complete", async () => {
+    const user = userEvent.setup();
+    renderMatrix({ activeActivityId: "b2" });
+
+    const percent = screen.getByLabelText("% done");
+    await user.clear(percent);
+    await user.type(percent, "40");
+    expect(percent).toHaveValue(40);
+
+    await user.selectOptions(
+      screen.getByLabelText("Status"),
+      "Complete",
+    );
+
+    expect(percent).toHaveValue(100);
+  });
+
+  it("fills the quantity field to the total when a length task is completed", async () => {
+    const user = userEvent.setup();
+    renderMatrix({
+      groups: [
+        {
+          ...GROUPS[1],
+          rows: [
+            row("len1", "Filling", "IN_PROGRESS", {
+              kind: "LENGTH",
+              done_qty: "30",
+              total_qty: "120",
+              unit: "m",
+            }),
+          ],
+        },
+      ],
+      activeActivityId: "len1",
+    });
+
+    await user.selectOptions(
+      screen.getByLabelText("Status"),
+      "Complete",
+    );
+
+    expect(screen.getByLabelText("Done (m) of 120")).toHaveValue(120);
+  });
+
+  it("leaves % done alone when some other status is picked", async () => {
+    const user = userEvent.setup();
+    renderMatrix({ activeActivityId: "b2" });
+
+    const percent = screen.getByLabelText("% done");
+    await user.clear(percent);
+    await user.type(percent, "40");
+
+    await user.selectOptions(
+      screen.getByLabelText("Status"),
+      "Hold / Issue",
+    );
+
+    expect(percent).toHaveValue(40);
+  });
+
   it("is view-only for someone who cannot edit", () => {
     renderMatrix({ activeActivityId: "b2", canEdit: false });
 

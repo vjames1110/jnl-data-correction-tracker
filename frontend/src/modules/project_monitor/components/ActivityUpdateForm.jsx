@@ -30,6 +30,19 @@ export function ActivityUpdateForm({
     formatQty(activity.done_qty ?? 0),
   );
   const [comment, setComment] = useState("");
+  // Marking a task Complete means, by definition, 100% of it (or all of
+  // its quantity) is done - fill that in instead of leaving whatever %
+  // was last typed.
+  const handleStatusChange = (value) => {
+    setStatus(value);
+    if (value === "COMPLETE") {
+      setDoneQty(
+        activity.kind === "LENGTH"
+          ? formatQty(activity.total_qty)
+          : "100",
+      );
+    }
+  };
   const [materialStatus, setMaterialStatus] =
     useState(
       activity.material_status || "NOT_ORDERED",
@@ -110,7 +123,7 @@ export function ActivityUpdateForm({
         <span>Status</span>
         <select
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => handleStatusChange(event.target.value)}
         >
           {Object.entries(STATUS_LABELS).map(
             ([value, label]) => (
