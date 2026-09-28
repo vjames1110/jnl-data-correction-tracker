@@ -394,6 +394,24 @@
   line-height: 32px;
 }
 
+/*
+ * A heading with no descriptive paragraph, just the eyebrow/title
+ * beside a picker (Site Access) - centre the two instead of the
+ * default top-alignment, which only reads right when the left side
+ * runs taller than the control on the right.
+ */
+.page-heading--picker-only {
+  align-items: center;
+}
+
+.filter-control--wide {
+  min-width: 280px;
+}
+
+.filter-control--wide select {
+  flex: 1;
+}
+
 .page-heading p {
   margin: 0;
   color: var(--color-neutral-600);
