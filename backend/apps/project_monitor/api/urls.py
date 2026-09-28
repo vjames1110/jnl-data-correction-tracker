@@ -78,6 +78,7 @@ from apps.project_monitor.api.views import (
     ActionItemListCreateAPIView,
     ActivityReviewAPIView,
     ActivityUpdateAPIView,
+    BuildingActivityCreateAPIView,
     BuildingDetailAPIView,
     BuildingListCreateAPIView,
     BuildingReviewAPIView,
@@ -98,6 +99,7 @@ from apps.project_monitor.api.views import (
     RdsoSpanLibraryEntryListCreateAPIView,
     ScopePatchDetailAPIView,
     ScopePatchListCreateAPIView,
+    StructureActivityCreateAPIView,
     StructureDetailAPIView,
     StructureListCreateAPIView,
     StructureReviewAPIView,
@@ -455,6 +457,11 @@ urlpatterns = [
         name="structure-review",
     ),
     path(
+        "structures/<uuid:pk>/activities/",
+        StructureActivityCreateAPIView.as_view(),
+        name="structure-activity-create",
+    ),
+    path(
         "buildings/",
         BuildingListCreateAPIView.as_view(),
         name="building-list",
@@ -468,6 +475,11 @@ urlpatterns = [
         "buildings/<uuid:pk>/review/",
         BuildingReviewAPIView.as_view(),
         name="building-review",
+    ),
+    path(
+        "buildings/<uuid:pk>/activities/",
+        BuildingActivityCreateAPIView.as_view(),
+        name="building-activity-create",
     ),
     path(
         "rdso-span-library/",

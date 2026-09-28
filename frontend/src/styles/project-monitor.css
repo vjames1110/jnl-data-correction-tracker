@@ -2938,6 +2938,47 @@ table.pm-report__table td.pm-num {
   min-width: 0;
 }
 
+.pm-matrix-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pm-matrix-toolbar__add {
+  flex: none;
+}
+
+/* ---- Add-activity popup form ---- */
+.pm-add-activity {
+  display: grid;
+  gap: 12px;
+}
+
+.pm-add-activity__row {
+  display: flex;
+  gap: 12px;
+}
+
+.pm-add-activity__row .form-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Remove-this-activity footer in the update popup ---- */
+.pm-update-panel__danger {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.pm-update-panel__danger .button {
+  justify-self: start;
+}
+
 .pm-matrix-legend {
   display: flex;
   flex-wrap: wrap;

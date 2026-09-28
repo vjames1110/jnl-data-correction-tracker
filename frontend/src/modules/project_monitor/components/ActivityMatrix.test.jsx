@@ -830,3 +830,180 @@ describe("ActivityMatrix popup corner: Action History and review", () => {
     expect(screen.getByText("Not allowed")).toBeInTheDocument();
   });
 });
+
+describe("ActivityMatrix add-activity", () => {
+  it("shows no Add activity button when the page gives no handler", () => {
+    renderMatrix();
+
+    expect(
+      screen.queryByRole("button", { name: "Add activity" }),
+    ).toBeNull();
+  });
+
+  it("opens the add-activity popup, defaulted to the section shown", () => {
+    renderMatrix({ groups: GROUPS, onAddActivity: () => {} });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add activity" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    expect(
+      within(dialog).getByLabelText("Section"),
+    ).toHaveValue("Approvals");
+    expect(within(dialog).getByLabelText("Activity name")).toHaveValue("");
+  });
+
+  it("submits a new activity at the end of the chosen section", async () => {
+    const user = userEvent.setup();
+    const onAddActivity = vi.fn();
+    renderMatrix({ groups: GROUPS, onAddActivity });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add activity" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    await user.type(
+      within(dialog).getByLabelText("Activity name"),
+      "Anti-carbonation coating",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add activity" }),
+    );
+
+    expect(onAddActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        group_title: "Approvals",
+        name: "Anti-carbonation coating",
+        position: "end",
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("closes the add-activity popup once the server accepts it", async () => {
+    const user = userEvent.setup();
+    const onAddActivity = vi.fn((_payload, options) => options.onSuccess());
+    renderMatrix({ groups: GROUPS, onAddActivity });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add activity" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    await user.type(
+      within(dialog).getByLabelText("Activity name"),
+      "Extra check",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add activity" }),
+    );
+
+    expect(
+      screen.queryByRole("dialog", { name: "Add activity" }),
+    ).toBeNull();
+  });
+
+  it("lets a task be added before or after an existing one in the same section", async () => {
+    const user = userEvent.setup();
+    const onAddActivity = vi.fn();
+    renderMatrix({ groups: GROUPS, onAddActivity });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add activity" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    await user.type(
+      within(dialog).getByLabelText("Activity name"),
+      "Extra check",
+    );
+    await user.selectOptions(
+      within(dialog).getByLabelText("Position"),
+      "before",
+    );
+    await user.selectOptions(
+      within(dialog).getByLabelText("Which task"),
+      "a2",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add activity" }),
+    );
+
+    expect(onAddActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        position: "before",
+        relative_activity_id: "a2",
+      }),
+      expect.anything(),
+    );
+  });
+});
+
+describe("ActivityMatrix remove-activity", () => {
+  const CUSTOM_ROW = {
+    ...GROUPS[1],
+    rows: [
+      row("b1", "Excavation", "COMPLETE"),
+      row("cx", "Hand-added check", "NOT_STARTED", { is_custom: true }),
+    ],
+  };
+
+  it("shows no remove option for a generated task", () => {
+    renderMatrix({
+      groups: [CUSTOM_ROW],
+      activeActivityId: "b1",
+      onDeleteActivity: () => {},
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /remove this activity/i }),
+    ).toBeNull();
+  });
+
+  it("shows no remove option when the page gives no handler", () => {
+    renderMatrix({ groups: [CUSTOM_ROW], activeActivityId: "cx" });
+
+    expect(
+      screen.queryByRole("button", { name: /remove this activity/i }),
+    ).toBeNull();
+  });
+
+  it("removes a hand-added task after confirming", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onSelectActivity = vi.fn();
+    const onDeleteActivity = vi.fn((_id, options) => options.onSuccess());
+    renderMatrix({
+      groups: [CUSTOM_ROW],
+      activeActivityId: "cx",
+      onSelectActivity,
+      onDeleteActivity,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /remove this activity/i }),
+    );
+
+    expect(onDeleteActivity).toHaveBeenCalledWith(
+      "cx",
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+    expect(onSelectActivity).toHaveBeenCalledWith(null);
+    window.confirm.mockRestore();
+  });
+
+  it("does nothing when the confirm is declined", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const onDeleteActivity = vi.fn();
+    renderMatrix({
+      groups: [CUSTOM_ROW],
+      activeActivityId: "cx",
+      onDeleteActivity,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /remove this activity/i }),
+    );
+
+    expect(onDeleteActivity).not.toHaveBeenCalled();
+    window.confirm.mockRestore();
+  });
+});

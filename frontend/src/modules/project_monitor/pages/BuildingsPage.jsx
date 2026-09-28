@@ -13,8 +13,10 @@ import {
   useSiteTasks,
 } from "../../../hooks/useProjectMonitor";
 import {
+  useAddBuildingActivity,
   useBuildings,
   useCreateBuilding,
+  useDeleteActivity,
   useDeleteBuilding,
   useReviewActivity,
   useReviewBuilding,
@@ -68,6 +70,12 @@ export function BuildingsPage() {
     selectedSite,
   );
   const reviewBuilding = useReviewBuilding(
+    selectedSite,
+  );
+  const addActivity = useAddBuildingActivity(
+    selectedSite,
+  );
+  const deleteActivity = useDeleteActivity(
     selectedSite,
   );
 
@@ -290,6 +298,29 @@ export function BuildingsPage() {
                       )
                     }
                     reviewAllStatus={reviewBuilding}
+                    onAddActivity={
+                      canEdit
+                        ? (payload, options) =>
+                            addActivity.mutate(
+                              {
+                                buildingId: building.id,
+                                payload,
+                              },
+                              options,
+                            )
+                        : undefined
+                    }
+                    addActivityStatus={addActivity}
+                    onDeleteActivity={
+                      canEdit
+                        ? (activityId, options) =>
+                            deleteActivity.mutate(
+                              activityId,
+                              options,
+                            )
+                        : undefined
+                    }
+                    deleteActivityStatus={deleteActivity}
                   />
                 )}
                 onDelete={handleDelete}

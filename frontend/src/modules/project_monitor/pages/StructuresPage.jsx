@@ -13,7 +13,9 @@ import {
   useSiteTasks,
 } from "../../../hooks/useProjectMonitor";
 import {
+  useAddStructureActivity,
   useCreateStructure,
+  useDeleteActivity,
   useDeleteStructure,
   useReviewActivity,
   useReviewStructure,
@@ -75,6 +77,12 @@ export function StructuresPage() {
     selectedSite,
   );
   const reviewStructure = useReviewStructure(
+    selectedSite,
+  );
+  const addActivity = useAddStructureActivity(
+    selectedSite,
+  );
+  const deleteActivity = useDeleteActivity(
     selectedSite,
   );
 
@@ -353,6 +361,29 @@ export function StructuresPage() {
                       )
                     }
                     reviewAllStatus={reviewStructure}
+                    onAddActivity={
+                      canEdit
+                        ? (payload, options) =>
+                            addActivity.mutate(
+                              {
+                                structureId: structure.id,
+                                payload,
+                              },
+                              options,
+                            )
+                        : undefined
+                    }
+                    addActivityStatus={addActivity}
+                    onDeleteActivity={
+                      canEdit
+                        ? (activityId, options) =>
+                            deleteActivity.mutate(
+                              activityId,
+                              options,
+                            )
+                        : undefined
+                    }
+                    deleteActivityStatus={deleteActivity}
                   />
                 )}
                 onEdit={setEditingStructure}

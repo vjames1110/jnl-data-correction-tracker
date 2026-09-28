@@ -218,6 +218,17 @@ class Activity(
     review_remarks = models.TextField(
         blank=True,
     )
+    is_custom = models.BooleanField(
+        default=False,
+        help_text=(
+            "Added by hand through the + button, rather than "
+            "generated from the parent's own template. Structure/"
+            "Building edit reconciliation never touches a custom "
+            "row - it keeps its group, position and history "
+            "exactly as set, however many times the sheet's "
+            "config is later regenerated."
+        ),
+    )
 
     class Meta:
         db_table = "project_monitor_activity"

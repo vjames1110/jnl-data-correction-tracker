@@ -160,6 +160,14 @@ def update_structure(
     between NOT_STARTED and NOT_APPLICABLE only on that transition;
     a row whose applicability hasn't changed keeps whatever real
     progress is already on it.
+
+    A hand-added row (``Activity.is_custom`` - see
+    ``activity_engine.add_custom_activity``) is excluded from this
+    reconciliation entirely: it has no template counterpart to match
+    against, so without this exclusion it would read as a row the new
+    config no longer generates and get pushed to the end as
+    NOT_APPLICABLE. It is left completely untouched, however many
+    times the structure's config is edited afterward.
     """
 
     definition = structure.structure_type
@@ -195,6 +203,7 @@ def update_structure(
             object_id=structure.id,
         )
         if activity.group_order != 0
+        and not activity.is_custom
     }
     matched_keys = set()
     to_create = []

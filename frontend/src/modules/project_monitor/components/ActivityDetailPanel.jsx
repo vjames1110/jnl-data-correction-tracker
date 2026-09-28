@@ -36,6 +36,8 @@ export function ActivityDetailPanel({
   onClose,
   onReview,
   reviewStatus,
+  onDelete,
+  deleteStatus,
 }) {
   const [view, setView] = useState("update");
 
@@ -106,6 +108,34 @@ export function ActivityDetailPanel({
               You have view-only access.
             </p>
           )}
+
+          {canEdit && activity.is_custom && onDelete ? (
+            <div className="pm-update-panel__danger">
+              <button
+                type="button"
+                className="button button--danger-ghost"
+                disabled={deleteStatus?.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Remove "${activity.name}"? This was added by hand and can't be undone.`,
+                    )
+                  ) {
+                    onDelete();
+                  }
+                }}
+              >
+                {deleteStatus?.isPending
+                  ? "Removing..."
+                  : "Remove this activity"}
+              </button>
+              {deleteStatus?.isError ? (
+                <div className="inline-alert inline-alert--error">
+                  {deleteStatus.error.message}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

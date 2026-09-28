@@ -58,6 +58,17 @@
   background: var(--color-primary-100);
 }
 
+.button--danger-ghost {
+  color: var(--color-error-700);
+  background: transparent;
+  border-color: var(--color-error-100);
+}
+
+.button--danger-ghost:hover:not(:disabled) {
+  background: var(--color-error-100);
+  border-color: var(--color-error-600);
+}
+
 .button--sm {
   min-height: 32px;
   gap: 5px;

@@ -509,6 +509,61 @@ describe("EmployeeManagementPage", () => {
     ).toBeDisabled();
   });
 
+  it("follows the employee list once a role change lands, without reopening the drawer", async () => {
+    const changeRole = mutationMock({
+      mutateAsync: vi.fn().mockResolvedValue({}),
+    });
+    hooks.useChangeEmployeeRoleMock.mockReturnValue(changeRole);
+
+    const { rerender } = render(<EmployeeManagementPage />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /details/i }),
+    );
+
+    const drawer = screen.getByRole("complementary");
+    const roleHistory = within(drawer)
+      .getByText("Role History")
+      .closest("section");
+    expect(
+      within(roleHistory).getByText("User"),
+    ).toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      within(drawer).getByLabelText(/change role/i),
+      "ADMIN",
+    );
+    await userEvent.click(
+      within(drawer).getByRole("button", { name: /apply/i }),
+    );
+
+    expect(changeRole.mutateAsync).toHaveBeenCalledWith({
+      profileId: "profile-1",
+      role: "ADMIN",
+    });
+
+    // The mutation only tells the list to refetch - simulate that
+    // refetch landing with the new role, same as React Query would.
+    const current = hooks.useEmployeeProfilesMock();
+    hooks.useEmployeeProfilesMock.mockReturnValue({
+      ...current,
+      data: {
+        ...current.data,
+        items: [{ ...current.data.items[0], role: "ADMIN" }],
+      },
+    });
+    rerender(<EmployeeManagementPage />);
+
+    const refreshedHistory = within(
+      screen.getByRole("complementary"),
+    )
+      .getByText("Role History")
+      .closest("section");
+    expect(
+      within(refreshedHistory).getByText("Admin"),
+    ).toBeInTheDocument();
+  });
+
   it("opens employee details and resets temporary password", async () => {
     const resetPassword = mutationMock({
       mutateAsync: vi.fn().mockResolvedValue({

@@ -28,6 +28,7 @@ from apps.project_monitor.api.permissions import (
 )
 from apps.project_monitor.api.serializers import (
     ActionItemCreateSerializer,
+    CustomActivityCreateSerializer,
     ActionItemSerializer,
     ActionItemUpdateSerializer,
     ActivitySerializer,
@@ -79,8 +80,10 @@ from apps.project_monitor.services.action_item_generator import (
     create_action_item,
 )
 from apps.project_monitor.services.activity_engine import (
+    add_custom_activity,
     apply_material_status_update,
     apply_update,
+    delete_custom_activity,
 )
 from apps.project_monitor.services.building_generator import (
     create_building,
@@ -800,6 +803,91 @@ class StructureDetailAPIView(APIView):
         )
 
 
+def _create_custom_activity(request, parent):
+    """
+    Shared body of the "+ Add activity" endpoints on a Structure and
+    a Building - identical sheets, identical rules (see
+    ``activity_engine.add_custom_activity``).
+    """
+    serializer = CustomActivityCreateSerializer(
+        data=request.data
+    )
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    relative_activity = None
+    relative_id = data.get("relative_activity_id")
+    if relative_id:
+        try:
+            relative_activity = Activity.objects.get(
+                pk=relative_id
+            )
+        except (
+            Activity.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise ValidationError(
+                {
+                    "relative_activity_id": [
+                        "That task no longer exists."
+                    ]
+                }
+            ) from exc
+
+    add_custom_activity(
+        parent=parent,
+        group_title=data["group_title"],
+        name=data["name"],
+        kind=data["kind"],
+        unit=data["unit"],
+        position=data["position"],
+        relative_activity=relative_activity,
+        actor=request.user,
+    )
+
+
+class StructureActivityCreateAPIView(APIView):
+    """
+    The "+" beside a structure's section buttons - adds one
+    hand-entered activity to that section, entry-role only.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            structure = Structure.objects.get(pk=pk)
+        except (
+            Structure.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Structure not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=True,
+        )
+        _create_custom_activity(request, structure)
+
+        structure = Structure.objects.select_related(
+            "structure_type"
+        ).prefetch_related(
+            _activities_prefetch()
+        ).get(pk=structure.pk)
+        return success_response(
+            message="Activity added successfully.",
+            data=StructureSerializer(structure).data,
+        )
+
+
 class StructureReviewAPIView(APIView):
     """
     The consolidated "review this whole sheet" action - marks every
@@ -997,6 +1085,45 @@ class BuildingDetailAPIView(APIView):
                 "Building deleted successfully."
             ),
             data=None,
+        )
+
+
+class BuildingActivityCreateAPIView(APIView):
+    """
+    The "+" beside a building's section buttons - see
+    ``StructureActivityCreateAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            building = Building.objects.get(pk=pk)
+        except (
+            Building.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Building not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            building.site,
+            TASK.BUILDINGS.value,
+            write=True,
+        )
+        _create_custom_activity(request, building)
+
+        building = Building.objects.prefetch_related(
+            _activities_prefetch()
+        ).get(pk=building.pk)
+        return success_response(
+            message="Activity added successfully.",
+            data=BuildingSerializer(building).data,
         )
 
 
@@ -2040,6 +2167,25 @@ class ActivityUpdateAPIView(APIView):
                 "Activity updated successfully."
             ),
             data=ActivitySerializer(activity).data,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        """
+        Remove a hand-added activity (``is_custom``) - a generated
+        row can never be deleted this way, only marked Not Applicable
+        through Edit, same as always.
+        """
+        activity = self._get_activity(pk)
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=True,
+        )
+        delete_custom_activity(activity)
+        return success_response(
+            message="Activity deleted successfully.",
+            data=None,
         )
 
 

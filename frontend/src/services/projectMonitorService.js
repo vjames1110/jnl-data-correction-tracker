@@ -775,6 +775,30 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async addStructureActivity(structureId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/structures/${structureId}/activities/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async addBuildingActivity(buildingId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/buildings/${buildingId}/activities/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteActivity(activityId) {
+    await apiClient.delete(
+      `/project-monitor/activities/${activityId}/`,
+    );
+  },
+
   async listGirderJobs(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/girder-jobs/",

@@ -10,6 +10,7 @@ from apps.project_monitor.models import (
     Activity,
     ActivityComment,
     ActivityDateEntry,
+    ActivityKind,
     ActivityStatus,
     Building,
     ChainageSegment,
@@ -303,6 +304,7 @@ class ActivitySerializer(serializers.ModelSerializer):
             "reviewed_by_name",
             "reviewed_at",
             "review_remarks",
+            "is_custom",
         ]
         read_only_fields = fields
 
@@ -675,6 +677,50 @@ class ActivityUpdateSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
+
+
+class CustomActivityCreateSerializer(serializers.Serializer):
+    """
+    Input for the "+" next to a sheet's section button
+    (``activity_engine.add_custom_activity``): which existing section
+    it joins, its name and kind, and where in that section it lands.
+    """
+
+    group_title = serializers.CharField(max_length=150)
+    name = serializers.CharField(max_length=200)
+    kind = serializers.ChoiceField(
+        choices=ActivityKind.choices,
+        default=ActivityKind.TASK,
+    )
+    unit = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    position = serializers.ChoiceField(
+        choices=["end", "before", "after"],
+        default="end",
+    )
+    relative_activity_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs):
+        if (
+            attrs["position"] in ("before", "after")
+            and not attrs.get("relative_activity_id")
+        ):
+            raise serializers.ValidationError(
+                {
+                    "relative_activity_id": (
+                        "Pick which task this goes "
+                        f"{attrs['position']}."
+                    )
+                }
+            )
+        return attrs
 
 
 class ReviewInputSerializer(serializers.Serializer):

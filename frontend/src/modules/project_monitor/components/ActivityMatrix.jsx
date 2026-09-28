@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { AlertTriangle, BadgeCheck } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
@@ -13,9 +13,12 @@ import {
   statusClass,
   statusLabel,
 } from "../utils/status";
+import { AddActivityForm } from "./AddActivityForm";
 import { ActivityDetailPanel } from "./ActivityDetailPanel";
 import { ActivityPopup } from "./ActivityPopup";
 import { WorkspaceSwitch } from "./WorkspaceSwitch";
+
+const ADD_ACTIVITY_ANCHOR = "add-activity";
 
 const LEGEND = [
   "NOT_STARTED",
@@ -183,10 +186,15 @@ export function ActivityMatrix({
   updateStatus,
   onReviewActivity,
   reviewActivityStatus,
+  onAddActivity,
+  addActivityStatus,
+  onDeleteActivity,
+  deleteActivityStatus,
 }) {
   // Where the last click landed, so the popup can line up with it.
   const [clickX, setClickX] = useState(undefined);
   const [selectedKey, setSelectedKey] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   const tables = useMemo(() => buildMatrix(groups), [groups]);
 
@@ -209,28 +217,57 @@ export function ActivityMatrix({
 
   const selected =
     tables.find((table) => table.key === selectedKey) ?? tables[0];
+  // A stacked table ("Piers") is several real sections sharing one
+  // strip - default to whichever of them is showing first; a pivoted
+  // or single-section table's title already is the real section name.
+  const defaultSectionForAdd =
+    groups.find((group) => group.group_title === selected.title)
+      ?.group_title ??
+    selected.lines[0]?.label ??
+    groups[0]?.group_title;
 
   return (
     <div className="pm-matrix-stack">
-      {tables.length > 1 ? (
-        <WorkspaceSwitch
-          label="Sections"
-          value={selected.key}
-          onChange={(key) => {
-            setSelectedKey(key);
-            // An open popup belongs to the section being left.
-            close();
-          }}
-          options={tables.map((table) => {
-            const { done, total } = tableProgress(table);
-            return {
-              key: table.key,
-              label: table.title,
-              badge: `${done}/${total}`,
-            };
-          })}
-        />
-      ) : null}
+      <div className="pm-matrix-toolbar">
+        {tables.length > 1 ? (
+          <WorkspaceSwitch
+            label="Sections"
+            value={selected.key}
+            onChange={(key) => {
+              setSelectedKey(key);
+              // An open popup belongs to the section being left.
+              close();
+              setIsAdding(false);
+            }}
+            options={tables.map((table) => {
+              const { done, total } = tableProgress(table);
+              return {
+                key: table.key,
+                label: table.title,
+                badge: `${done}/${total}`,
+              };
+            })}
+          />
+        ) : (
+          <span />
+        )}
+        {onAddActivity ? (
+          <button
+            type="button"
+            className="button button--secondary pm-matrix-toolbar__add"
+            data-popup-anchor={ADD_ACTIVITY_ANCHOR}
+            aria-haspopup="dialog"
+            aria-expanded={isAdding}
+            onClick={() => {
+              close();
+              setIsAdding((current) => !current);
+            }}
+          >
+            <Plus size={15} />
+            Add activity
+          </button>
+        ) : null}
+      </div>
 
       <MatrixLegend />
 
@@ -240,6 +277,7 @@ export function ActivityMatrix({
         activeActivityId={activeActivityId}
         onOpen={(activity, event) => {
           setClickX(event.clientX);
+          setIsAdding(false);
           onSelectActivity(
             activity.id === activeActivityId ? null : activity.id,
           );
@@ -275,6 +313,37 @@ export function ActivityMatrix({
               onReviewActivity(active.row.id, remarks, options)
             }
             reviewStatus={reviewActivityStatus}
+            onDelete={
+              onDeleteActivity
+                ? () =>
+                    onDeleteActivity(active.row.id, {
+                      onSuccess: close,
+                    })
+                : undefined
+            }
+            deleteStatus={deleteActivityStatus}
+          />
+        </ActivityPopup>
+      ) : null}
+
+      {isAdding && onAddActivity ? (
+        <ActivityPopup
+          anchorId={ADD_ACTIVITY_ANCHOR}
+          label="Add activity"
+          width={380}
+          onClose={() => setIsAdding(false)}
+        >
+          <AddActivityForm
+            groups={groups}
+            defaultGroupTitle={defaultSectionForAdd}
+            onAdd={onAddActivity}
+            onClose={() => setIsAdding(false)}
+            isPending={addActivityStatus?.isPending}
+            error={
+              addActivityStatus?.isError
+                ? addActivityStatus.error
+                : null
+            }
           />
         </ActivityPopup>
       ) : null}

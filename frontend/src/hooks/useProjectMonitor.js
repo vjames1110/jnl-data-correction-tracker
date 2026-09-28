@@ -371,6 +371,47 @@ export function useReviewBuilding(siteId) {
   });
 }
 
+export function useAddStructureActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ structureId, payload }) =>
+      projectMonitorService.addStructureActivity(
+        structureId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateStructures(queryClient, siteId),
+  });
+}
+
+export function useAddBuildingActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ buildingId, payload }) =>
+      projectMonitorService.addBuildingActivity(
+        buildingId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateBuildings(queryClient, siteId),
+  });
+}
+
+export function useDeleteActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (activityId) =>
+      projectMonitorService.deleteActivity(activityId),
+    onSuccess: () => {
+      invalidateStructures(queryClient, siteId);
+      invalidateBuildings(queryClient, siteId);
+    },
+  });
+}
+
 export function useGirderJobs(siteId) {
   return useQuery({
     queryKey:

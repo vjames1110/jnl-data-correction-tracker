@@ -746,6 +746,18 @@ function EmployeeDetailsDrawer({
   const [selectedRole, setSelectedRole] = useState(
     profile.role,
   );
+  // The drawer stays open (and mounted) across a role change - once the
+  // list refetches with the new role, follow it, instead of keeping
+  // whichever role was selected in the dropdown at mount time. Adjusted
+  // during render (React's own pattern for this) rather than in an
+  // effect, so there is no extra render pass.
+  const [syncedRole, setSyncedRole] = useState(
+    profile.role,
+  );
+  if (profile.role !== syncedRole) {
+    setSyncedRole(profile.role);
+    setSelectedRole(profile.role);
+  }
   const [actionResult, setActionResult] =
     useState(null);
   const [actionError, setActionError] =
@@ -2119,7 +2131,16 @@ export function EmployeeManagementPage() {
             setDetailsProfile(null);
             setEditingProfile(profile);
           }}
-          profile={detailsProfile}
+          // `detailsProfile` only marks *which* row is open - the row
+          // itself comes from the live list, so an account action taken
+          // inside the drawer (change role, suspend, reset...) shows up
+          // here the moment the list refetches, instead of the drawer
+          // being stuck on the snapshot from when it was opened.
+          profile={
+            profiles.find(
+              (candidate) => candidate.id === detailsProfile.id,
+            ) ?? detailsProfile
+          }
         />
       ) : null}
 
