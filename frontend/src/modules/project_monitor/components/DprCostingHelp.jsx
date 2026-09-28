@@ -79,6 +79,47 @@ export function DprCostingHelp() {
             rate it was entered at.
           </li>
         </ul>
+
+        <h4>Reading the &quot;Item costing&quot; table below</h4>
+        <p>
+          Every item is created and quantities entered against it in{" "}
+          <strong>DPR &amp; Bills</strong> - this table only reads what
+          is set there and prices it, side by side, so you can see
+          whether each item is running at a profit or a loss:
+        </p>
+        <ul>
+          <li>
+            <strong>Authority rate, Tender %, Bid rate</strong> - what
+            we were awarded per unit (set on the item&apos;s Rates
+            section in DPR &amp; Bills), the percentage above/below it
+            we bid, and the rate that works out to.
+          </li>
+          <li>
+            <strong>Rate today</strong> - the bid rate plus any
+            escalation step in force today; this is what a quantity
+            entered today is valued at.
+          </li>
+          <li>
+            <strong>Executed qty / Executed value</strong> - what has
+            actually been done so far, valued at the real rate each
+            entry was made at (not today&apos;s rate) - the same
+            figure the Financial Report bills against.
+          </li>
+          <li>
+            <strong>Material cost to date / Margin to date</strong> -
+            the material cost per unit multiplied by what has been
+            executed, and what is left of the executed value after
+            that cost. This covers concrete and TMT only - it does not
+            include labour or machinery, which are logged per day for
+            the whole site rather than against one item, so they
+            cannot be split between items.
+          </li>
+        </ul>
+        <p>
+          The same table is available as an{" "}
+          <strong>&quot;Item costing&quot;</strong> section on the
+          Reports page, ready to print or save as a PDF.
+        </p>
       </div>
     </details>
   );

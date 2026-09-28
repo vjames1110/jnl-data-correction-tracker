@@ -3,6 +3,7 @@ import { bandClasses, rowBands } from "../utils/rowBands";
 import {
   formatDate,
   formatQty,
+  formatRate,
   STATUS_LABELS,
   statusLabel,
 } from "../utils/status";
@@ -152,6 +153,7 @@ const DEFAULT_SECTIONS = {
   actionItems: true,
   linearWorks: true,
   financial: true,
+  costing: false,
   hr: false,
   machinery: false,
 };
@@ -168,6 +170,14 @@ function monthLabel(month) {
     "en-IN",
     { month: "long", year: "numeric" },
   );
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  const number = Number(value);
+  return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
 }
 
 function SectionState({ state, children }) {
@@ -457,6 +467,90 @@ function MachineryReportSection({ state, month }) {
   );
 }
 
+/**
+ * Each contract item's cost story as on today: the Railway BOQ rates
+ * it was won at (authority rate, tender %, bid rate), what has
+ * actually been executed and its true value, and - where a material
+ * use is set - the material cost and margin, per unit and to date.
+ * Director/Admin only (see ``HasProjectMonitorCostingAccess``), which
+ * is why this section defaults off and is left out of the chooser
+ * entirely for anyone else.
+ */
+function CostingReportSection({ state }) {
+  return (
+    <section className="pm-report__section">
+      <h2>Item costing: authority rate, bid rate &amp; actual cost</h2>
+      <SectionState state={{ ...state, summary: state.data }}>
+        {(data) =>
+          data.items.length === 0 ? (
+            <p className="pm-report__empty">
+              No DPR items for this project yet.
+            </p>
+          ) : (
+            <div className="pm-table-wrap">
+              <table className="pm-report__table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Unit</th>
+                    <th>Authority rate</th>
+                    <th>Tender %</th>
+                    <th>Bid rate</th>
+                    <th>Rate today</th>
+                    <th>Executed qty</th>
+                    <th>Executed value</th>
+                    <th>Material cost/unit</th>
+                    <th>Material cost to date</th>
+                    <th>Margin/unit</th>
+                    <th>Margin to date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((row) => (
+                    <tr key={row.id}>
+                      <td className="pm-report__col-task">
+                        {row.item_no ? `${row.item_no} - ` : ""}
+                        {row.description}
+                      </td>
+                      <td>{row.unit || "-"}</td>
+                      <td>{formatRate(row.authority_rate)}</td>
+                      <td>{formatPercent(row.tender_percent)}</td>
+                      <td>{formatRate(row.bid_rate)}</td>
+                      <td>{formatRate(row.contract_rate)}</td>
+                      <td>{formatQty(row.executed_qty)}</td>
+                      <td>{formatCurrency(row.executed_value)}</td>
+                      <td>
+                        {row.linked
+                          ? formatRate(row.material_cost_per_unit)
+                          : "-"}
+                      </td>
+                      <td>
+                        {row.linked
+                          ? formatCurrency(row.material_cost_to_date)
+                          : "-"}
+                      </td>
+                      <td>
+                        {row.linked
+                          ? formatRate(row.margin_per_unit)
+                          : "-"}
+                      </td>
+                      <td>
+                        {row.linked
+                          ? formatCurrency(row.margin_to_date)
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </SectionState>
+    </section>
+  );
+}
+
 export function ProjectMonitorReportSheet({
   site,
   structures,
@@ -465,6 +559,7 @@ export function ProjectMonitorReportSheet({
   actionItems = [],
   linearItems = [],
   financialReport = null,
+  costing = { data: null, isLoading: false, isError: false },
   hr = { summary: null, isLoading: false, isError: false },
   machinery = { summary: null, isLoading: false, isError: false },
   reportMonth = "",
@@ -936,6 +1031,10 @@ export function ProjectMonitorReportSheet({
             title="DPR & bills"
           />
         </section>
+      ) : null}
+
+      {sections.costing ? (
+        <CostingReportSection state={costing} />
       ) : null}
 
       {sections.hr ? (

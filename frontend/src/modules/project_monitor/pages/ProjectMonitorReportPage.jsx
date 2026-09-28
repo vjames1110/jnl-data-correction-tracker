@@ -8,7 +8,9 @@ import { ErrorState } from "../../../components/common/ErrorState";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   useAutoSelectSite,
+  useCostingAccess,
   useHrSummary,
+  useItemLinks,
   useMachinerySummary,
   useProjectSites,
   useSiteTasks,
@@ -36,6 +38,7 @@ const DEFAULT_SECTIONS = {
   actionItems: true,
   linearWorks: true,
   financial: true,
+  costing: true,
   hr: true,
   machinery: true,
 };
@@ -115,6 +118,15 @@ export function ProjectMonitorReportPage() {
     undefined,
     canViewFinance,
   );
+  // Costing is Director/Admin only, with no per-site grant at all - a
+  // successful fetch is itself the "may view" signal, same as it is
+  // on the Costing page.
+  const costingAccessQuery = useCostingAccess(selectedSite);
+  const canViewCosting = costingAccessQuery.isSuccess;
+  const itemLinksQuery = useItemLinks(
+    selectedSite,
+    canViewCosting && sections.costing,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -157,11 +169,13 @@ export function ProjectMonitorReportPage() {
     actionItems: sections.actionItems && canSee.actionItems,
     linearWorks: sections.linearWorks && canSee.linearWorks,
     financial: sections.financial && canViewFinance,
+    costing: sections.costing && canViewCosting,
     hr: sections.hr && canSee.hr,
     machinery: sections.machinery && canSee.machinery,
   };
   const hiddenSections = [
     ...(canViewFinance ? [] : ["financial"]),
+    ...(canViewCosting ? [] : ["costing"]),
     ...Object.entries(canSee)
       .filter(([, allowed]) => !allowed)
       .map(([key]) => key),
@@ -286,6 +300,8 @@ export function ProjectMonitorReportPage() {
               linearWorks:
                 linearItemsQuery.data?.length ||
                 0,
+              costing:
+                itemLinksQuery.data?.items?.length || 0,
             }}
             hiddenKeys={hiddenSections}
             onToggle={handleToggleSection}
@@ -301,6 +317,7 @@ export function ProjectMonitorReportPage() {
                 actionItems: false,
                 linearWorks: false,
                 financial: false,
+                costing: false,
                 hr: false,
                 machinery: false,
               })
@@ -328,6 +345,11 @@ export function ProjectMonitorReportPage() {
                 ? financialQuery.data
                 : null
             }
+            costing={{
+              data: itemLinksQuery.data,
+              isLoading: itemLinksQuery.isLoading,
+              isError: itemLinksQuery.isError,
+            }}
             hr={{
               summary: hrQuery.data,
               isLoading: hrQuery.isLoading,

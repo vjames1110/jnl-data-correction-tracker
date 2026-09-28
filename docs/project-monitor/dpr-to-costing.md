@@ -24,7 +24,7 @@ margin  = value - expense
 | Number | Where you set it | Who |
 |---|---|---|
 | Item quantity, rate, **concrete per unit**, **TMT per unit** | DPR & Bills > **Add item / Edit item** | DPR & Bills entry |
-| The same two material fields, in a table | Costing > Rates & production > **DPR items and material use** | Admin and Director edit |
+| The same two material fields, plus the whole authority/bid/actual comparison, in a table | Costing > Rates & production > **Item costing** | Admin and Director edit the material fields; everything else is read from DPR & Bills |
 | **Concrete rate** and **TMT rate** (with a w.e.f. date) | Costing > Rates & production > **Material rates** | Admin and Director |
 | Labour and staff cost per day | **HR** | HR department |
 | Machinery, fuel, maintenance per day | **Machinery** | Machinery department |
@@ -97,6 +97,38 @@ afterwards. The form tells you how many entries are already recorded on the old
 rate. (Re-typing a quantity in a grid cell re-saves that entry, so it is then
 priced at the rate in force on *that day*.)
 
+## Comparing authority rate, bid rate and actual cost per item
+
+Items themselves are still created in **DPR & Bills** - that is where quantities
+are entered against them. To see how each item is actually performing, open
+**Costing > Rates & production > Item costing**. It reads every item's BOQ setup
+and its execution so far, and lays them out side by side:
+
+| Column | What it is |
+|---|---|
+| **Authority rate** | The Railway estimated / schedule rate the item was set up with |
+| **Tender %** | The percentage actually applied - the item's own override, else the contract-wide figure |
+| **Bid rate** | Authority rate x (1 + tender % / 100) - our contracted rate |
+| **Rate today** | Bid rate plus any escalation step in force today - what a quantity entered today is valued at |
+| **Executed qty / Executed value** | What has actually been done so far, valued at the real rate **each entry was made at** (not today's rate) - the same figure the Financial Report bills against |
+| **Material cost per unit / to date** | The concrete + TMT cost of one unit, and that cost x executed qty |
+| **Margin per unit / to date** | Rate (or executed value) minus material cost - what is left before labour and machinery |
+
+This is deliberately a **materials-only** margin: labour and machinery are logged
+per day for the whole site (HR and Machinery), not against one contract item, so
+they cannot honestly be split between items. For the *whole project's* margin
+including labour and machinery, use the **Cost table** and **Today at a glance**
+instead - this table is for comparing items against each other and against what
+they were bid at.
+
+An item with no authority rate (a hand-typed rate) simply shows a dash for
+Authority rate, Tender % and its BOQ-derived figures - its Bid rate is just the
+rate you typed.
+
+The same table is also available as an **Item costing** section on the
+**Reports** page (Director/Admin only, same as the Costing tab itself), ready to
+print or save as a PDF alongside the rest of the project report.
+
 ## Groups and sub-groups
 
 Items sit in a tree up to **3 levels** (`4` -> `4.1` -> `4.1.1`). A **group**
@@ -142,8 +174,9 @@ nothing recorded so an incomplete period cannot look better than it is.
 3. On each item set **Concrete per unit** and **TMT per unit** where it uses
    them.
 4. **Costing > Rates & production**: add the **concrete** and **TMT** rates with
-   their w.e.f. dates. The *DPR items and material use* table flags any item
-   whose material has no rate yet.
+   their w.e.f. dates. The *Item costing* table flags any item whose material
+   has no rate yet, and shows each item's authority rate, bid rate and actual
+   cost once quantities start coming in.
 5. Every day: DPR quantities (with measurements), HR cost, machinery cost -
    and, when available, the concrete produced per stores.
 6. When the Railway allows escalation, add a step under **Escalation**.

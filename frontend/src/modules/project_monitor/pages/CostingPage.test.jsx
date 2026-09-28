@@ -149,7 +149,9 @@ describe("CostingPage", () => {
     expect(screen.getByText("Material rates")).toBeInTheDocument();
     // The DPR items sit right under the rates they are priced at.
     expect(
-      screen.getByText("DPR items and material use"),
+      screen.getByText(
+        "Item costing: authority rate, bid rate & actual cost",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Concrete production (stores)"),

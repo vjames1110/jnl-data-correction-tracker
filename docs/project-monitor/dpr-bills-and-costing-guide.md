@@ -265,10 +265,14 @@ Costing (Director/Admin only) has three workspaces.
   (per MT)** with an effective-from date. The **latest rate on or before a
   given day** is the one used — so you can back-date or future-date a rate
   change and every past day still uses whatever was in force then.
-- **DPR items and material use**: the same Concrete/TMT-per-unit fields from
-  the item form, in one table, with the current rate and the resulting
-  material cost and margin per unit — a quick way to spot an unlinked item
-  ("No material usage set") or a material with no rate yet.
+- **Item costing** (authority rate, bid rate & actual cost): every item's BOQ
+  setup (authority rate, tender %, bid rate, today's escalated rate) next to
+  what has actually been executed and its true value, plus — where the item's
+  Concrete/TMT-per-unit fields are set — the material cost and margin, both
+  per unit and cumulative to date. A quick way to spot an unlinked item ("No
+  material usage set"), a material with no rate yet, or an item running at a
+  loss. This table is also available as an "Item costing" section on the
+  Reports page.
 - **Concrete production (stores)**: if your stores team measures concrete
   production directly (grade, cum, cement/aggregate/sand/other cost), log it
   here for a day. **A stores figure for a day replaces the DPR-based

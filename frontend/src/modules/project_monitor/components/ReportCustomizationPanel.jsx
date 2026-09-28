@@ -1,6 +1,7 @@
 import {
   Banknote,
   Building2,
+  Calculator,
   Check,
   FileText,
   HardHat,
@@ -19,6 +20,7 @@ const SECTION_DEFS = [
   { key: "actionItems", label: "Action items", icon: ListChecks },
   { key: "linearWorks", label: "Linear works", icon: Route },
   { key: "financial", label: "DPR & bills", icon: Banknote },
+  { key: "costing", label: "Item costing", icon: Calculator },
   { key: "hr", label: "HR", icon: HardHat },
   { key: "machinery", label: "Machinery", icon: Truck },
 ];

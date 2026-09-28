@@ -318,6 +318,46 @@ class TestItemLinks:
         assert data["summary"] == {"total": 2, "linked": 1, "unlinked": 1, "missing_rate": 0}
         assert Decimal(data["rates"]["CONCRETE"]["rate"]) == Decimal("5000.00")
 
+    def test_carries_the_boq_rates_and_actual_execution_to_date(self, site):
+        self.rates(site, concrete="5000", tmt="60000")
+        wall = make_item(
+            site, item_no="2.1", description="RCC wall", unit="cum",
+            scope_qty=Decimal("100"),
+            authority_rate=Decimal("10000"), tender_percent=Decimal("-10"),
+            concrete_per_unit=Decimal("1"), tmt_kg_per_unit=Decimal("100"),
+        )
+        dpr.add_detailed_entry(
+            site=site, item=wall, day=days_ago(0), qty=Decimal("10"),
+            actor=AdminUserFactory(),
+        )
+
+        row = self.fetch(site)["items"][0]
+
+        # Authority 10,000 at -10% = 9,000 bid rate.
+        assert Decimal(row["authority_rate"]) == Decimal("10000")
+        assert Decimal(row["tender_percent"]) == Decimal("-10")
+        assert Decimal(row["bid_rate"]) == Decimal("9000.00")
+        assert Decimal(row["contract_value"]) == Decimal("900000.00")
+        # 10 cum executed at the bid rate (no escalation set).
+        assert Decimal(row["executed_qty"]) == Decimal("10")
+        assert Decimal(row["executed_value"]) == Decimal("90000.00")
+        # Material cost per unit: 1 cum concrete @5000 + 100 kg TMT
+        # (0.1 MT) @60000 = 5000 + 6000 = 11000; x 10 executed = 110000.
+        assert Decimal(row["material_cost_per_unit"]) == Decimal("11000.00")
+        assert Decimal(row["material_cost_to_date"]) == Decimal("110000.00")
+        assert Decimal(row["margin_to_date"]) == Decimal("90000.00") - Decimal(
+            "110000.00"
+        )
+
+    def test_an_item_with_no_authority_rate_shows_none_for_the_boq_fields(self, site):
+        make_item(site, rate=Decimal("500"))
+
+        row = self.fetch(site)["items"][0]
+
+        assert row["authority_rate"] is None
+        assert row["tender_percent"] is None
+        assert Decimal(row["bid_rate"]) == Decimal("500")
+
     def test_a_material_without_a_rate_is_flagged_not_free(self, site):
         make_item(site, concrete_per_unit=Decimal("1"))
 

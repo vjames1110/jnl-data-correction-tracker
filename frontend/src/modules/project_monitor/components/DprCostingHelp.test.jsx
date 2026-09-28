@@ -21,4 +21,31 @@ describe("DprCostingHelp", () => {
       screen.getByText(/replaces/i),
     ).toBeInTheDocument();
   });
+
+  it("explains the Item costing table's authority/bid/actual columns", async () => {
+    const user = userEvent.setup();
+    render(<DprCostingHelp />);
+
+    await user.click(
+      screen.getByText("How a DPR item links to Costing"),
+    );
+
+    expect(
+      screen.getByText(
+        "Reading the \"Item costing\" table below",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Authority rate, Tender %, Bid rate/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Executed qty \/ Executed value/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not include labour or machinery/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/available as an/),
+    ).toBeInTheDocument();
+  });
 });

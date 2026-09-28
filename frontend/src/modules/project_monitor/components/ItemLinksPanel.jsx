@@ -17,6 +17,14 @@ const quantity = (value) =>
     maximumFractionDigits: 3,
   });
 
+const formatPercent = (value) =>
+  value === null || value === undefined
+    ? "-"
+    : `${Number(value) > 0 ? "+" : ""}${Number(value).toLocaleString(
+        "en-IN",
+        { maximumFractionDigits: 2 },
+      )}%`;
+
 function RateChip({ label, unit, rate }) {
   return (
     <span
@@ -81,7 +89,22 @@ function EditRow({ row, onDone }) {
       </td>
       <td>{row.unit || "-"}</td>
       <td className="pm-num">
+        {formatRate(row.authority_rate)}
+      </td>
+      <td className="pm-num">
+        {formatPercent(row.tender_percent)}
+      </td>
+      <td className="pm-num">
+        {formatRate(row.bid_rate)}
+      </td>
+      <td className="pm-num">
         {formatRate(row.contract_rate)}
+      </td>
+      <td className="pm-num">
+        {quantity(row.executed_qty)}
+      </td>
+      <td className="pm-num">
+        {formatCurrency(row.executed_value)}
       </td>
       <td className="pm-num">
         <input
@@ -103,7 +126,7 @@ function EditRow({ row, onDone }) {
           onChange={(event) => setTmt(event.target.value)}
         />
       </td>
-      <td colSpan={3}>
+      <td colSpan={5}>
         <div className="pm-hr-actions">
           <button
             type="button"
@@ -132,10 +155,14 @@ function EditRow({ row, onDone }) {
 }
 
 /**
- * Which DPR & Bills items consume concrete and TMT, and what that
- * costs per unit at the material rates above, against the contract
- * rate. The two per-unit figures are the same ones the DPR item form
- * holds, so an entry made in either place shows in both.
+ * Every DPR & Bills item's cost story in one table: the Railway BOQ
+ * rates it was won at (authority rate, tender %, bid rate, today's
+ * escalated rate), what has actually been executed and its true
+ * value, and - by setting how much concrete/TMT one unit uses - the
+ * material cost and margin that implies, both per unit and to date.
+ * Items themselves are still added in DPR & Bills (that is where
+ * quantities are entered against them); this table is where their
+ * profitability is read.
  */
 export function ItemLinksPanel({ siteId, canEnter }) {
   const linksQuery = useItemLinks(siteId, true);
@@ -147,11 +174,14 @@ export function ItemLinksPanel({ siteId, canEnter }) {
   return (
     <div className="pm-stack">
       <p className="pm-dpr-toolbar__help">
-        Set how much concrete (cum) and TMT steel (kg) one unit of
-        each contract item uses. Costing prices that at the current
-        rates and compares it with the contract rate, so the cost
-        table can show the material behind the work done. An item
-        with no use set costs nothing in materials.
+        Authority rate, tender % and bid rate come from each item's
+        BOQ setup in DPR &amp; Bills (Add item &gt; Rates) - this table
+        only reads them. Set how much concrete (cum) and TMT steel
+        (kg) one unit of an item uses below and Costing prices that at
+        the rates above, against what has actually been executed, so
+        you can see whether each item is running at a profit or a
+        loss. An item with no material use set costs nothing here (its
+        margin is simply its full rate).
       </p>
 
       {data ? (
@@ -192,11 +222,18 @@ export function ItemLinksPanel({ siteId, canEnter }) {
               <tr>
                 <th>Item</th>
                 <th>Unit</th>
+                <th className="pm-num">Authority rate</th>
+                <th className="pm-num">Tender %</th>
+                <th className="pm-num">Bid rate</th>
                 <th className="pm-num">Rate today</th>
+                <th className="pm-num">Executed qty</th>
+                <th className="pm-num">Executed value</th>
                 <th className="pm-num">Concrete per unit (cum)</th>
                 <th className="pm-num">TMT per unit (kg)</th>
                 <th className="pm-num">Material cost per unit</th>
+                <th className="pm-num">Material cost to date</th>
                 <th className="pm-num">Margin per unit</th>
+                <th className="pm-num">Margin to date</th>
                 <th>Status</th>
                 {canEnter ? <th /> : null}
               </tr>
@@ -217,7 +254,22 @@ export function ItemLinksPanel({ siteId, canEnter }) {
                     </td>
                     <td>{row.unit || "-"}</td>
                     <td className="pm-num">
+                      {formatRate(row.authority_rate)}
+                    </td>
+                    <td className="pm-num">
+                      {formatPercent(row.tender_percent)}
+                    </td>
+                    <td className="pm-num">
+                      {formatRate(row.bid_rate)}
+                    </td>
+                    <td className="pm-num">
                       {formatRate(row.contract_rate)}
+                    </td>
+                    <td className="pm-num">
+                      {quantity(row.executed_qty)}
+                    </td>
+                    <td className="pm-num">
+                      {formatCurrency(row.executed_value)}
                     </td>
                     <td className="pm-num">
                       {row.concrete_per_unit > 0
@@ -234,6 +286,11 @@ export function ItemLinksPanel({ siteId, canEnter }) {
                         ? formatRate(row.material_cost_per_unit)
                         : "-"}
                     </td>
+                    <td className="pm-num">
+                      {row.linked
+                        ? formatCurrency(row.material_cost_to_date)
+                        : "-"}
+                    </td>
                     <td
                       className={
                         row.linked && row.margin_per_unit < 0
@@ -247,6 +304,17 @@ export function ItemLinksPanel({ siteId, canEnter }) {
                               ? ` (${Number(row.margin_percent).toFixed(1)}%)`
                               : ""
                           }`
+                        : "-"}
+                    </td>
+                    <td
+                      className={
+                        row.linked && row.margin_to_date < 0
+                          ? "pm-num pm-negative"
+                          : "pm-num"
+                      }
+                    >
+                      {row.linked
+                        ? formatCurrency(row.margin_to_date)
                         : "-"}
                     </td>
                     <td>

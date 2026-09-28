@@ -168,7 +168,10 @@ export function CostingPage() {
               </SurfaceCard>
               <SurfaceCard>
                 <div className="surface-card__header">
-                  <h2>DPR items and material use</h2>
+                  <h2>
+                    Item costing: authority rate, bid rate &amp;
+                    actual cost
+                  </h2>
                 </div>
                 <ItemLinksPanel
                   siteId={selectedSite}

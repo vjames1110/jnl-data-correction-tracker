@@ -48,7 +48,7 @@ from apps.project_monitor.models import (
     MaterialKind,
     MaterialRate,
 )
-from apps.project_monitor.services import boq, dpr, hr, machinery
+from apps.project_monitor.services import dpr, hr, machinery
 
 ZERO = Decimal("0")
 KG_PER_MT = Decimal("1000")
@@ -171,9 +171,7 @@ def _cents(value) -> Decimal:
     return Decimal(value).quantize(CENT)
 
 
-def _item_link_row(
-    item, concrete_rate, tmt_rate, rate=None
-) -> dict:
+def _item_link_row(item, concrete_rate, tmt_rate, boq_row) -> dict:
     uses_concrete = item.concrete_per_unit > 0
     uses_tmt = item.tmt_kg_per_unit > 0
     concrete_cost = _cents(
@@ -183,16 +181,31 @@ def _item_link_row(
         item.tmt_kg_per_unit / KG_PER_MT * (tmt_rate or ZERO)
     )
     material_cost = concrete_cost + tmt_cost
-    # The rate new work is paid at today (bid rate x escalation).
-    rate = item.rate if rate is None else rate
+    # The rate new work is paid at today (bid rate x escalation) -
+    # from the same BOQ row the DPR grid itself uses, so the two
+    # never disagree.
+    rate = boq_row["effective_rate"] or item.rate
     margin = _cents(rate - material_cost)
+    executed_qty = boq_row["executed_qty"]
+    # The true value of what has actually been executed, at the rate
+    # each quantity was really entered at (not today's rate) - the
+    # same figure the Financial Report bills against.
+    executed_value = boq_row["executed_value"]
+    material_cost_to_date = _cents(
+        material_cost * executed_qty
+    )
     return {
         "id": item.id,
         "item_no": item.item_no,
         "description": item.description,
         "unit": item.unit,
-        "contract_rate": rate,
+        "scope_qty": item.scope_qty,
+        "authority_rate": boq_row["authority_rate"],
+        "tender_percent": boq_row["applied_tender_percent"],
         "bid_rate": item.rate,
+        "escalation_percent": boq_row["escalation_percent"],
+        "contract_rate": rate,
+        "contract_value": boq_row["amount"],
         "concrete_per_unit": item.concrete_per_unit,
         "tmt_kg_per_unit": item.tmt_kg_per_unit,
         "concrete_cost_per_unit": concrete_cost,
@@ -203,6 +216,12 @@ def _item_link_row(
             _cents(margin * 100 / rate)
             if rate > 0
             else None
+        ),
+        "executed_qty": executed_qty,
+        "executed_value": executed_value,
+        "material_cost_to_date": material_cost_to_date,
+        "margin_to_date": _cents(
+            executed_value - material_cost_to_date
         ),
         "linked": uses_concrete or uses_tmt,
         # Uses a material that has no rate yet: its cost reads as 0,
@@ -216,26 +235,29 @@ def _item_link_row(
 
 def item_links(site, today=None) -> dict:
     """
-    Every active DPR item of the site with what it consumes per unit
-    (cum of concrete, kg of TMT), the material rate in force today,
-    the material cost per unit that implies and its margin against
-    the contract rate.
+    Every active DPR item of the site: the Railway-BOQ rates it was
+    won at (authority rate, tender %, bid rate, today's escalated
+    rate), what it has actually executed and been valued at so far,
+    what it consumes per unit of concrete/TMT, and the material cost
+    and margin that implies - both per unit and cumulative to date.
+    The BOQ and execution figures are read from ``dpr.build_item_rows``
+    (the same source the DPR grid uses) so the two can never disagree.
     """
     today = today or timezone.localdate()
     rates = current_rates(site, today)
     concrete_rate = rates[MaterialKind.CONCRETE]["rate"]
     tmt_rate = rates[MaterialKind.TMT]["rate"]
-    series = boq.escalation_series(site)
+    boq_rows = {
+        row["id"]: row for row in dpr.build_item_rows(site, today)
+    }
     rows = [
         _item_link_row(
-            item,
-            concrete_rate,
-            tmt_rate,
-            boq.effective_rate(item, today, series),
+            item, concrete_rate, tmt_rate, boq_rows[item.id]
         )
         for item in DprItem.objects.filter(
             site=site, is_active=True, is_heading=False
         )
+        if item.id in boq_rows
     ]
     return {
         "rates": rates,

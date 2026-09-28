@@ -11,6 +11,7 @@ const ALL_ON = {
   actionItems: true,
   linearWorks: true,
   financial: true,
+  costing: true,
   hr: true,
   machinery: true,
 };
@@ -43,6 +44,7 @@ describe("ReportCustomizationPanel", () => {
       "Action items",
       "Linear works",
       "DPR & bills",
+      "Item costing",
       "HR",
       "Machinery",
     ].forEach((name) => {
@@ -66,7 +68,7 @@ describe("ReportCustomizationPanel", () => {
   it("counts how many sections are included", () => {
     renderPanel({ sections: { ...ALL_ON, hr: false, machinery: false } });
 
-    expect(screen.getByText("7 of 9 included")).toBeInTheDocument();
+    expect(screen.getByText("8 of 10 included")).toBeInTheDocument();
   });
 
   it("shows the state of each chip and toggles on click", () => {
@@ -94,7 +96,7 @@ describe("ReportCustomizationPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Machinery" }),
     ).toBeNull();
-    expect(screen.getByText("6 of 6 included")).toBeInTheDocument();
+    expect(screen.getByText("7 of 7 included")).toBeInTheDocument();
   });
 
   it("shows a count badge where one is given", () => {
