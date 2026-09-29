@@ -23,7 +23,7 @@ margin  = value - expense
 
 | Number | Where you set it | Who |
 |---|---|---|
-| Item quantity, rate, **concrete per unit**, **TMT per unit** | DPR & Bills > **Add item / Edit item** | DPR & Bills entry |
+| Item quantity, rate, **concrete per unit**, **TMT per unit** | DPR & Bills > **Add BOQ item / Edit item** | DPR & Bills entry |
 | The same two material fields, plus the whole authority/bid/actual comparison, in a table | Costing > Rates & production > **Item costing** | Admin and Director edit the material fields; everything else is read from DPR & Bills |
 | **Concrete rate** and **TMT rate** (with a w.e.f. date) | Costing > Rates & production > **Material rates** | Admin and Director |
 | Labour and staff cost per day | **HR** | HR department |
@@ -71,7 +71,7 @@ cannot pass for a good margin.
 
 ## What the Railway BOQ fields change - and what they do not
 
-The new BOQ fields on **Add item** only change the item's **rate** - the *value
+The new BOQ fields on **Add BOQ item** only change the item's **rate** - the *value
 of work* side. They never change the material figures.
 
 | Field | Meaning |
@@ -137,7 +137,7 @@ it. Only the **lowest-level items** take DPR entries, measurements, bill lines
 and the material link, so nothing is counted twice: totals, Costing and the
 financial report all use the items, and show the group as a subtotal.
 
-- **Add item** > *This is a group* > add its **Sub-items** in one go, or use the
+- **Add BOQ item** > *This is a group* > add its **Sub-items** in one go, or use the
   **+** on a group's row later.
 - You can import a BOQ from Excel: give **Item no**, **Description**, **Unit**,
   **Qty** and any of **Authority rate**, **Tender %**, **Quoted rate**. Rows nest

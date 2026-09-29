@@ -408,6 +408,7 @@ export function useDeleteActivity(siteId) {
     onSuccess: () => {
       invalidateStructures(queryClient, siteId);
       invalidateBuildings(queryClient, siteId);
+      invalidateGirderJobs(queryClient, siteId);
     },
   });
 }
@@ -494,6 +495,34 @@ export function useUpdateGirderSpan(siteId) {
   return useMutation({
     mutationFn: ({ spanId, payload }) =>
       projectMonitorService.updateGirderSpan(
+        spanId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useAddGirderJobActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ jobId, payload }) =>
+      projectMonitorService.addGirderJobActivity(
+        jobId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateGirderJobs(queryClient, siteId),
+  });
+}
+
+export function useAddGirderSpanActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ spanId, payload }) =>
+      projectMonitorService.addGirderSpanActivity(
         spanId,
         payload,
       ),
@@ -1639,5 +1668,71 @@ export function useCreateConcreteProduction() {
 export function useDeleteConcreteProduction() {
   return useFinanceMutation(
     projectMonitorService.deleteConcreteProduction,
+  );
+}
+
+export function useCostingBoq(siteId, enabled = true) {
+  return useFinanceQuery(
+    "costing-boq",
+    { site: siteId },
+    () =>
+      projectMonitorService.getCostingBoqSheet({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useCreateCostingBoqItem(siteId) {
+  return useFinanceMutation((payload) =>
+    projectMonitorService.createCostingBoqItem(
+      siteId,
+      payload,
+    ),
+  );
+}
+
+export function useUpdateCostingBoqItem() {
+  return useFinanceMutation(({ itemId, ...payload }) =>
+    projectMonitorService.updateCostingBoqItem(
+      itemId,
+      payload,
+    ),
+  );
+}
+
+export function useDeleteCostingBoqItem() {
+  return useFinanceMutation(
+    projectMonitorService.deleteCostingBoqItem,
+  );
+}
+
+export function useImportCostingBoq(siteId) {
+  return useFinanceMutation((file) =>
+    projectMonitorService.importCostingBoq(siteId, file),
+  );
+}
+
+export function useCostingContractSettings(
+  siteId,
+  enabled = true,
+) {
+  return useFinanceQuery(
+    "costing-contract",
+    { site: siteId },
+    () =>
+      projectMonitorService.getCostingContractSettings({
+        site: siteId,
+      }),
+    Boolean(siteId) && enabled,
+  );
+}
+
+export function useUpdateCostingContractSettings(siteId) {
+  return useFinanceMutation((payload) =>
+    projectMonitorService.updateCostingContractSettings(
+      siteId,
+      payload,
+    ),
   );
 }

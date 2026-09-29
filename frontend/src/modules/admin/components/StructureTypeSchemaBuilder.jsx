@@ -4,7 +4,27 @@ const FIELD_TYPE_OPTIONS = [
   { value: "number", label: "Number" },
   { value: "boolean", label: "Yes / No" },
   { value: "choice", label: "Choice (dropdown)" },
+  { value: "text", label: "Text" },
+  {
+    value: "group_list",
+    label: "Repeatable list (e.g. Platforms)",
+  },
 ];
+
+const ITEM_FIELD_TYPE_OPTIONS = [
+  { value: "number", label: "Number" },
+  { value: "boolean", label: "Yes / No" },
+  { value: "choice", label: "Choice (dropdown)" },
+  { value: "text", label: "Text" },
+];
+
+function defaultForType(type, previousDefault) {
+  if (type === "boolean") return false;
+  if (type === "text") return "";
+  if (type === "group_list") return [];
+  if (type === "number") return 0;
+  return previousDefault ?? "";
+}
 
 const GROUP_KIND_OPTIONS = [
   {
@@ -91,6 +111,170 @@ function Field({ label, children }) {
   );
 }
 
+function GroupListItemFieldsEditor({
+  fields,
+  onChange,
+}) {
+  const items = fields || [];
+
+  const updateItem = (index, patch) => {
+    const next = [...items];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  };
+
+  const removeItem = (index) => {
+    onChange(items.filter((_, i) => i !== index));
+  };
+
+  const addItem = () => {
+    onChange([
+      ...items,
+      { key: "", label: "", type: "text", default: "" },
+    ]);
+  };
+
+  return (
+    <div className="pm-builder-nested">
+      <div className="pm-builder-card__header">
+        <strong>Fields for each item</strong>
+      </div>
+      {items.map((itemField, index) => (
+        <div key={index} className="form-grid">
+          <Field label="Key (unique)">
+            <input
+              type="text"
+              value={itemField.key}
+              onChange={(event) =>
+                updateItem(index, {
+                  key: event.target.value,
+                })
+              }
+              placeholder="e.g. name"
+            />
+          </Field>
+          <Field label="Label">
+            <input
+              type="text"
+              value={itemField.label}
+              onChange={(event) =>
+                updateItem(index, {
+                  label: event.target.value,
+                })
+              }
+              placeholder="e.g. Name of Platform"
+            />
+          </Field>
+          <Field label="Field type">
+            <select
+              value={itemField.type}
+              onChange={(event) => {
+                const nextType =
+                  event.target.value;
+                updateItem(index, {
+                  type: nextType,
+                  default: defaultForType(
+                    nextType,
+                    itemField.default,
+                  ),
+                });
+              }}
+            >
+              {ITEM_FIELD_TYPE_OPTIONS.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+            </select>
+          </Field>
+          {itemField.type === "boolean" ? (
+            <Field label="Default">
+              <select
+                value={
+                  itemField.default
+                    ? "1"
+                    : "0"
+                }
+                onChange={(event) =>
+                  updateItem(index, {
+                    default:
+                      event.target.value ===
+                      "1",
+                  })
+                }
+              >
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+              </select>
+            </Field>
+          ) : (
+            <Field label="Default">
+              <input
+                type={
+                  itemField.type === "number"
+                    ? "number"
+                    : "text"
+                }
+                value={itemField.default ?? ""}
+                onChange={(event) =>
+                  updateItem(index, {
+                    default:
+                      itemField.type ===
+                      "number"
+                        ? Number(
+                            event.target
+                              .value,
+                          )
+                        : event.target.value,
+                  })
+                }
+              />
+            </Field>
+          )}
+          {itemField.type === "choice" ? (
+            <Field label="Options - comma-separated value:label pairs">
+              <input
+                type="text"
+                value={optionsToText(
+                  itemField.options,
+                )}
+                onChange={(event) =>
+                  updateItem(index, {
+                    options: textToOptions(
+                      event.target.value,
+                    ),
+                  })
+                }
+                placeholder="open:Open, pile:Pile"
+              />
+            </Field>
+          ) : null}
+          <button
+            type="button"
+            className="icon-button icon-button--danger"
+            onClick={() => removeItem(index)}
+            aria-label="Remove item field"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="button button--secondary"
+        onClick={addItem}
+      >
+        <Plus size={14} /> Add item field
+      </button>
+    </div>
+  );
+}
+
 export function ConfigSchemaBuilder({
   fields,
   onChange,
@@ -171,12 +355,25 @@ export function ConfigSchemaBuilder({
             <Field label="Field type">
               <select
                 value={field.type}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextType =
+                    event.target.value;
                   updateField(index, {
-                    type: event.target
-                      .value,
-                  })
-                }
+                    type: nextType,
+                    default: defaultForType(
+                      nextType,
+                      field.default,
+                    ),
+                    ...(nextType ===
+                    "group_list"
+                      ? {
+                          fields:
+                            field.fields ||
+                            [],
+                        }
+                      : {}),
+                  });
+                }}
               >
                 {FIELD_TYPE_OPTIONS.map(
                   (option) => (
@@ -214,11 +411,29 @@ export function ConfigSchemaBuilder({
                   </option>
                 </select>
               </Field>
+            ) : field.type ===
+              "group_list" ? (
+              <Field label="Item label (e.g. Platform)">
+                <input
+                  type="text"
+                  value={
+                    field.item_label || ""
+                  }
+                  onChange={(event) =>
+                    updateField(index, {
+                      item_label:
+                        event.target.value,
+                    })
+                  }
+                  placeholder="e.g. Platform"
+                />
+              </Field>
             ) : (
               <Field label="Default">
                 <input
                   type={
-                    field.type === "choice"
+                    field.type === "choice" ||
+                    field.type === "text"
                       ? "text"
                       : "number"
                   }
@@ -258,6 +473,16 @@ export function ConfigSchemaBuilder({
               </Field>
             ) : null}
           </div>
+          {field.type === "group_list" ? (
+            <GroupListItemFieldsEditor
+              fields={field.fields}
+              onChange={(nextFields) =>
+                updateField(index, {
+                  fields: nextFields,
+                })
+              }
+            />
+          ) : null}
         </div>
       ))}
       <button
@@ -493,7 +718,7 @@ function GroupTemplateEditor({
   onRemove,
 }) {
   const numericFields = configSchema.filter(
-    (field) => field.type !== "boolean",
+    (field) => field.type === "number",
   );
 
   const updateRows = (rows) =>

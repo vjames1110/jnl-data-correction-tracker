@@ -200,6 +200,8 @@ def entry_ops(t):
         "add building activity": ("BUILDINGS", lambda c: c.post(url("building-activity-create", t["building"]), {"group_title": "Ground Floor", "name": "Extra check"}, format="json")),
         "add girder job": ("GIRDERS", lambda c: c.post(url("girder-job-list") + q, {**GIRDER_JOB, "bridge_name": "New"}, format="json")),
         "edit girder span": ("GIRDERS", lambda c: c.patch(url("girder-span-update", t["span"]), {"vendor": "V"}, format="json")),
+        "add girder job activity": ("GIRDERS", lambda c: c.post(url("girder-job-activity-create", t["job"]), {"group_title": "Approvals", "name": "Extra check"}, format="json")),
+        "add girder span activity": ("GIRDERS", lambda c: c.post(url("girder-span-activity-create", t["span"]), {"group_title": "Girder fabrication", "name": "Extra check"}, format="json")),
         "add action item": ("ACTION_ITEMS", lambda c: c.post(url("action-item-list") + q, {**ACTION_ITEM, "name": "New"}, format="json")),
         "edit action item": ("ACTION_ITEMS", lambda c: c.patch(url("action-item-detail", t["action"]), {"remarks": "r"}, format="json")),
         "add linear item": ("LINEAR_WORKS", lambda c: c.post(url("linear-item-list") + q, {"name": "New", "unit": "M"}, format="json")),
@@ -725,6 +727,7 @@ TASK_SCOPED_ROUTES = {
     "structure-review", "structure-activity-create",
     "building-list", "building-detail", "building-review", "building-activity-create",
     "girder-job-list", "girder-job-detail", "girder-job-review", "girder-span-update",
+    "girder-job-activity-create", "girder-span-activity-create",
     "action-item-list", "action-item-detail", "linear-item-list", "linear-item-detail",
     "scope-patch-list", "scope-patch-detail", "progress-entry-list", "progress-entry-detail",
     "activity-update", "activity-review", "dashboard", "due-tracker", "overdue-counts",
@@ -746,6 +749,9 @@ COSTING_ROUTES = {
     "costing-rate-list", "costing-rate-detail",
     "costing-production-list", "costing-production-detail",
     "costing-link-list", "costing-link-detail",
+    "costing-boq-sheet", "costing-boq-detail",
+    "costing-boq-import", "costing-boq-template",
+    "costing-contract-settings",
 }
 
 

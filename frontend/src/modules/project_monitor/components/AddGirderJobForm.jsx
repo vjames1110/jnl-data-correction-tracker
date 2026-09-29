@@ -483,7 +483,7 @@ export function AddGirderJobForm({
         <Plus size={14} /> Add another span
       </button>
 
-      <div className="management-panel__actions">
+      <div className="pm-slide-panel__actions">
         <button
           type="submit"
           className="button button--primary"

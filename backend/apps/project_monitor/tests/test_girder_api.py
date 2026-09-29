@@ -1,4 +1,8 @@
+import importlib
+
 import pytest
+from django.apps import apps as django_apps
+from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -12,6 +16,7 @@ from apps.authentication.tests.factories import (
 )
 from apps.organization.models import Company, Site
 from apps.project_monitor.models import (
+    Activity,
     GirderJob,
     RdsoSpanLibraryEntry,
 )
@@ -543,3 +548,47 @@ def test_project_manager_cannot_manage_rdso_span_library(
         response.status_code
         == status.HTTP_403_FORBIDDEN
     )
+
+
+@pytest.mark.django_db
+def test_migration_0024_renames_old_bridge_level_rows_to_approvals(
+    api_client, site
+):
+    """
+    A Girder Job created before this fix stored its GAD row's
+    group_title as "Bridge-level" instead of "Approvals" (see the
+    migration's own docstring) - the data migration must correct rows
+    already sitting in the database, not just new ones.
+    """
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+    response = api_client.post(
+        f"{reverse('project-monitor-api:girder-job-list')}?site={site.id}",
+        _girder_job_payload(),
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    job_id = response.data["data"]["id"]
+
+    # Simulate a pre-fix row by reverting it back, as if it had never
+    # been migrated.
+    content_type = ContentType.objects.get_for_model(GirderJob)
+    Activity.objects.filter(
+        content_type=content_type, object_id=job_id
+    ).update(group_title="Bridge-level")
+
+    migration = importlib.import_module(
+        "apps.project_monitor.migrations."
+        "0024_girder_bridge_level_to_approvals"
+    )
+    migration.rename_forward(django_apps, None)
+
+    activity = Activity.objects.get(
+        content_type=content_type, object_id=job_id
+    )
+    assert activity.group_title == "Approvals"
+
+    # Safe to run twice.
+    migration.rename_forward(django_apps, None)
+    activity.refresh_from_db()
+    assert activity.group_title == "Approvals"

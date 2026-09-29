@@ -27,7 +27,7 @@ import { AddBuildingForm } from "../components/AddBuildingForm";
 import { ItemGroupSection } from "../components/ItemGroupSection";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
-import { ManagementPanel } from "../../admin/components/OrganizationControls";
+import { SlideDownForm } from "../components/SlideDownForm";
 
 const UNGROUPED_LABEL = "Ungrouped";
 
@@ -205,13 +205,12 @@ export function BuildingsPage() {
       />
 
       {isAddFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Buildings"
           title="Add a building"
           onClose={() =>
             setIsAddFormOpen(false)
           }
-          closeOnOutsideClick
         >
           <AddBuildingForm
             onCreate={handleCreateBuilding}
@@ -227,7 +226,7 @@ export function BuildingsPage() {
                 : null
             }
           />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {!selectedSite ? (

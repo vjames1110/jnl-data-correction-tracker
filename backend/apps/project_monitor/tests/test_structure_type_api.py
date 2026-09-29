@@ -26,11 +26,11 @@ def api_client():
     return APIClient()
 
 
-def _fob_payload():
+def _new_type_payload():
     return {
-        "code": "FOB",
-        "name": "Foot Over Bridge",
-        "description_template": "{spans} span(s) FOB",
+        "code": "SKYWALK",
+        "name": "Skywalk Bridge",
+        "description_template": "{spans} span(s) skywalk",
         "config_schema": [
             {
                 "key": "spans",
@@ -68,7 +68,7 @@ def test_admin_can_create_a_new_structure_type(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
 
@@ -77,7 +77,7 @@ def test_admin_can_create_a_new_structure_type(
         == status.HTTP_200_OK
     )
     assert StructureTypeDefinition.objects.filter(
-        code="FOB"
+        code="SKYWALK"
     ).exists()
 
 
@@ -92,7 +92,7 @@ def test_project_manager_cannot_create_a_structure_type(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
 
@@ -157,7 +157,7 @@ def test_malformed_group_templates_are_rejected(
     admin = AdminUserFactory()
     api_client.force_authenticate(user=admin)
 
-    payload = _fob_payload()
+    payload = _new_type_payload()
     payload["group_templates"] = [
         {"kind": "not-a-real-kind"}
     ]
@@ -186,12 +186,12 @@ def test_a_newly_defined_type_generates_a_real_structure(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
-    fob_id = str(
+    type_id = str(
         StructureTypeDefinition.objects.get(
-            code="FOB"
+            code="SKYWALK"
         ).id
     )
 
@@ -201,8 +201,8 @@ def test_a_newly_defined_type_generates_a_real_structure(
     )
     site = Site.objects.create(
         company=company,
-        site_code="FOBSITE",
-        site_name="FOB Test Site",
+        site_code="SKYSITE",
+        site_name="Skywalk Test Site",
     )
 
     pm = ProjectManagerUserFactory()
@@ -210,8 +210,8 @@ def test_a_newly_defined_type_generates_a_real_structure(
     response = api_client.post(
         f"{reverse('project-monitor-api:structure-list')}?site={site.id}",
         {
-            "structure_type": fob_id,
-            "name": "FOB 1",
+            "structure_type": type_id,
+            "name": "Skywalk 1",
             "config": {"spans": 3},
         },
         format="json",
@@ -222,7 +222,7 @@ def test_a_newly_defined_type_generates_a_real_structure(
         == status.HTTP_200_OK
     )
     data = response.data["data"]
-    assert data["structure_type_code"] == "FOB"
+    assert data["structure_type_code"] == "SKYWALK"
     assert (
         data["groups"][0]["group_title"]
         == "Approvals"
@@ -293,17 +293,17 @@ def test_unused_structure_type_can_be_deleted(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
-    fob_id = StructureTypeDefinition.objects.get(
-        code="FOB"
+    type_id = StructureTypeDefinition.objects.get(
+        code="SKYWALK"
     ).id
 
     response = api_client.delete(
         reverse(
             "project-monitor-api:structure-type-detail",
-            args=[fob_id],
+            args=[type_id],
         ),
     )
 
@@ -312,7 +312,7 @@ def test_unused_structure_type_can_be_deleted(
         == status.HTTP_200_OK
     )
     assert not StructureTypeDefinition.objects.filter(
-        id=fob_id
+        id=type_id
     ).exists()
 
 
@@ -326,23 +326,23 @@ def test_director_can_add_and_remove_structure_types(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
     assert created.status_code == status.HTTP_200_OK
-    fob_id = StructureTypeDefinition.objects.get(
-        code="FOB"
+    type_id = StructureTypeDefinition.objects.get(
+        code="SKYWALK"
     ).id
 
     deleted = api_client.delete(
         reverse(
             "project-monitor-api:structure-type-detail",
-            args=[fob_id],
+            args=[type_id],
         ),
     )
     assert deleted.status_code == status.HTTP_200_OK
     assert not StructureTypeDefinition.objects.filter(
-        code="FOB"
+        code="SKYWALK"
     ).exists()
 
 
@@ -354,13 +354,13 @@ def test_project_ho_can_add_structure_types(api_client):
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
 
     assert response.status_code == status.HTTP_200_OK
     assert StructureTypeDefinition.objects.filter(
-        code="FOB"
+        code="SKYWALK"
     ).exists()
 
 
@@ -378,7 +378,7 @@ def test_everyone_else_cannot_write_structure_types(
         reverse(
             "project-monitor-api:structure-type-list"
         ),
-        _fob_payload(),
+        _new_type_payload(),
         format="json",
     )
 
@@ -387,5 +387,5 @@ def test_everyone_else_cannot_write_structure_types(
         == status.HTTP_403_FORBIDDEN
     )
     assert not StructureTypeDefinition.objects.filter(
-        code="FOB"
+        code="SKYWALK"
     ).exists()

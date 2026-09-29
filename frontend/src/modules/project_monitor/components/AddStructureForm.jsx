@@ -1,13 +1,26 @@
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+
+import { SlideDownForm } from "./SlideDownForm";
+
+function defaultScalarValue(field) {
+  if (field.type === "boolean") {
+    return Boolean(field.default);
+  }
+  if (field.type === "text") {
+    return field.default ?? "";
+  }
+  return field.default;
+}
 
 function buildDefaultConfig(definition) {
   const config = {};
   (definition.config_schema || []).forEach(
     (field) => {
       config[field.key] =
-        field.type === "boolean"
-          ? Boolean(field.default)
-          : field.default;
+        field.type === "group_list"
+          ? (field.default ?? [])
+          : defaultScalarValue(field);
     },
   );
   (definition.group_templates || []).forEach(
@@ -125,6 +138,21 @@ function ConfigField({ field, value, onChange }) {
     );
   }
 
+  if (field.type === "text") {
+    return (
+      <label className="form-field">
+        <span>{field.label}</span>
+        <input
+          type="text"
+          value={value ?? ""}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
+        />
+      </label>
+    );
+  }
+
   return (
     <label className="form-field">
       <span>{field.label}</span>
@@ -137,6 +165,203 @@ function ConfigField({ field, value, onChange }) {
         }
       />
     </label>
+  );
+}
+
+function defaultGroupListItem(fields) {
+  return Object.fromEntries(
+    (fields || []).map((field) => [
+      field.key,
+      defaultScalarValue(field),
+    ]),
+  );
+}
+
+/** The mini form for one item of a repeatable ("group_list") field -
+ * e.g. one platform's Name/Column height/Has Lift/... - reusing
+ * ``ConfigField`` for its own sub-fields since they're the same
+ * number/boolean/choice/text scalars, just one level deeper. */
+function GroupListItemForm({
+  fields,
+  initial,
+  onSave,
+  onCancel,
+}) {
+  const [values, setValues] = useState(
+    () => initial || defaultGroupListItem(fields),
+  );
+
+  const setValue = (key, value) =>
+    setValues((current) => ({
+      ...current,
+      [key]: value,
+    }));
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSave(values);
+  };
+
+  return (
+    <form
+      className="pm-boq-slide__form"
+      onSubmit={handleSubmit}
+    >
+      <div className="pm-boq-slide__row">
+        {fields.map((field) => (
+          <ConfigField
+            key={field.key}
+            field={field}
+            value={values[field.key]}
+            onChange={(value) =>
+              setValue(field.key, value)
+            }
+          />
+        ))}
+      </div>
+      <div className="pm-slide-panel__actions">
+        <button
+          type="submit"
+          className="button button--primary"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          className="button button--tertiary"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * A repeatable "group_list" config field (e.g. "Platforms"): the
+ * items added so far, an "Add" form that slides down the same way
+ * every other Project Monitor form now does, and a click-to-edit on
+ * each item already added.
+ */
+function GroupListField({ field, value, onChange }) {
+  const [openIndex, setOpenIndex] = useState(null);
+  const items = value || [];
+  const itemLabel = field.item_label || field.label;
+  const nameKey = field.fields?.[0]?.key;
+
+  const closeForm = () => setOpenIndex(null);
+
+  const handleAdd = (item) => {
+    onChange([...items, item]);
+    closeForm();
+  };
+
+  const handleUpdate = (index, item) => {
+    onChange(
+      items.map((current, i) =>
+        i === index ? item : current,
+      ),
+    );
+    closeForm();
+  };
+
+  const handleRemove = (index) => {
+    onChange(items.filter((_, i) => i !== index));
+    if (openIndex === index) {
+      closeForm();
+    }
+  };
+
+  return (
+    <div
+      className="form-field"
+      style={{ gridColumn: "1 / -1" }}
+    >
+      <span>{field.label}</span>
+
+      {items.length > 0 ? (
+        <ul className="pm-group-list">
+          {items.map((item, index) => (
+            <li
+              key={index}
+              className="pm-group-list__item"
+            >
+              <div className="pm-group-list__row">
+                <span>
+                  {(nameKey && item[nameKey]) ||
+                    `${itemLabel} ${index + 1}`}
+                </span>
+                <div className="table-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`Edit ${itemLabel} ${index + 1}`}
+                    onClick={() =>
+                      setOpenIndex((current) =>
+                        current === index
+                          ? null
+                          : index,
+                      )
+                    }
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button icon-button--danger"
+                    aria-label={`Remove ${itemLabel} ${index + 1}`}
+                    onClick={() =>
+                      handleRemove(index)
+                    }
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              {openIndex === index ? (
+                <SlideDownForm
+                  eyebrow={field.label}
+                  title={`Edit ${itemLabel} ${index + 1}`}
+                  onClose={closeForm}
+                >
+                  <GroupListItemForm
+                    fields={field.fields || []}
+                    initial={item}
+                    onSave={(next) =>
+                      handleUpdate(index, next)
+                    }
+                    onCancel={closeForm}
+                  />
+                </SlideDownForm>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {openIndex === "new" ? (
+        <SlideDownForm
+          eyebrow={field.label}
+          title={`Add ${itemLabel}`}
+          onClose={closeForm}
+        >
+          <GroupListItemForm
+            fields={field.fields || []}
+            onSave={handleAdd}
+            onCancel={closeForm}
+          />
+        </SlideDownForm>
+      ) : (
+        <button
+          type="button"
+          className="button button--secondary button--sm"
+          onClick={() => setOpenIndex("new")}
+        >
+          <Plus size={14} /> Add {itemLabel}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -390,16 +615,27 @@ export function AddStructureForm({
         </label>
         {(
           definition.config_schema || []
-        ).map((field) => (
-          <ConfigField
-            key={field.key}
-            field={field}
-            value={config[field.key]}
-            onChange={(value) =>
-              setFieldValue(field, value)
-            }
-          />
-        ))}
+        ).map((field) =>
+          field.type === "group_list" ? (
+            <GroupListField
+              key={field.key}
+              field={field}
+              value={config[field.key]}
+              onChange={(value) =>
+                setFieldValue(field, value)
+              }
+            />
+          ) : (
+            <ConfigField
+              key={field.key}
+              field={field}
+              value={config[field.key]}
+              onChange={(value) =>
+                setFieldValue(field, value)
+              }
+            />
+          ),
+        )}
         {(
           definition.group_templates || []
         )
@@ -419,7 +655,7 @@ export function AddStructureForm({
           ))}
       </div>
 
-      <div className="management-panel__actions">
+      <div className="pm-slide-panel__actions">
         <button
           type="submit"
           className="button button--primary"

@@ -69,6 +69,8 @@ function SpanPanel({
   canEdit,
   onUpdateSpan,
   updateSpanStatus,
+  onAddSpanActivity,
+  addSpanActivityStatus,
   ...tableProps
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -112,6 +114,13 @@ function SpanPanel({
       <ActivityMatrix
         groups={span.groups}
         canEdit={canEdit}
+        onAddActivity={
+          onAddSpanActivity
+            ? (payload, options) =>
+                onAddSpanActivity(span.id, payload, options)
+            : undefined
+        }
+        addActivityStatus={addSpanActivityStatus}
         {...tableProps}
       />
     </div>
@@ -135,6 +144,10 @@ export function GirderJobWorkspace({
   onUpdateSpan,
   updateSpanStatus,
   onSelectActivity,
+  onAddJobActivity,
+  addJobActivityStatus,
+  onAddSpanActivity,
+  addSpanActivityStatus,
   ...tableProps
 }) {
   const hasBridgeSheet = Boolean(job.groups?.length);
@@ -187,6 +200,8 @@ export function GirderJobWorkspace({
           onUpdateSpan={onUpdateSpan}
           updateSpanStatus={updateSpanStatus}
           onSelectActivity={onSelectActivity}
+          onAddSpanActivity={onAddSpanActivity}
+          addSpanActivityStatus={addSpanActivityStatus}
           {...tableProps}
         />
       ) : (
@@ -194,6 +209,13 @@ export function GirderJobWorkspace({
           groups={job.groups}
           canEdit={canEdit}
           onSelectActivity={onSelectActivity}
+          onAddActivity={
+            onAddJobActivity
+              ? (payload, options) =>
+                  onAddJobActivity(job.id, payload, options)
+              : undefined
+          }
+          addActivityStatus={addJobActivityStatus}
           {...tableProps}
         />
       )}

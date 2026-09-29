@@ -14,6 +14,12 @@ import { ChevronDown, Pencil, Trash2 } from "lucide-react";
  * with ``renderExpanded`` its workspace opens right under its own row
  * (``expandedId`` says which item is open), and a chevron on the row
  * shows the state - there is no separate View button.
+ *
+ * ``renderEdit``/``editingId`` open the Edit form the same way, right
+ * under the row being edited (the inline "slide down where you
+ * clicked" pattern, not a side drawer) - the caller decides whether
+ * opening one closes the other, this component just renders whichever
+ * is currently open.
  */
 export function ItemGroupSection({
   label,
@@ -24,6 +30,8 @@ export function ItemGroupSection({
   canEdit,
   expandedId = null,
   renderExpanded,
+  editingId = null,
+  renderEdit,
   deleteTitle = "Delete this sheet and all its data",
 }) {
   return (
@@ -43,11 +51,14 @@ export function ItemGroupSection({
         items.map((item) => {
           const isOpen =
             Boolean(renderExpanded) && expandedId === item.id;
+          const isEditing =
+            Boolean(renderEdit) && editingId === item.id;
           return (
             <div
               className={clsx(
                 "pm-structure-item",
-                isOpen && "pm-structure-item--open",
+                (isOpen || isEditing) &&
+                  "pm-structure-item--open",
               )}
               key={item.id}
             >
@@ -109,6 +120,7 @@ export function ItemGroupSection({
                 ) : null}
               </div>
               {isOpen ? renderExpanded(item) : null}
+              {isEditing ? renderEdit(item) : null}
             </div>
           );
         })

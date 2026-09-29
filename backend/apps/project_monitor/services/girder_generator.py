@@ -140,7 +140,13 @@ def create_girder_job(
                 job_content_type,
                 job.id,
                 name="GAD approval",
-                group_title="Bridge-level",
+                # Matches the Structure/Building convention exactly
+                # (a group_order 0 "doc" row's real group_title is
+                # "Approvals", not a name of its own) so "+ Add
+                # activity" can find this section by the same title
+                # the serializer already shows for it - see
+                # ActivityGroupedSerializerMixin.get_groups.
+                group_title="Approvals",
                 group_order=0,
                 row_order=0,
                 is_doc=True,

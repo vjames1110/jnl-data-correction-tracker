@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GirderJobWorkspace } from "./GirderJobWorkspace";
@@ -152,5 +152,59 @@ describe("GirderJobWorkspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: /S2/ }));
 
     expect(onSelectActivity).toHaveBeenCalledWith(null);
+  });
+
+  it("adds a custom activity to the bridge-level sheet", () => {
+    const onAddJobActivity = vi.fn();
+    renderWorkspace({ onAddJobActivity });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    fireEvent.change(within(dialog).getByLabelText("Activity name"), {
+      target: { value: "Extra check" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add activity" }),
+    );
+
+    expect(onAddJobActivity).toHaveBeenCalledWith(
+      "j1",
+      expect.objectContaining({
+        group_title: "Approvals",
+        name: "Extra check",
+      }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("shows no Add activity button on the bridge sheet without a handler", () => {
+    renderWorkspace();
+
+    expect(
+      screen.queryByRole("button", { name: "Add activity" }),
+    ).toBeNull();
+  });
+
+  it("adds a custom activity to a span's own chain, not the bridge sheet", () => {
+    const onAddJobActivity = vi.fn();
+    const onAddSpanActivity = vi.fn();
+    renderWorkspace({ onAddJobActivity, onAddSpanActivity });
+
+    fireEvent.click(screen.getByRole("tab", { name: /S1/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const dialog = screen.getByRole("dialog", { name: "Add activity" });
+    fireEvent.change(within(dialog).getByLabelText("Activity name"), {
+      target: { value: "Extra inspection" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Add activity" }),
+    );
+
+    expect(onAddSpanActivity).toHaveBeenCalledWith(
+      "sp1",
+      expect.objectContaining({ name: "Extra inspection" }),
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+    expect(onAddJobActivity).not.toHaveBeenCalled();
   });
 });

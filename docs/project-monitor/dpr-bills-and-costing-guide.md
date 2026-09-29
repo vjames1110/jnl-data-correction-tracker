@@ -53,9 +53,9 @@ Original value ₹5,00,00,000. The tender was quoted **12% above** the
 authority rates, so you set **Tender % = 12** here once, and every item that
 has an authority rate is priced from it automatically.
 
-## 3. Build the BOQ (Add item)
+## 3. Build the BOQ (Add BOQ item)
 
-Click **Add item**. The form has four parts.
+Click **Add BOQ item**. The form has four parts.
 
 ### Item
 Item no. (e.g. `4.1`), description, unit, quantity.

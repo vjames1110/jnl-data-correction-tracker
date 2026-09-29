@@ -2632,3 +2632,212 @@ class RateEscalation(
             f"{self.site_id} - from {self.effective_from} "
             f"+{self.percent}%"
         )
+
+
+class CostingBoqItem(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A costing-native BOQ, replacing DPR & Bills as the place profit
+    and loss is actually worked out (the director's ERP now owns
+    quantities and billing, so DPR & Bills stays in place but unused).
+    A static estimate sheet, not an execution tracker: no daily
+    entries, no measurements, no bills - every figure is derived from
+    the row's own quantity and rates, recalculated live.
+
+    Every row - whether a top-level contract item or a material
+    nested under one - carries the same three rates (authority, bid,
+    our cost), the same way the reference Railway schedule does. A
+    row's own ``our_cost_rate`` is used when it has no children;
+    once it has children (e.g. "RCC retaining wall" broken into
+    "Cement", "Sand", ...), its cost is the sum of theirs instead -
+    see ``services.costing_boq`` for that computation. Its own
+    quantity/authority/bid rate stay independent either way, since
+    those describe what THIS row is worth (billed to the client, or
+    quoted by a supplier), never a rollup.
+    """
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="costing_boq_items",
+    )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="children",
+    )
+    row_order = models.PositiveIntegerField(default=0)
+    item_no = models.CharField(max_length=50, blank=True)
+    description = models.CharField(max_length=300)
+    unit = models.CharField(max_length=30, blank=True)
+    qty = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    # The Railway estimated / schedule rate. When set, ``rate`` (the
+    # bid rate) is worked out from it, the site's departmental
+    # escalation and the tender percentage - see ``compute_bid_rate``.
+    # Blank means ``rate`` is typed by hand instead.
+    authority_rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    # This row's own percentage over (+) / under (-) the escalated
+    # authority rate; blank = use the contract-wide
+    # ``Site.tender_percent``.
+    tender_percent = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        null=True,
+        blank=True,
+    )
+    rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    # What this row actually costs, per unit - typed directly on a
+    # leaf; ignored (the sum of its children's cost is used instead)
+    # once the row has children.
+    our_cost_rate = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    # Blank = use the contract-wide ``Site.gst_percent``.
+    gst_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "project_monitor_costing_boq_item"
+        ordering = ["row_order", "item_no", "description"]
+
+    def __str__(self) -> str:
+        return f"{self.item_no} {self.description}".strip()
+
+    def clean(self):
+        super().clean()
+
+        self.item_no = (self.item_no or "").strip()
+        self.description = normalize_whitespace(
+            self.description
+        )
+        errors = {}
+        if not self.description:
+            errors["description"] = (
+                "Description is required."
+            )
+        for field, label in (
+            ("qty", "Quantity"),
+            ("authority_rate", "Authority rate"),
+            ("rate", "Rate"),
+            ("our_cost_rate", "Our cost"),
+            ("gst_percent", "GST %"),
+        ):
+            value = getattr(self, field)
+            if value is not None and value < 0:
+                errors[field] = f"{label} cannot be negative."
+        errors.update(self._hierarchy_errors())
+        if errors:
+            raise ValidationError(errors)
+
+    MAX_LEVEL = 5
+
+    def level(self) -> int:
+        """1 for a top-level row, 2 under it, and so on."""
+        depth, node = 1, self
+        seen = {self.pk}
+        while node.parent_id:
+            node = node.parent
+            if node.pk in seen:
+                break
+            seen.add(node.pk)
+            depth += 1
+        return depth
+
+    def _height(self) -> int:
+        """1 for a row with nothing under it, else 1 + its deepest child."""
+        return 1 + max(
+            (child._height() for child in self.children.all()),
+            default=0,
+        )
+
+    def _is_above(self, other) -> bool:
+        """True when ``other`` is this row's descendant (or itself)."""
+        node, seen = other, set()
+        while node is not None and node.pk not in seen:
+            if node.pk == self.pk:
+                return True
+            seen.add(node.pk)
+            node = node.parent
+        return False
+
+    def compute_bid_rate(self):
+        """
+        (authority rate x departmental escalation) x (1 + tender % /
+        100), rounded to paise - the escalation applies to the
+        authority rate itself here, unlike DPR & Bills' BOQ, which
+        escalates the bid rate. ``None`` for a row with no authority
+        rate (its ``rate`` is typed by hand).
+        """
+        if self.authority_rate is None:
+            return None
+        escalation = (
+            getattr(self.site, "authority_escalation_percent", None)
+            or 0
+        )
+        escalated_authority = self.authority_rate * (
+            1 + Decimal(escalation) / 100
+        )
+        percent = self.tender_percent
+        if percent is None:
+            percent = getattr(self.site, "tender_percent", None)
+        percent = percent or 0
+        return (
+            escalated_authority * (1 + Decimal(percent) / 100)
+        ).quantize(Decimal("0.01"))
+
+    def _hierarchy_errors(self) -> dict:
+        errors = {}
+        if self.parent_id:
+            parent = self.parent
+            if parent.site_id != self.site_id:
+                errors["parent"] = (
+                    "The parent row must be on the same project."
+                )
+            elif parent.pk == self.pk:
+                errors["parent"] = "A row cannot be its own parent."
+            elif self._is_above(parent):
+                errors["parent"] = (
+                    "A row cannot go under one of its own "
+                    "children."
+                )
+            elif parent.level() + self._height() > self.MAX_LEVEL:
+                errors["parent"] = (
+                    f"Rows go {self.MAX_LEVEL} levels deep at "
+                    "most."
+                )
+        return errors
+
+    def save(self, *args, **kwargs):
+        bid = self.compute_bid_rate()
+        if bid is not None:
+            self.rate = bid
+        self.full_clean()
+        return super().save(*args, **kwargs)

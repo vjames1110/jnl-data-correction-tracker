@@ -29,7 +29,7 @@ import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { ActivityWorkspace } from "../components/ActivityWorkspace";
 import { ItemGroupSection } from "../components/ItemGroupSection";
-import { ManagementPanel } from "../../admin/components/OrganizationControls";
+import { SlideDownForm } from "../components/SlideDownForm";
 
 export function StructuresPage() {
   const { user } = useAuth();
@@ -44,7 +44,7 @@ export function StructuresPage() {
     useState(null);
   const [isAddFormOpen, setIsAddFormOpen] =
     useState(false);
-  const [editingStructure, setEditingStructure] =
+  const [editingStructureId, setEditingStructureId] =
     useState(null);
 
   const sitesQuery = useProjectSites();
@@ -128,15 +128,15 @@ export function StructuresPage() {
     return map;
   }, [structuresQuery.data]);
 
-  const handleSaveEdit = (payload) => {
+  const handleSaveEdit = (structureId, payload) => {
     updateStructure.mutate(
       {
-        structureId: editingStructure.id,
+        structureId,
         payload,
       },
       {
         onSuccess: () =>
-          setEditingStructure(null),
+          setEditingStructureId(null),
       },
     );
   };
@@ -231,13 +231,12 @@ export function StructuresPage() {
       />
 
       {isAddFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Structures"
           title="Add a structure"
           onClose={() =>
             setIsAddFormOpen(false)
           }
-          closeOnOutsideClick
         >
           <AddStructureForm
             structureTypes={
@@ -256,37 +255,7 @@ export function StructuresPage() {
                 : null
             }
           />
-        </ManagementPanel>
-      ) : null}
-
-      {editingStructure ? (
-        <ManagementPanel
-          eyebrow="Structures"
-          title={`Edit ${editingStructure.name}`}
-          onClose={() =>
-            setEditingStructure(null)
-          }
-          closeOnOutsideClick
-        >
-          <AddStructureForm
-            structureTypes={
-              structureTypesQuery.data || []
-            }
-            initialStructure={editingStructure}
-            onSave={handleSaveEdit}
-            onCancel={() =>
-              setEditingStructure(null)
-            }
-            isPending={
-              updateStructure.isPending
-            }
-            error={
-              updateStructure.isError
-                ? updateStructure.error
-                : null
-            }
-          />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {!selectedSite ? (
@@ -310,12 +279,26 @@ export function StructuresPage() {
             structureTypesQuery.refetch();
           }}
         />
+      ) : (structuresQuery.data || []).length === 0 ? (
+        <EmptyState
+          title="No structures added yet"
+          message="Click 'Add structure' above to generate the first one - only types you've actually added will show here."
+        />
       ) : (
         <>
           <SurfaceCard>
             {(
               structureTypesQuery.data || []
-            ).map((definition) => (
+            )
+              .filter(
+                (definition) =>
+                  (
+                    structuresByType.get(
+                      definition.id,
+                    ) || []
+                  ).length > 0,
+              )
+              .map((definition) => (
               <ItemGroupSection
                 key={definition.id}
                 label={definition.name}
@@ -329,6 +312,7 @@ export function StructuresPage() {
                     current === id ? null : id,
                   );
                   setActiveActivityId(null);
+                  setEditingStructureId(null);
                 }}
                 expandedId={selectedStructureId}
                 renderExpanded={(structure) => (
@@ -386,7 +370,49 @@ export function StructuresPage() {
                     deleteActivityStatus={deleteActivity}
                   />
                 )}
-                onEdit={setEditingStructure}
+                onEdit={(structure) => {
+                  setEditingStructureId((current) =>
+                    current === structure.id
+                      ? null
+                      : structure.id,
+                  );
+                  setSelectedStructureId(null);
+                  setActiveActivityId(null);
+                }}
+                editingId={editingStructureId}
+                renderEdit={(structure) => (
+                  <SlideDownForm
+                    eyebrow="Structures"
+                    title={`Edit ${structure.name}`}
+                    onClose={() =>
+                      setEditingStructureId(null)
+                    }
+                  >
+                    <AddStructureForm
+                      structureTypes={
+                        structureTypesQuery.data || []
+                      }
+                      initialStructure={structure}
+                      onSave={(payload) =>
+                        handleSaveEdit(
+                          structure.id,
+                          payload,
+                        )
+                      }
+                      onCancel={() =>
+                        setEditingStructureId(null)
+                      }
+                      isPending={
+                        updateStructure.isPending
+                      }
+                      error={
+                        updateStructure.isError
+                          ? updateStructure.error
+                          : null
+                      }
+                    />
+                  </SlideDownForm>
+                )}
                 onDelete={handleDelete}
                 canEdit={canEdit}
                 deleteTitle="Delete this structure sheet and all its data"

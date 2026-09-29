@@ -8,8 +8,7 @@ const hooks = vi.hoisted(() => ({
   useCostingAccess: vi.fn(),
   useCostingGlance: vi.fn(),
   useCostingTable: vi.fn(),
-  useMaterialRates: vi.fn(),
-  useItemLinks: vi.fn(),
+  useCostingBoq: vi.fn(),
   useConcreteProduction: vi.fn(),
 }));
 
@@ -30,11 +29,19 @@ vi.mock("../../../hooks/useProjectMonitor", () => ({
   useCostingAccess: (...a) => hooks.useCostingAccess(...a),
   useCostingGlance: (...a) => hooks.useCostingGlance(...a),
   useCostingTable: (...a) => hooks.useCostingTable(...a),
-  useMaterialRates: (...a) => hooks.useMaterialRates(...a),
-  useItemLinks: (...a) => hooks.useItemLinks(...a),
-  useSaveItemLink: () => mutation,
-  useCreateMaterialRate: () => mutation,
-  useDeleteMaterialRate: () => mutation,
+  useCostingBoq: (...a) => hooks.useCostingBoq(...a),
+  useCreateCostingBoqItem: () => mutation,
+  useUpdateCostingBoqItem: () => mutation,
+  useDeleteCostingBoqItem: () => mutation,
+  useImportCostingBoq: () => mutation,
+  useCostingContractSettings: () => ({
+    data: {
+      tender_percent: null,
+      authority_escalation_percent: null,
+      gst_percent: null,
+    },
+  }),
+  useUpdateCostingContractSettings: () => mutation,
   useConcreteProduction: (...a) =>
     hooks.useConcreteProduction(...a),
   useCreateConcreteProduction: () => mutation,
@@ -90,13 +97,10 @@ describe("CostingPage", () => {
       isError: false,
       data: { start: "", end: "", days: [], totals: {} },
     });
-    hooks.useMaterialRates.mockReturnValue({ data: [] });
-    hooks.useItemLinks.mockReturnValue({
-      data: {
-        rates: {},
-        summary: { total: 0, linked: 0, unlinked: 0, missing_rate: 0 },
-        items: [],
-      },
+    hooks.useCostingBoq.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: { rows: [], summary: null },
     });
     hooks.useConcreteProduction.mockReturnValue({ data: [] });
   });
@@ -139,22 +143,30 @@ describe("CostingPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches to rates and production", () => {
+  it("switches to concrete production", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("tab", { name: /rates & production/i }),
+      screen.getByRole("tab", { name: /concrete production/i }),
     );
 
-    expect(screen.getByText("Material rates")).toBeInTheDocument();
-    // The DPR items sit right under the rates they are priced at.
-    expect(
-      screen.getByText(
-        "Item costing: authority rate, bid rate & actual cost",
-      ),
-    ).toBeInTheDocument();
     expect(
       screen.getByText("Concrete production (stores)"),
+    ).toBeInTheDocument();
+  });
+
+  it("switches to the BOQ and Costing workspace", () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("tab", { name: /boq & costing/i }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: /add boq item/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no boq items yet/i),
     ).toBeInTheDocument();
   });
 

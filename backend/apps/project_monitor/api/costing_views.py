@@ -1,27 +1,43 @@
 from datetime import timedelta
 
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import (
     NotFound,
     ValidationError,
 )
+from rest_framework.parsers import (
+    FormParser,
+    MultiPartParser,
+)
 from rest_framework.views import APIView
 
 from apps.core.api.responses import success_response
-from apps.project_monitor.api.common import get_site_or_400
+from apps.project_monitor.api.common import (
+    as_drf_validation,
+    get_site_or_400,
+)
 from apps.project_monitor.api.permissions import (
     HasProjectMonitorCostingAccess,
 )
 from apps.project_monitor.models import (
     ConcreteProduction,
+    CostingBoqItem,
     DprItem,
     MaterialKind,
     MaterialRate,
 )
 from apps.project_monitor.services import (
     costing,
+    costing_boq,
+    costing_boq_import,
     project_scope,
+)
+
+XLSX_TYPE = (
+    "application/vnd.openxmlformats-officedocument"
+    ".spreadsheetml.sheet"
 )
 
 
@@ -362,3 +378,266 @@ class ItemLinkDetailAPIView(APIView):
         return success_response(
             message="Item link saved successfully.", data=row
         )
+
+
+class CostingBoqItemWriteSerializer(serializers.Serializer):
+    parent_id = serializers.UUIDField(
+        required=False, allow_null=True
+    )
+    item_no = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
+    description = serializers.CharField(max_length=300)
+    unit = serializers.CharField(
+        max_length=30, required=False, allow_blank=True
+    )
+    qty = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    authority_rate = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    tender_percent = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    rate = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    our_cost_rate = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    gst_percent = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    is_active = serializers.BooleanField(required=False)
+
+
+class CostingContractSettingsSerializer(serializers.Serializer):
+    tender_percent = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    authority_escalation_percent = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    gst_percent = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+
+
+class CostingContractSettingsAPIView(APIView):
+    """
+    The three contract-wide settings the costing BOQ reads: the
+    tender percentage (shared with DPR & Bills' own BOQ), the
+    departmental escalation on the authority rate, and the default
+    GST %. Changing the tender % or the escalation re-derives every
+    row's bid rate - see ``costing_boq.recalculate_rates``.
+    """
+
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    @staticmethod
+    def _payload(site):
+        return {
+            "tender_percent": site.tender_percent,
+            "authority_escalation_percent": (
+                site.authority_escalation_percent
+            ),
+            "gst_percent": site.gst_percent,
+        }
+
+    def get(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        return success_response(
+            message=(
+                "Contract settings retrieved successfully."
+            ),
+            data=self._payload(site),
+        )
+
+    def patch(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        serializer = CostingContractSettingsSerializer(
+            data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        recalculate = any(
+            field in serializer.validated_data
+            and serializer.validated_data[field]
+            != getattr(site, field)
+            for field in (
+                "tender_percent",
+                "authority_escalation_percent",
+            )
+        )
+        for field, value in serializer.validated_data.items():
+            setattr(site, field, value)
+        with as_drf_validation():
+            site.save()
+        payload = self._payload(site)
+        if recalculate:
+            payload["recalculated"] = (
+                costing_boq.recalculate_rates(
+                    site, actor=request.user
+                )
+            )
+        return success_response(
+            message="Contract settings updated successfully.",
+            data=payload,
+        )
+
+
+def _boq_item_or_404(pk):
+    try:
+        return CostingBoqItem.objects.select_related("site").get(
+            pk=pk
+        )
+    except (CostingBoqItem.DoesNotExist, ValueError) as exc:
+        raise NotFound("BOQ item not found.") from exc
+
+
+class CostingBoqSheetAPIView(APIView):
+    """
+    The costing-native BOQ replacing DPR & Bills as the place profit
+    and loss is worked out (see ``CostingBoqItem``): every row with
+    its authority/bid/our-cost rates and profit/loss, plus the
+    contract-wide totals (GET), or a new row (POST).
+    """
+
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    def get(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        return success_response(
+            message="BOQ retrieved successfully.",
+            data=costing_boq.boq_sheet(site),
+        )
+
+    def post(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        serializer = CostingBoqItemWriteSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        parent_id = data.pop("parent_id", None)
+        parent = (
+            _boq_item_or_404(parent_id) if parent_id else None
+        )
+        item = costing_boq.create_item(
+            site=site,
+            parent=parent,
+            actor=request.user,
+            **data,
+        )
+        return success_response(
+            message="BOQ item added successfully.",
+            data={"id": item.id},
+        )
+
+
+class CostingBoqItemDetailAPIView(APIView):
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    def patch(self, request, pk, *args, **kwargs):
+        item = _boq_item_or_404(pk)
+        serializer = CostingBoqItemWriteSerializer(
+            data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        if "parent_id" in data:
+            parent_id = data.pop("parent_id")
+            item.parent = (
+                _boq_item_or_404(parent_id)
+                if parent_id
+                else None
+            )
+        costing_boq.update_item(
+            item, actor=request.user, **data
+        )
+        return success_response(
+            message="BOQ item updated successfully.",
+            data={"id": item.id},
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        item = _boq_item_or_404(pk)
+        costing_boq.delete_item(item)
+        return success_response(
+            message="BOQ item deleted successfully.",
+            data=None,
+        )
+
+
+class CostingBoqImportAPIView(APIView):
+    permission_classes = [HasProjectMonitorCostingAccess]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        site = get_site_or_400(
+            request.query_params.get("site")
+        )
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "Choose a file."})
+        result = costing_boq_import.import_items(
+            site, upload, actor=request.user
+        )
+        return success_response(
+            message="BOQ imported.", data=result
+        )
+
+
+class CostingBoqTemplateAPIView(APIView):
+    permission_classes = [HasProjectMonitorCostingAccess]
+
+    def get(self, request, *args, **kwargs):
+        content = costing_boq_import.build_template()
+        response = HttpResponse(
+            content, content_type=XLSX_TYPE
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="costing-boq-template.xlsx"'
+        )
+        return response

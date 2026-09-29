@@ -850,6 +850,24 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async addGirderJobActivity(jobId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/girder-jobs/${jobId}/activities/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async addGirderSpanActivity(spanId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/girder-spans/${spanId}/activities/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
   async listRdsoSpanLibrary(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/rdso-span-library/",
@@ -1123,5 +1141,77 @@ export const projectMonitorService = {
     await apiClient.delete(
       `/project-monitor/costing/production/${rowId}/`,
     );
+  },
+
+  async getCostingBoqSheet(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/boq/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async createCostingBoqItem(siteId, payload) {
+    const response = await apiClient.post(
+      "/project-monitor/costing/boq/",
+      payload,
+      { params: { site: siteId } },
+    );
+    return response.data.data;
+  },
+
+  async updateCostingBoqItem(itemId, payload) {
+    const response = await apiClient.patch(
+      `/project-monitor/costing/boq/${itemId}/`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteCostingBoqItem(itemId) {
+    await apiClient.delete(
+      `/project-monitor/costing/boq/${itemId}/`,
+    );
+  },
+
+  async importCostingBoq(siteId, file) {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await apiClient.post(
+      "/project-monitor/costing/boq/import/",
+      form,
+      {
+        params: { site: siteId },
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data.data;
+  },
+
+  async downloadCostingBoqTemplate() {
+    const response = await apiClient.get(
+      "/project-monitor/costing/boq/template/",
+      { responseType: "blob" },
+    );
+    return response.data;
+  },
+
+  async getCostingContractSettings(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/costing/contract/",
+      { params },
+    );
+    return response.data.data;
+  },
+
+  async updateCostingContractSettings(siteId, payload) {
+    const response = await apiClient.patch(
+      "/project-monitor/costing/contract/",
+      payload,
+      { params: { site: siteId } },
+    );
+    return response.data.data;
   },
 };

@@ -26,6 +26,9 @@ from apps.project_monitor.models import (
 from apps.project_monitor.services.building_generator import (
     create_building,
 )
+from apps.project_monitor.services.girder_generator import (
+    create_girder_job,
+)
 from apps.project_monitor.services.structure_generator import (
     create_structure,
     update_structure,
@@ -87,6 +90,32 @@ def building(site, pm):
     )
 
 
+@pytest.fixture
+def girder_job(site, pm):
+    return create_girder_job(
+        site=site,
+        structure_kind="MAJOR",
+        bridge_name="Br. No. 310",
+        chainage_km=Decimal("15.500"),
+        girder_scope="JNL",
+        spans=[
+            {
+                "label": "S1",
+                "is_standard": True,
+                "drawing_no": "RDSO/B-1234",
+                "span_length_m": Decimal("24.40"),
+                "girder_type": "Welded plate girder",
+                "qty_mt": Decimal("45.500"),
+                "vendor": "",
+                "po_number": "",
+                "bearings_count": 4,
+                "expansion_joints_count": 2,
+            }
+        ],
+        actor=pm,
+    )
+
+
 def url(name, *args):
     return reverse(f"project-monitor-api:{name}", args=args)
 
@@ -99,6 +128,14 @@ def client_for(user):
 
 def rows_of(response, group_title):
     for group in response.data["data"]["groups"]:
+        if group["group_title"] == group_title:
+            return group["rows"]
+    raise AssertionError(f"no such group: {group_title}")
+
+
+def span_rows_of(response, group_title, span_index=0):
+    span = response.data["data"]["spans"][span_index]
+    for group in span["groups"]:
         if group["group_title"] == group_title:
             return group["rows"]
     raise AssertionError(f"no such group: {group_title}")
@@ -266,6 +303,36 @@ class TestAddingACustomActivity:
         rows = rows_of(response, "Ground Floor")
         assert rows[-1]["name"] == "Skirting"
 
+    def test_works_on_a_girder_jobs_bridge_level_sheet(
+        self, api, site, girder_job
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+
+        response = api.post(
+            f"{url('girder-job-activity-create', girder_job.id)}?site={site.id}",
+            {"group_title": "Approvals", "name": "Extra check"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        rows = rows_of(response, "Approvals")
+        assert rows[-1]["name"] == "Extra check"
+        assert rows[-1]["is_custom"] is True
+
+    def test_works_on_a_girder_spans_chains(self, api, site, girder_job):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+
+        response = api.post(
+            f"{url('girder-span-activity-create', girder_job.spans.first().id)}?site={site.id}",
+            {"group_title": "Bearings", "name": "Extra inspection"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        rows = span_rows_of(response, "Bearings")
+        assert rows[-1]["name"] == "Extra inspection"
+        assert rows[-1]["is_custom"] is True
+
     def test_director_can_add_one_too(self, api, site, minor_structure):
         # The Director has every Project Monitor entry right, same as
         # an Admin - see apps/project_monitor/services/project_scope.py.
@@ -331,6 +398,28 @@ class TestDeletingACustomActivity:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert Activity.objects.filter(pk=generated.id).exists()
+
+    def test_a_custom_activity_on_a_girder_span_can_be_deleted(
+        self, api, site, girder_job
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        add = api.post(
+            f"{url('girder-span-activity-create', girder_job.spans.first().id)}?site={site.id}",
+            {"group_title": "Bearings", "name": "Extra check"},
+            format="json",
+        )
+        activity_id = next(
+            r["id"]
+            for r in span_rows_of(add, "Bearings")
+            if r["name"] == "Extra check"
+        )
+
+        response = api.delete(
+            f"{url('activity-update', activity_id)}?site={site.id}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert not Activity.objects.filter(pk=activity_id).exists()
 
 
 @pytest.mark.django_db

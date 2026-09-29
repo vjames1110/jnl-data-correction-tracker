@@ -1962,6 +1962,199 @@ table.pm-report__table td.pm-num {
   text-align: right;
 }
 
+/* ---- Costing-native BOQ: authority/bid/our-cost, GST, profit/loss ---- */
+.pm-boq-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+@keyframes pm-boq-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pm-boq-slide {
+  padding: 14px 16px;
+  background: var(--color-primary-100);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  animation: pm-boq-slide-in 180ms ease-out;
+}
+
+.pm-boq-slide__form {
+  display: grid;
+  gap: 12px;
+}
+
+/* ---- Shared inline "slide down where you clicked" form wrapper -
+   Add/Edit flows across Project Monitor (Structures, Buildings,
+   Girders, Action Items, Linear Works), replacing the old fixed
+   right-side ManagementPanel drawer. Reuses the same entrance
+   animation piloted on Costing's "Add BOQ item". ---- */
+.pm-slide-panel {
+  padding: 16px 18px;
+  background: var(--color-primary-100);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  animation: pm-boq-slide-in 180ms ease-out;
+}
+
+.pm-slide-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pm-slide-panel__head h4 {
+  margin: 4px 0 0;
+}
+
+.pm-slide-panel__actions {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ---- A "group_list" config field (e.g. "Platforms"): items added
+   so far, each with an inline Edit/Remove ---- */
+.pm-group-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-group-list__item {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--color-white);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-sm);
+}
+
+.pm-group-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pm-group-list__row > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-800);
+}
+
+.pm-boq-slide__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-neutral-800);
+}
+
+.pm-boq-slide__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pm-boq-slide__row .form-field {
+  flex: 1 1 150px;
+  min-width: 0;
+  margin: 0;
+}
+
+.pm-boq-slide__desc {
+  flex: 2 1 220px;
+}
+
+.pm-boq-slide__cost {
+  flex: 2 1 260px;
+}
+
+.pm-boq-slide__actions {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.pm-boq-table th,
+.pm-boq-table td {
+  white-space: nowrap;
+}
+
+.pm-boq-table .pm-boq-desc {
+  white-space: normal;
+}
+
+.pm-boq-desc {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.pm-boq-toggle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-top: 1px;
+}
+
+.pm-boq-toggle__icon {
+  transition: transform 150ms ease;
+}
+
+.pm-boq-toggle__icon--open {
+  transform: rotate(90deg);
+}
+
+.pm-boq-toggle-spacer {
+  display: inline-block;
+  flex: none;
+  width: 20px;
+}
+
+.pm-boq-amount {
+  display: block;
+  color: var(--color-neutral-500);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.pm-boq-settings {
+  padding: 10px 14px;
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+}
+
+.pm-boq-settings__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.pm-boq-settings__notice {
+  color: var(--color-success-700);
+  font-size: 12px;
+}
+
 /* Structures / Buildings / Girders: an item's sheet opens in place
    under its own row, as a segmented workspace (Approvals | Box
    Structure | ...). */

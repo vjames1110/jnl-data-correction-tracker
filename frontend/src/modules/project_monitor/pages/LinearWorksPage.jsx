@@ -29,8 +29,8 @@ import { LinearItemPanel } from "../components/LinearItemPanel";
 import { LinearRegisters } from "../components/LinearRegisters";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
+import { SlideDownForm } from "../components/SlideDownForm";
 import { WorkspaceSwitch } from "../components/WorkspaceSwitch";
-import { ManagementPanel } from "../../admin/components/OrganizationControls";
 
 export function LinearWorksPage() {
   const { user } = useAuth();
@@ -197,13 +197,12 @@ export function LinearWorksPage() {
       />
 
       {isAddFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Linear Works"
           title="Add a linear item"
           onClose={() =>
             setIsAddFormOpen(false)
           }
-          closeOnOutsideClick
         >
           <AddLinearItemForm
             onCreate={handleCreateLinearItem}
@@ -219,7 +218,7 @@ export function LinearWorksPage() {
                 : null
             }
           />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {!selectedSite ? (

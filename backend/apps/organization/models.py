@@ -284,6 +284,29 @@ class Site(BusinessModel):
             "no percentage of its own."
         ),
     )
+    authority_escalation_percent = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor Costing: a departmental escalation "
+            "over every BOQ item's authority rate, applied before "
+            "the tender percentage - e.g. the Railway revising its "
+            "schedule of rates."
+        ),
+    )
+    gst_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Project Monitor Costing: the GST rate shown on top "
+            "of a BOQ item's bid value, unless the item overrides "
+            "it. Profit/loss is always worked out GST-exclusive."
+        ),
+    )
 
     class Meta:
         db_table = "organization_site"

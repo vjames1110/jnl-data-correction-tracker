@@ -13,7 +13,10 @@ import {
   useSiteTasks,
 } from "../../../hooks/useProjectMonitor";
 import {
+  useAddGirderJobActivity,
+  useAddGirderSpanActivity,
   useCreateGirderJob,
+  useDeleteActivity,
   useDeleteGirderJob,
   useGirderJobs,
   useRdsoSpanLibrary,
@@ -28,7 +31,7 @@ import { GirderJobWorkspace } from "../components/GirderJobWorkspace";
 import { ItemGroupSection } from "../components/ItemGroupSection";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
-import { ManagementPanel } from "../../admin/components/OrganizationControls";
+import { SlideDownForm } from "../components/SlideDownForm";
 
 const STRUCTURE_KIND_LABELS = {
   MAJOR: "Major Bridge",
@@ -82,6 +85,15 @@ export function GirdersPage() {
     selectedSite,
   );
   const updateGirderSpan = useUpdateGirderSpan(
+    selectedSite,
+  );
+  const addJobActivity = useAddGirderJobActivity(
+    selectedSite,
+  );
+  const addSpanActivity = useAddGirderSpanActivity(
+    selectedSite,
+  );
+  const deleteActivity = useDeleteActivity(
     selectedSite,
   );
 
@@ -227,13 +239,12 @@ export function GirdersPage() {
       />
 
       {isAddFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Girders"
           title="Add a girder job"
           onClose={() =>
             setIsAddFormOpen(false)
           }
-          closeOnOutsideClick
         >
           <AddGirderJobForm
             structures={
@@ -258,7 +269,7 @@ export function GirdersPage() {
                 : null
             }
           />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {!selectedSite ? (
@@ -284,11 +295,21 @@ export function GirdersPage() {
             spanLibraryQuery.refetch();
           }}
         />
+      ) : (girderJobsQuery.data || []).length === 0 ? (
+        <EmptyState
+          title="No girder jobs added yet"
+          message="Click 'Add girder job' above to generate the first one - only kinds you've actually added will show here."
+        />
       ) : (
         <SurfaceCard>
           {Object.entries(
             STRUCTURE_KIND_LABELS,
-          ).map(([kind, label]) => (
+          )
+            .filter(
+              ([kind]) =>
+                (jobsByKind.get(kind) || []).length > 0,
+            )
+            .map(([kind, label]) => (
             <ItemGroupSection
               key={kind}
               label={label}
@@ -347,6 +368,36 @@ export function GirdersPage() {
                     )
                   }
                   updateSpanStatus={updateGirderSpan}
+                  onAddJobActivity={
+                    canEdit
+                      ? (jobId, payload, options) =>
+                          addJobActivity.mutate(
+                            { jobId, payload },
+                            options,
+                          )
+                      : undefined
+                  }
+                  addJobActivityStatus={addJobActivity}
+                  onAddSpanActivity={
+                    canEdit
+                      ? (spanId, payload, options) =>
+                          addSpanActivity.mutate(
+                            { spanId, payload },
+                            options,
+                          )
+                      : undefined
+                  }
+                  addSpanActivityStatus={addSpanActivity}
+                  onDeleteActivity={
+                    canEdit
+                      ? (activityId, options) =>
+                          deleteActivity.mutate(
+                            activityId,
+                            options,
+                          )
+                      : undefined
+                  }
+                  deleteActivityStatus={deleteActivity}
                 />
               )}
               onDelete={handleDelete}

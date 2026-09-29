@@ -1565,6 +1565,7 @@
   font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .status-chip::before {

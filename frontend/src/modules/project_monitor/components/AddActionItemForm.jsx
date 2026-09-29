@@ -97,7 +97,7 @@ export function AddActionItemForm({
         </label>
       </div>
 
-      <div className="management-panel__actions">
+      <div className="pm-slide-panel__actions">
         <button
           type="submit"
           className="button button--primary"

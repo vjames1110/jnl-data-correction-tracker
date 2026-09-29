@@ -186,6 +186,79 @@ describe("ItemGroupSection", () => {
       expect(onView).not.toHaveBeenCalled();
     });
 
+    it("opens the edit form right under its own row too", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          editingId="s1"
+          renderEdit={(item) => (
+            <div>Editing {item.name}</div>
+          )}
+        />,
+      );
+
+      expect(
+        screen.getByText("Editing Br. No. 214"),
+      ).toBeInTheDocument();
+    });
+
+    it("shows no edit form when editingId does not match", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          editingId="something-else"
+          renderEdit={() => <div>Editing</div>}
+        />,
+      );
+
+      expect(screen.queryByText("Editing")).toBeNull();
+    });
+
+    it("shows no edit form when no renderEdit is given, even with a matching id", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          editingId="s1"
+        />,
+      );
+
+      expect(screen.queryByText(/Editing/)).toBeNull();
+    });
+
+    it("highlights the row while its edit form is open, the same as the workspace", () => {
+      const { container } = render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          editingId="s1"
+          renderEdit={() => <div>Editing</div>}
+        />,
+      );
+
+      expect(
+        container.querySelector(".pm-structure-item--open"),
+      ).not.toBeNull();
+    });
+
     it("shows the chevron only when there is a workspace to open", () => {
       const { container, rerender } = render(
         <ItemGroupSection

@@ -1474,6 +1474,85 @@ class GirderSpanUpdateAPIView(APIView):
         )
 
 
+class GirderJobActivityCreateAPIView(APIView):
+    """
+    The "+" beside the bridge-level GAD section on a Girder Job - see
+    ``StructureActivityCreateAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            job = GirderJob.objects.get(pk=pk)
+        except (
+            GirderJob.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Girder job not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            job.site,
+            TASK.GIRDERS.value,
+            write=True,
+        )
+
+        _create_custom_activity(request, job)
+
+        job = _girder_job_queryset().get(pk=job.pk)
+        return success_response(
+            message="Activity added successfully.",
+            data=GirderJobSerializer(job).data,
+        )
+
+
+class GirderSpanActivityCreateAPIView(APIView):
+    """
+    The "+" beside a span's section buttons (girder fabrication,
+    bearings, expansion joints) - see
+    ``StructureActivityCreateAPIView``.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            span = GirderSpan.objects.select_related(
+                "job"
+            ).get(pk=pk)
+        except (
+            GirderSpan.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Girder span not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            span.job.site,
+            TASK.GIRDERS.value,
+            write=True,
+        )
+
+        _create_custom_activity(request, span)
+
+        job = _girder_job_queryset().get(pk=span.job_id)
+        return success_response(
+            message="Activity added successfully.",
+            data=GirderJobSerializer(job).data,
+        )
+
+
 def _action_item_queryset():
     return ActionItem.objects.prefetch_related(
         _activities_prefetch()

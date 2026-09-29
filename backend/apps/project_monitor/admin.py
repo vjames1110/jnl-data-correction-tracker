@@ -8,6 +8,7 @@ from apps.project_monitor.models import (
     Building,
     ChainageSegment,
     ConcreteProduction,
+    CostingBoqItem,
     DprDayUnlock,
     DprEntry,
     DprItem,
@@ -313,6 +314,23 @@ class DprMeasurementAdmin(admin.ModelAdmin):
 class RateEscalationAdmin(admin.ModelAdmin):
     list_display = ["site", "effective_from", "percent", "note"]
     list_filter = ["site"]
+
+
+@admin.register(CostingBoqItem)
+class CostingBoqItemAdmin(admin.ModelAdmin):
+    list_display = [
+        "item_no",
+        "description",
+        "site",
+        "parent",
+        "unit",
+        "qty",
+        "rate",
+        "our_cost_rate",
+        "is_active",
+    ]
+    list_filter = ["site", "is_active"]
+    search_fields = ["item_no", "description"]
 
 
 @admin.register(DprDayUnlock)

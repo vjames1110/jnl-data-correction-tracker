@@ -175,7 +175,7 @@ export function ItemLinksPanel({ siteId, canEnter }) {
     <div className="pm-stack">
       <p className="pm-dpr-toolbar__help">
         Authority rate, tender % and bid rate come from each item's
-        BOQ setup in DPR &amp; Bills (Add item &gt; Rates) - this table
+        BOQ setup in DPR &amp; Bills (Add BOQ item &gt; Rates) - this table
         only reads them. Set how much concrete (cum) and TMT steel
         (kg) one unit of an item uses below and Costing prices that at
         the rates above, against what has actually been executed, so

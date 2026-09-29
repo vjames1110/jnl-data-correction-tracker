@@ -1,4 +1,4 @@
-import { Beaker, Gauge, ListChecks } from "lucide-react";
+import { Beaker, Calculator, Gauge, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -12,11 +12,9 @@ import {
   useProjectSites,
 } from "../../../hooks/useProjectMonitor";
 import { ConcreteProductionPanel } from "../components/ConcreteProductionPanel";
+import { CostingBoqPanel } from "../components/CostingBoqPanel";
 import { CostingGlancePanel } from "../components/CostingGlancePanel";
 import { CostingTable } from "../components/CostingTable";
-import { DprCostingHelp } from "../components/DprCostingHelp";
-import { ItemLinksPanel } from "../components/ItemLinksPanel";
-import { MaterialRatesPanel } from "../components/MaterialRatesPanel";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { WorkspaceSwitch } from "../components/WorkspaceSwitch";
 import { todayIso } from "../utils/finance";
@@ -24,9 +22,10 @@ import { todayIso } from "../utils/finance";
 const SUB_TABS = [
   { key: "glance", label: "Today at a glance", icon: Gauge },
   { key: "table", label: "Cost table", icon: ListChecks },
+  { key: "boq", label: "BOQ & Costing", icon: Calculator },
   {
     key: "rates",
-    label: "Rates & production",
+    label: "Concrete production",
     icon: Beaker,
   },
 ];
@@ -63,7 +62,6 @@ export function CostingPage() {
     { period: glancePeriod, on: glanceDate },
     subTab === "glance",
   );
-
   const handleSiteChange = (value) => {
     setSelectedSite(value);
     setSearchParams(value ? { site: value } : {});
@@ -154,44 +152,29 @@ export function CostingPage() {
             </SurfaceCard>
           ) : null}
 
+          {subTab === "boq" ? (
+            <SurfaceCard>
+              <CostingBoqPanel
+                siteId={selectedSite}
+                canEnter={canEnter}
+              />
+            </SurfaceCard>
+          ) : null}
+
           {subTab === "rates" ? (
-            <div className="pm-stack">
-              <DprCostingHelp />
-              <SurfaceCard>
-                <div className="surface-card__header">
-                  <h2>Material rates</h2>
-                </div>
-                <MaterialRatesPanel
-                  siteId={selectedSite}
-                  canEnter={canEnter}
-                />
-              </SurfaceCard>
-              <SurfaceCard>
-                <div className="surface-card__header">
-                  <h2>
-                    Item costing: authority rate, bid rate &amp;
-                    actual cost
-                  </h2>
-                </div>
-                <ItemLinksPanel
-                  siteId={selectedSite}
-                  canEnter={canEnter}
-                />
-              </SurfaceCard>
-              <SurfaceCard>
-                <div className="surface-card__header">
-                  <h2>Concrete production (stores)</h2>
-                </div>
-                <ConcreteProductionPanel
-                  siteId={selectedSite}
-                  range={{
-                    from: daysAgoIso(29),
-                    to: todayIso(),
-                  }}
-                  canEnter={canEnter}
-                />
-              </SurfaceCard>
-            </div>
+            <SurfaceCard>
+              <div className="surface-card__header">
+                <h2>Concrete production (stores)</h2>
+              </div>
+              <ConcreteProductionPanel
+                siteId={selectedSite}
+                range={{
+                  from: daysAgoIso(29),
+                  to: todayIso(),
+                }}
+                canEnter={canEnter}
+              />
+            </SurfaceCard>
           ) : null}
         </>
       )}

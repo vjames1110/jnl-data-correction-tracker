@@ -187,7 +187,7 @@ export function DprBillsPage() {
                 setItemPanel("new");
               }}
             >
-              <Plus size={16} /> Add item
+              <Plus size={16} /> Add BOQ item
             </button>
           ) : null}
         </div>
@@ -205,8 +205,8 @@ export function DprBillsPage() {
           eyebrow="DPR"
           title={
             itemPanel === "new"
-              ? "Add a contract item"
-              : "Edit contract item"
+              ? "Add a BOQ item"
+              : "Edit BOQ item"
           }
           onClose={() => setItemPanel(null)}
           closeOnOutsideClick

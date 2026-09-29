@@ -13,12 +13,43 @@ structure"/"Add a building" form renders, each::
      "default": 4, "options": [{"value": 2, "label": "2"},
                                 {"value": 4, "label": "4"}]}
 
-``type`` is one of ``"number"``, ``"boolean"``, ``"choice"``. There is
-no separate "count" type - a plain "number" field (e.g. ``spans``,
-``abuts``) can be referenced as a ``count_field`` by any group
-template below; every count is clamped to ``MAX_COUNT`` at render
-time regardless of what the schema configures, so a malformed
-definition can't bulk-create an unbounded number of rows.
+``type`` is one of ``"number"``, ``"boolean"``, ``"choice"``,
+``"text"`` or ``"group_list"``. There is no separate "count" type - a
+plain "number" field (e.g. ``spans``, ``abuts``) can be referenced as
+a ``count_field`` by any group template below; every count is clamped
+to ``MAX_COUNT`` at render time regardless of what the schema
+configures, so a malformed definition can't bulk-create an unbounded
+number of rows.
+
+``"text"`` is a free-typed string (e.g. a station name, or a
+chainage/ramp label that doesn't fit a plain number) - it never drives
+group/row generation, it is simply captured and available to
+``description_template``/``subtitle_template`` like any other field.
+
+``"group_list"`` is a repeatable list of hand-added items, each with
+its OWN sub-fields declared under ``"fields"`` (the same shape as a
+top-level ``config_schema`` entry, but only ``"number"``/``"boolean"``/
+``"choice"``/``"text"`` - a ``group_list`` cannot itself contain
+another ``group_list``)::
+
+    {"key": "platforms", "label": "Platforms", "type": "group_list",
+     "fields": [
+         {"key": "name", "label": "Name of Platform", "type": "text"},
+         {"key": "colHeight", "label": "Col height (m)", "type": "number"},
+         {"key": "hasLift", "label": "Has Lift", "type": "boolean"},
+     ]}
+
+Unlike a ``"repeat"`` GROUP TEMPLATE (below), a ``group_list`` config
+field is pure data capture - "add a platform" adds one arbitrary-shape
+item (mixing text/number/boolean/choice sub-fields freely) to a plain
+JSON array stored on ``config[key]``. It deliberately does NOT drive
+activity generation (a ``count_field``/``item_fields`` group template
+already covers "N groups, each with the same numeric sub-fields" - see
+Major Bridge's Abutments/Piers - and a ``group_list`` isn't a
+count/number, so it can't be used as a ``count_field`` either); the
+list is simply available to read back and display. The number of
+items is capped at ``MAX_COUNT``, the same as every other count in
+this engine.
 
 ``group_templates`` - a list of group templates, each with a
 ``"kind"``:
@@ -108,7 +139,17 @@ MAX_COUNT = 30
 
 _PLACEHOLDER_RE = re.compile(r"\{([^{}]+)\}")
 
-_VALID_FIELD_TYPES = {"number", "boolean", "choice"}
+_VALID_FIELD_TYPES = {
+    "number",
+    "boolean",
+    "choice",
+    "text",
+    "group_list",
+}
+# A group_list item's own sub-fields - deliberately excludes
+# "group_list" itself, so a repeatable group can never nest another
+# one.
+_VALID_ITEM_FIELD_TYPES = {"number", "boolean", "choice", "text"}
 _VALID_GROUP_KINDS = {
     "static",
     "repeat",
@@ -173,6 +214,61 @@ def validate_definition_schema(
                 f"{prefix} ('{key}'): a choice "
                 "field needs 'options'."
             )
+        if field_type == "group_list":
+            item_fields = field.get("fields")
+            if (
+                not isinstance(item_fields, list)
+                or not item_fields
+            ):
+                errors.append(
+                    f"{prefix} ('{key}'): a "
+                    "group_list field needs a "
+                    "non-empty 'fields' list."
+                )
+                item_fields = []
+            for (
+                item_index,
+                item_field,
+            ) in enumerate(item_fields):
+                item_prefix = (
+                    f"{prefix}.fields[{item_index}]"
+                )
+                if not isinstance(item_field, dict):
+                    errors.append(
+                        f"{item_prefix}: must be "
+                        "an object."
+                    )
+                    continue
+                item_key = item_field.get("key")
+                if not item_key or not isinstance(
+                    item_key, str
+                ):
+                    errors.append(
+                        f"{item_prefix}: missing "
+                        "a 'key'."
+                    )
+                item_type = item_field.get(
+                    "type", "number"
+                )
+                if (
+                    item_type
+                    not in _VALID_ITEM_FIELD_TYPES
+                ):
+                    errors.append(
+                        f"{item_prefix} "
+                        f"('{item_key}'): type "
+                        "must be one of "
+                        f"{sorted(_VALID_ITEM_FIELD_TYPES)}."
+                    )
+                if item_type == "choice" and not (
+                    item_field.get("options")
+                ):
+                    errors.append(
+                        f"{item_prefix} "
+                        f"('{item_key}'): a "
+                        "choice field needs "
+                        "'options'."
+                    )
 
     if (
         not isinstance(group_templates, list)
@@ -361,13 +457,67 @@ def _resize_number_list(values, length, default):
     return out
 
 
+def _normalize_scalar_value(field, value, default):
+    """One number/boolean/choice/text value against a single field
+    definition (shared by top-level config_schema fields and a
+    group_list item's own sub-fields)."""
+    field_type = field.get("type", "number")
+    if field_type == "boolean":
+        return bool(value)
+    if field_type == "choice":
+        options = [
+            option.get("value")
+            for option in field.get("options", [])
+        ]
+        return (
+            value
+            if (not options or value in options)
+            else default
+        )
+    if field_type == "text":
+        return "" if value is None else str(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        try:
+            return float(default or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+
+def _normalize_group_list_value(raw_value, item_fields):
+    """A group_list field's stored value: a plain list of dicts, each
+    one normalized against ``item_fields`` the same way a top-level
+    scalar field is - never nested further, never anything but the
+    declared sub-fields."""
+    raw_items = (
+        raw_value if isinstance(raw_value, list) else []
+    )
+    items = []
+    for raw_item in raw_items[:MAX_COUNT]:
+        raw_item = (
+            raw_item if isinstance(raw_item, dict) else {}
+        )
+        item = {}
+        for item_field in item_fields:
+            key = item_field.get("key")
+            if not key:
+                continue
+            default = item_field.get("default")
+            item[key] = _normalize_scalar_value(
+                item_field, raw_item.get(key, default), default
+            )
+        items.append(item)
+    return items
+
+
 def normalize_config(definition, raw):
     """
     Coerce/clamp the raw request payload against
-    ``definition.config_schema`` (scalar fields) and every
-    ``"repeat"`` group's ``item_fields`` (per-index arrays) - the
-    one place a malformed or hostile payload gets neutralized before
-    ``render_groups`` ever loops over it.
+    ``definition.config_schema`` (scalar and group_list fields) and
+    every ``"repeat"`` group's ``item_fields`` (per-index arrays) -
+    the one place a malformed or hostile payload gets neutralized
+    before ``render_groups`` ever loops over it.
     """
 
     raw = raw if isinstance(raw, dict) else {}
@@ -381,30 +531,14 @@ def normalize_config(definition, raw):
         default = field.get("default")
         value = raw.get(key, default)
 
-        if field_type == "boolean":
-            config[key] = bool(value)
-        elif field_type == "choice":
-            options = [
-                option.get("value")
-                for option in field.get(
-                    "options", []
-                )
-            ]
-            config[key] = (
-                value
-                if (not options or value in options)
-                else default
+        if field_type == "group_list":
+            config[key] = _normalize_group_list_value(
+                raw.get(key), field.get("fields", [])
             )
         else:
-            try:
-                config[key] = float(value)
-            except (TypeError, ValueError):
-                try:
-                    config[key] = float(
-                        default or 0
-                    )
-                except (TypeError, ValueError):
-                    config[key] = 0.0
+            config[key] = _normalize_scalar_value(
+                field, value, default
+            )
 
     for group in definition.group_templates or []:
         kind = group.get("kind")

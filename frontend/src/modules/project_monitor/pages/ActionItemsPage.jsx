@@ -24,7 +24,7 @@ import { ActionItemTable } from "../components/ActionItemTable";
 import { AddActionItemForm } from "../components/AddActionItemForm";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
-import { ManagementPanel } from "../../admin/components/OrganizationControls";
+import { SlideDownForm } from "../components/SlideDownForm";
 
 export function ActionItemsPage() {
   const { user } = useAuth();
@@ -203,13 +203,12 @@ export function ActionItemsPage() {
       />
 
       {isAddFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Action Items"
           title="Add an action item"
           onClose={() =>
             setIsAddFormOpen(false)
           }
-          closeOnOutsideClick
         >
           <AddActionItemForm
             onCreate={handleCreateActionItem}
@@ -225,7 +224,7 @@ export function ActionItemsPage() {
                 : null
             }
           />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {!selectedSite ? (
