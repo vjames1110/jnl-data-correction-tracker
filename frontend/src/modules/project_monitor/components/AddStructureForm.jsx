@@ -180,7 +180,13 @@ function defaultGroupListItem(fields) {
 /** The mini form for one item of a repeatable ("group_list") field -
  * e.g. one platform's Name/Column height/Has Lift/... - reusing
  * ``ConfigField`` for its own sub-fields since they're the same
- * number/boolean/choice/text scalars, just one level deeper. */
+ * number/boolean/choice/text scalars, just one level deeper.
+ *
+ * This is deliberately a <div>, not a <form>: it always renders
+ * inside the structure's own outer <form>, and a nested <form> is
+ * invalid HTML that browsers handle inconsistently - the Save
+ * button's click can end up submitting the OUTER form instead
+ * (a real navigation/refresh, with the platform never added). */
 function GroupListItemForm({
   fields,
   initial,
@@ -197,16 +203,8 @@ function GroupListItemForm({
       [key]: value,
     }));
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    onSave(values);
-  };
-
   return (
-    <form
-      className="pm-boq-slide__form"
-      onSubmit={handleSubmit}
-    >
+    <div className="pm-boq-slide__form">
       <div className="pm-boq-slide__row">
         {fields.map((field) => (
           <ConfigField
@@ -221,8 +219,9 @@ function GroupListItemForm({
       </div>
       <div className="pm-slide-panel__actions">
         <button
-          type="submit"
+          type="button"
           className="button button--primary"
+          onClick={() => onSave(values)}
         >
           Save
         </button>
@@ -234,7 +233,7 @@ function GroupListItemForm({
           Cancel
         </button>
       </div>
-    </form>
+    </div>
   );
 }
 
