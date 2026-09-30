@@ -109,6 +109,8 @@ from apps.project_monitor.api.views import (
     StructureActivityCreateAPIView,
     StructureDetailAPIView,
     StructureListCreateAPIView,
+    StructureLocationDetailAPIView,
+    StructureLocationListCreateAPIView,
     StructureReviewAPIView,
     StructureTypeDetailAPIView,
     StructureTypeListCreateAPIView,
@@ -492,6 +494,16 @@ urlpatterns = [
         "structures/<uuid:pk>/activities/",
         StructureActivityCreateAPIView.as_view(),
         name="structure-activity-create",
+    ),
+    path(
+        "structures/<uuid:pk>/locations/",
+        StructureLocationListCreateAPIView.as_view(),
+        name="structure-location-list",
+    ),
+    path(
+        "structure-locations/<uuid:pk>/",
+        StructureLocationDetailAPIView.as_view(),
+        name="structure-location-detail",
     ),
     path(
         "buildings/",

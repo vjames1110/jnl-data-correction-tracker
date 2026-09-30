@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 /**
  * A labeled group of Structures/Buildings (grouped by type for
@@ -9,6 +10,11 @@ import { ChevronDown, Pencil, Trash2 } from "lucide-react";
  * have ``{id, name, chainage_km, description, overall_progress}``.
  * ``onEdit`` is optional - a section that has no edit form yet (e.g.
  * Buildings, for now) simply omits it and gets no Edit button.
+ *
+ * The group's own heading is itself a collapse toggle (starts open),
+ * independent of any item's own expand/edit state below it - purely a
+ * "declutter the page" affordance, reset on remount like every other
+ * expand state in this module.
  *
  * Clicking the item's details opens (or closes) it like a dropdown:
  * with ``renderExpanded`` its workspace opens right under its own row
@@ -34,16 +40,32 @@ export function ItemGroupSection({
   renderEdit,
   deleteTitle = "Delete this sheet and all its data",
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
     <div className="pm-structure-section">
-      <div className="pm-structure-section__header">
-        <h3>{label}</h3>
-        <span className="sub">
-          {items.length} nos
+      <button
+        type="button"
+        className="pm-structure-section__header"
+        onClick={() =>
+          setIsCollapsed((current) => !current)
+        }
+        aria-expanded={!isCollapsed}
+      >
+        <span className="pm-structure-section__title">
+          <h3>{label}</h3>
+          <span className="sub">
+            {items.length} nos
+          </span>
         </span>
-      </div>
+        <ChevronDown
+          size={16}
+          className="pm-structure-section__chevron"
+          aria-hidden="true"
+        />
+      </button>
 
-      {items.length === 0 ? (
+      {isCollapsed ? null : items.length === 0 ? (
         <p className="pm-timeline-empty">
           None added yet.
         </p>

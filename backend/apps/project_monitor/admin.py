@@ -32,6 +32,7 @@ from apps.project_monitor.models import (
     RdsoSpanLibraryEntry,
     ScopePatch,
     Structure,
+    StructureLocation,
     StructureTypeDefinition,
 )
 
@@ -205,6 +206,18 @@ class ChainageSegmentAdmin(admin.ModelAdmin):
     ]
     list_filter = ["site"]
     search_fields = ["vendor"]
+
+
+@admin.register(StructureLocation)
+class StructureLocationAdmin(admin.ModelAdmin):
+    list_display = [
+        "structure",
+        "location_type",
+        "name",
+        "chainage_km",
+    ]
+    list_filter = ["location_type"]
+    search_fields = ["name", "structure__name"]
 
 
 @admin.register(ActionItem)

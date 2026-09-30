@@ -291,4 +291,115 @@ describe("ItemGroupSection", () => {
       ).not.toHaveAttribute("aria-expanded");
     });
   });
+
+  describe("group-level collapse", () => {
+    it("starts expanded, showing the group's items", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", {
+          name: /Minor Bridge/,
+        }),
+      ).toHaveAttribute("aria-expanded", "true");
+      expect(
+        screen.getByText(/Br\. No\. 214/),
+      ).toBeInTheDocument();
+    });
+
+    it("hides every item's row when the group heading is collapsed", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: /Minor Bridge/,
+        }),
+      );
+
+      expect(
+        screen.getByRole("button", {
+          name: /Minor Bridge/,
+        }),
+      ).toHaveAttribute("aria-expanded", "false");
+      expect(
+        screen.queryByText(/Br\. No\. 214/),
+      ).toBeNull();
+    });
+
+    it("shows 'None added yet' again once re-expanded with an empty group", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={[]}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+        />,
+      );
+
+      const toggle = screen.getByRole("button", {
+        name: /Minor Bridge/,
+      });
+      fireEvent.click(toggle);
+      expect(
+        screen.queryByText("None added yet."),
+      ).toBeNull();
+
+      fireEvent.click(toggle);
+      expect(
+        screen.getByText("None added yet."),
+      ).toBeInTheDocument();
+    });
+
+    it("collapsing the group does not affect an item's own open workspace state", () => {
+      render(
+        <ItemGroupSection
+          label="Minor Bridge"
+          items={ITEMS}
+          onView={vi.fn()}
+          onDelete={vi.fn()}
+          canEdit
+          expandedId="s1"
+          renderExpanded={() => <div>Workspace</div>}
+        />,
+      );
+
+      expect(
+        screen.getByText("Workspace"),
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: /Minor Bridge/,
+        }),
+      );
+      expect(screen.queryByText("Workspace")).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: /Minor Bridge/,
+        }),
+      );
+      // Re-expanding the group brings the item's own workspace state
+      // right back, since it was never reset.
+      expect(
+        screen.getByText("Workspace"),
+      ).toBeInTheDocument();
+    });
+  });
 });

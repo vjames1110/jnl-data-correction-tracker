@@ -60,8 +60,12 @@ this engine.
 - ``"repeat"`` - one group PER INDEX, count driven by
   ``count_field`` (e.g. Major Bridge's Abutments/Piers; a Building's
   floors). Supports per-index ``item_fields`` (e.g. a height/piles
-  number per abutment - the key becomes a top-level config array,
-  e.g. ``abutH``/``abutPiles``), an optional ``leading_row`` gated by
+  number per abutment, or a free-typed name - the key becomes a
+  top-level config array, e.g. ``abutH``/``abutPiles``/``abutName``;
+  each entry's own ``"type"`` - ``"number"`` (default, kept for every
+  existing repeat group that never set one), ``"text"``, ``"boolean"``
+  or ``"choice"`` - decides how its array is normalized, same as a
+  top-level ``config_schema`` field), an optional ``leading_row`` gated by
   ``leading_row_when`` (e.g. a "Pile" row only when foundation is
   "pile"), and a title via ``title_template`` (``{n}``), the
   positional ``title_by_position`` (``{"first": ..., "last": ...,
@@ -122,8 +126,13 @@ foundation" - the piles item field defaults to ``"piles"`` when
 omitted, but Major Bridge's Abutment/Pier groups each need their own
 name, e.g. ``{foundation:abutFound:abutPiles}``),
 ``{between:count_field}`` ("A1 and P1" style, from the chain row's
-position), and ``{girder_scope_suffix:field_key}`` (empty for
-"jnl", " · fabrication by Railway"/"other agency" otherwise).
+position), ``{girder_scope_suffix:field_key}`` (empty for
+"jnl", " · fabrication by Railway"/"other agency" otherwise), and
+``{sum:list_field.item_field}`` (the total of one numeric sub-field
+across every item of a ``group_list`` config field, e.g.
+``{sum:platforms.noOfPile}`` for a FOB's total pile count - the only
+aggregate this engine supports; every other placeholder is a plain
+per-field substitution).
 """
 
 import re
@@ -358,6 +367,52 @@ def validate_definition_schema(
                 "'title_by_position' or "
                 "'title_rule'."
             )
+        if kind == "repeat":
+            for (
+                item_index,
+                item_field,
+            ) in enumerate(
+                group.get("item_fields", []) or []
+            ):
+                item_prefix = (
+                    f"{prefix}.item_fields[{item_index}]"
+                )
+                if not isinstance(item_field, dict):
+                    errors.append(
+                        f"{item_prefix}: must be "
+                        "an object."
+                    )
+                    continue
+                item_key = item_field.get("key")
+                if not item_key or not isinstance(
+                    item_key, str
+                ):
+                    errors.append(
+                        f"{item_prefix}: missing "
+                        "a 'key'."
+                    )
+                item_type = item_field.get(
+                    "type", "number"
+                )
+                if (
+                    item_type
+                    not in _VALID_ITEM_FIELD_TYPES
+                ):
+                    errors.append(
+                        f"{item_prefix} "
+                        f"('{item_key}'): type "
+                        "must be one of "
+                        f"{sorted(_VALID_ITEM_FIELD_TYPES)}."
+                    )
+                if item_type == "choice" and not (
+                    item_field.get("options")
+                ):
+                    errors.append(
+                        f"{item_prefix} "
+                        f"('{item_key}'): a "
+                        "choice field needs "
+                        "'options'."
+                    )
         if kind == "static" and not group.get(
             "title"
         ):
@@ -437,26 +492,6 @@ def _clamped_count(value):
     return max(0, min(MAX_COUNT, value))
 
 
-def _resize_number_list(values, length, default):
-    values = (
-        values if isinstance(values, list) else []
-    )
-    out = []
-    for i in range(length):
-        try:
-            out.append(float(values[i]))
-        except (
-            IndexError,
-            TypeError,
-            ValueError,
-        ):
-            try:
-                out.append(float(default))
-            except (TypeError, ValueError):
-                out.append(0.0)
-    return out
-
-
 def _normalize_scalar_value(field, value, default):
     """One number/boolean/choice/text value against a single field
     definition (shared by top-level config_schema fields and a
@@ -483,6 +518,27 @@ def _normalize_scalar_value(field, value, default):
             return float(default or 0)
         except (TypeError, ValueError):
             return 0.0
+
+
+def _resize_item_field_list(values, length, item_field):
+    """One ``"repeat"`` group's per-index array for a single
+    ``item_fields`` entry - dispatches on the field's own declared
+    ``type`` (defaulting to ``"number"``, matching every existing
+    repeat group that never set one) via ``_normalize_scalar_value``,
+    so a name (``"text"``) array is padded with ``""``, not ``0.0``."""
+    values = (
+        values if isinstance(values, list) else []
+    )
+    default = item_field.get("default")
+    out = []
+    for i in range(length):
+        raw = values[i] if i < len(values) else default
+        out.append(
+            _normalize_scalar_value(
+                item_field, raw, default
+            )
+        )
+    return out
 
 
 def _normalize_group_list_value(raw_value, item_fields):
@@ -563,10 +619,8 @@ def normalize_config(definition, raw):
             key = item_field.get("key")
             if not key:
                 continue
-            config[key] = _resize_number_list(
-                raw.get(key),
-                count,
-                item_field.get("default", 0),
+            config[key] = _resize_item_field_list(
+                raw.get(key), count, item_field
             )
 
     return config
@@ -632,6 +686,27 @@ def _between_label(field_key, config, index):
         f"{_position_label(index, total)} and "
         f"{_position_label(index + 1, total)}"
     )
+
+
+def _sum_group_list_field(token, config):
+    """``{sum:platforms.noOfPile}`` - total of one numeric sub-field
+    across every item of a ``group_list`` config field (e.g. total
+    piles across all of a FOB's platforms) - the only aggregate the
+    template engine supports; everything else is per-field
+    substitution."""
+    list_key, _, item_key = token.partition(".")
+    items = config.get(list_key)
+    if not isinstance(items, list) or not item_key:
+        return "0"
+    total = 0.0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            total += float(item.get(item_key) or 0)
+        except (TypeError, ValueError):
+            continue
+    return _display_value(total)
 
 
 def _girder_scope_suffix(field_key, config):
@@ -720,6 +795,10 @@ def _fill_template(
                     ):
                 ],
                 config,
+            )
+        if token.startswith("sum:"):
+            return _sum_group_list_field(
+                token[len("sum:"):], config
             )
         return _display_value(
             config.get(token)

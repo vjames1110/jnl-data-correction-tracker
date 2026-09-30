@@ -119,6 +119,12 @@ def seed(admin_api, site):
     linear = post("linear-item-list", {"name": "Earthwork", "unit": "M"})
     post("extension-list", {"new_end_date": _future(60), "reason": "x"})
     post("chainage-segment-list", {"from_chainage_km": "1.000", "to_chainage_km": "2.000", "vendor": "ABC Infra"})
+    location_response = admin_api.post(
+        url("structure-location-list", structure["id"]),
+        {"location_type": "CHAINAGE", "name": "Down line", "chainage_km": "5.000"},
+        format="json",
+    )
+    assert location_response.status_code == OK, location_response.data
     for path, body in (("scope-patch-list", SCOPE_PATCH), ("progress-entry-list", PROGRESS)):
         response = admin_api.post(url(path, linear["id"]), body, format="json")
         assert response.status_code == OK, (path, response.data)
@@ -128,6 +134,7 @@ def seed(admin_api, site):
     return {
         "site": site,
         "structure": structure_row.id,
+        "structure_location": location_response.data["data"]["id"],
         "building": building["id"],
         "job": job["id"],
         "span": span.id,
@@ -172,6 +179,7 @@ def read_ops(t):
         "chainage segments": (None, lambda c: c.get(url("chainage-segment-list"), s)),
         "structures": ("STRUCTURES", lambda c: c.get(url("structure-list"), s)),
         "structure": ("STRUCTURES", lambda c: c.get(url("structure-detail", t["structure"]))),
+        "structure locations": ("STRUCTURES", lambda c: c.get(url("structure-location-list", t["structure"]))),
         "buildings": ("BUILDINGS", lambda c: c.get(url("building-list"), s)),
         "building": ("BUILDINGS", lambda c: c.get(url("building-detail", t["building"]))),
         "girder jobs": ("GIRDERS", lambda c: c.get(url("girder-job-list"), s)),
@@ -196,6 +204,7 @@ def entry_ops(t):
         "add structure": ("STRUCTURES", lambda c: c.post(url("structure-list") + q, {**MINOR_BRIDGE, "name": "New", "structure_type": str(minor.id)}, format="json")),
         "edit structure": ("STRUCTURES", lambda c: c.patch(url("structure-detail", t["structure"]), {"name": "Renamed"}, format="json")),
         "add structure activity": ("STRUCTURES", lambda c: c.post(url("structure-activity-create", t["structure"]), {"group_title": "Box structure", "name": "Extra check"}, format="json")),
+        "add structure location": ("STRUCTURES", lambda c: c.post(url("structure-location-list", t["structure"]), {"location_type": "RAMP", "name": "R2"}, format="json")),
         "add building": ("BUILDINGS", lambda c: c.post(url("building-list") + q, {**BUILDING, "name": "New"}, format="json")),
         "add building activity": ("BUILDINGS", lambda c: c.post(url("building-activity-create", t["building"]), {"group_title": "Ground Floor", "name": "Extra check"}, format="json")),
         "add girder job": ("GIRDERS", lambda c: c.post(url("girder-job-list") + q, {**GIRDER_JOB, "bridge_name": "New"}, format="json")),
@@ -232,6 +241,7 @@ def delete_ops(t):
         "delete progress entry": ("LINEAR_WORKS", lambda c: c.delete(url("progress-entry-detail", t["entry"]))),
         "delete extension": ("OVERVIEW", lambda c: c.delete(url("extension-detail", t["extension"]))),
         "delete chainage segment": ("OVERVIEW", lambda c: c.delete(url("chainage-segment-detail", t["chainage_segment"]))),
+        "delete structure location": ("STRUCTURES", lambda c: c.delete(url("structure-location-detail", t["structure_location"]))),
         "delete structure": ("STRUCTURES", lambda c: c.delete(url("structure-detail", t["structure"]))),
         "delete building": ("BUILDINGS", lambda c: c.delete(url("building-detail", t["building"]))),
         "delete girder job": ("GIRDERS", lambda c: c.delete(url("girder-job-detail", t["job"]))),
@@ -725,6 +735,7 @@ TASK_SCOPED_ROUTES = {
     "overview", "extension-list", "extension-detail",
     "chainage-segment-list", "chainage-segment-detail", "structure-list", "structure-detail",
     "structure-review", "structure-activity-create",
+    "structure-location-list", "structure-location-detail",
     "building-list", "building-detail", "building-review", "building-activity-create",
     "girder-job-list", "girder-job-detail", "girder-job-review", "girder-span-update",
     "girder-job-activity-create", "girder-span-activity-create",

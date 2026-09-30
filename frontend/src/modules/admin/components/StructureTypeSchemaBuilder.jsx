@@ -735,7 +735,12 @@ function GroupTemplateEditor({
       ...group,
       item_fields: [
         ...(group.item_fields || []),
-        { key: "", label_template: "", default: 0 },
+        {
+          key: "",
+          label_template: "",
+          type: "number",
+          default: 0,
+        },
       ],
     });
 
@@ -1025,19 +1030,65 @@ function GroupTemplateEditor({
                     placeholder="A{n} height (m)"
                   />
                 </Field>
+                <Field label="Field type">
+                  <select
+                    value={
+                      itemField.type || "number"
+                    }
+                    onChange={(event) => {
+                      const nextType =
+                        event.target.value;
+                      const next = [
+                        ...group.item_fields,
+                      ];
+                      next[index] = {
+                        ...itemField,
+                        type: nextType,
+                        default: defaultForType(
+                          nextType,
+                          itemField.default,
+                        ),
+                      };
+                      onChange({
+                        ...group,
+                        item_fields: next,
+                      });
+                    }}
+                  >
+                    {ITEM_FIELD_TYPE_OPTIONS.map(
+                      (option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
                 <Field label="Default">
                   <input
-                    type="number"
-                    value={itemField.default}
+                    type={
+                      itemField.type === "text"
+                        ? "text"
+                        : "number"
+                    }
+                    value={itemField.default ?? ""}
                     onChange={(event) => {
                       const next = [
                         ...group.item_fields,
                       ];
                       next[index] = {
                         ...itemField,
-                        default: Number(
-                          event.target.value,
-                        ),
+                        default:
+                          itemField.type ===
+                          "text"
+                            ? event.target.value
+                            : Number(
+                                event.target
+                                  .value,
+                              ),
                       };
                       onChange({
                         ...group,

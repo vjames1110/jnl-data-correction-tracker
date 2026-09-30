@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 /**
@@ -6,6 +6,12 @@ import { useState } from "react";
  * name and kind, and where it lands - at the end (default), or
  * before/after a task already in that same section. Mirrors
  * ``CustomActivityCreateSerializer`` on the backend field for field.
+ *
+ * Also lists every hand-added activity already on this sheet (across
+ * every section, not just the one being added to) with its own Remove
+ * button right here - the same place you'd come to add one, rather
+ * than having to find and reopen a custom row's own update popup just
+ * to remove it.
  */
 export function AddActivityForm({
   groups,
@@ -14,6 +20,8 @@ export function AddActivityForm({
   onClose,
   isPending,
   error,
+  onDeleteActivity,
+  deleteActivityStatus,
 }) {
   const sections = uniqueSections(groups);
   const [groupTitle, setGroupTitle] = useState(
@@ -27,6 +35,31 @@ export function AddActivityForm({
   const [unit, setUnit] = useState("");
   const [position, setPosition] = useState("end");
   const [relativeId, setRelativeId] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] =
+    useState(null);
+
+  const customActivities = groups.flatMap((group) =>
+    group.rows
+      .filter((row) => row.is_custom)
+      .map((row) => ({
+        ...row,
+        group_title: group.group_title,
+      })),
+  );
+
+  const handleDelete = (activity) => {
+    if (
+      !window.confirm(
+        `Remove "${activity.name}"? This was added by hand and can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    setPendingDeleteId(activity.id);
+    onDeleteActivity(activity.id, {
+      onSettled: () => setPendingDeleteId(null),
+    });
+  };
 
   const rowsInSection =
     groups.find((g) => g.group_title === groupTitle)?.rows ?? [];
@@ -67,6 +100,46 @@ export function AddActivityForm({
           <X size={14} />
         </button>
       </div>
+
+      {customActivities.length && onDeleteActivity ? (
+        <div className="pm-add-activity__existing">
+          <span className="pm-add-activity__existing-label">
+            Custom activities on this sheet
+          </span>
+          <ul className="pm-add-activity__existing-list">
+            {customActivities.map((activity) => (
+              <li key={activity.id}>
+                <span>
+                  {activity.name}
+                  <span className="sub">
+                    {" "}
+                    &middot; {activity.group_title}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="icon-button icon-button--danger"
+                  aria-label={`Remove ${activity.name}`}
+                  title="Remove this activity"
+                  disabled={
+                    pendingDeleteId === activity.id &&
+                    deleteActivityStatus?.isPending
+                  }
+                  onClick={() => handleDelete(activity)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {pendingDeleteId &&
+          deleteActivityStatus?.isError ? (
+            <div className="inline-alert inline-alert--error">
+              {deleteActivityStatus.error.message}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <label className="form-field">
         <span>Section</span>

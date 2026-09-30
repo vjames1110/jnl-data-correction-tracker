@@ -126,17 +126,60 @@
 
 .pm-structure-section__header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
   margin-bottom: 10px;
+  padding: 4px 6px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pm-structure-section__header:hover {
+  background: var(--color-neutral-50);
+}
+
+.pm-structure-section__header:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: -2px;
+}
+
+.pm-structure-section__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pm-structure-section__header h3 {
   margin: 0;
   font-size: 14px;
   color: var(--color-neutral-800);
+}
+
+.pm-structure-section__chevron {
+  flex: none;
+  color: var(--color-neutral-600);
+  transition: transform 0.18s ease;
+}
+
+.pm-structure-section__header[aria-expanded="true"]
+  .pm-structure-section__chevron {
+  color: var(--color-primary-700);
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-structure-section__chevron {
+    transition: none;
+  }
 }
 
 .pm-structure-row {
@@ -3231,6 +3274,43 @@ table.pm-report__table td.pm-num {
 .pm-add-activity__row .form-field {
   flex: 1;
   min-width: 0;
+}
+
+.pm-add-activity__existing {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.pm-add-activity__existing-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-neutral-500);
+}
+
+.pm-add-activity__existing-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.pm-add-activity__existing-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.pm-add-activity__existing-list .sub {
+  color: var(--color-neutral-500);
+  font-size: 11px;
 }
 
 /* ---- Remove-this-activity footer in the update popup ---- */

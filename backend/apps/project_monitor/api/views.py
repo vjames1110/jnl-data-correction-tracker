@@ -56,6 +56,8 @@ from apps.project_monitor.api.serializers import (
     ScopePatchCreateSerializer,
     ScopePatchSerializer,
     StructureCreateSerializer,
+    StructureLocationCreateSerializer,
+    StructureLocationSerializer,
     StructureSerializer,
     StructureTypeSerializer,
     StructureUpdateSerializer,
@@ -75,6 +77,7 @@ from apps.project_monitor.models import (
     RdsoSpanLibraryEntry,
     ScopePatch,
     Structure,
+    StructureLocation,
     StructureTypeDefinition,
 )
 from apps.project_monitor.services.action_item_generator import (
@@ -112,6 +115,10 @@ from apps.project_monitor.services.review import (
 from apps.project_monitor.services.structure_generator import (
     create_structure,
     update_structure,
+)
+from apps.project_monitor.services.structure_locations import (
+    create_location,
+    delete_location,
 )
 
 
@@ -639,7 +646,7 @@ class StructureListCreateAPIView(APIView):
         ).select_related(
             "structure_type"
         ).prefetch_related(
-            _activities_prefetch()
+            _activities_prefetch(), "locations"
         )
         if structure_type:
             queryset = queryset.filter(
@@ -682,7 +689,7 @@ class StructureListCreateAPIView(APIView):
         structure = Structure.objects.select_related(
             "structure_type"
         ).prefetch_related(
-            _activities_prefetch()
+            _activities_prefetch(), "locations"
         ).get(pk=structure.pk)
 
         return success_response(
@@ -715,7 +722,7 @@ class StructureDetailAPIView(APIView):
             return Structure.objects.select_related(
                 "structure_type"
             ).prefetch_related(
-                _activities_prefetch()
+                _activities_prefetch(), "locations"
             ).get(pk=pk)
         except (
             Structure.DoesNotExist,
@@ -881,11 +888,145 @@ class StructureActivityCreateAPIView(APIView):
         structure = Structure.objects.select_related(
             "structure_type"
         ).prefetch_related(
-            _activities_prefetch()
+            _activities_prefetch(), "locations"
         ).get(pk=structure.pk)
         return success_response(
             message="Activity added successfully.",
             data=StructureSerializer(structure).data,
+        )
+
+
+class StructureLocationListCreateAPIView(APIView):
+    """
+    A structure's named Chainage/Ramp references - some sites have no
+    real chainage at all (only ramps), and one structure can genuinely
+    span more than one of either. GET is Director-and-below read
+    access (also already nested in ``StructureSerializer``'s own
+    response; this exists for direct access/refresh); POST records a
+    new one - entry-role only, same convention as chainage segments.
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasProjectMonitorPortalAccess()]
+        return [HasProjectMonitorReportingAccess()]
+
+    def _get_structure(self, pk):
+        try:
+            return Structure.objects.select_related(
+                "site"
+            ).get(pk=pk)
+        except (
+            Structure.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Structure not found."
+            ) from exc
+
+    def get(self, request, pk, *args, **kwargs):
+        structure = self._get_structure(pk)
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=False,
+        )
+        locations = structure.locations.all()
+
+        return success_response(
+            message=(
+                "Structure locations retrieved "
+                "successfully."
+            ),
+            data=StructureLocationSerializer(
+                locations, many=True
+            ).data,
+        )
+
+    def post(self, request, pk, *args, **kwargs):
+        structure = self._get_structure(pk)
+        _authorize_site(
+            request,
+            structure.site,
+            TASK.STRUCTURES.value,
+            write=True,
+        )
+
+        serializer = (
+            StructureLocationCreateSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+
+        with as_drf_validation():
+            location = create_location(
+                structure=structure,
+                location_type=serializer.validated_data[
+                    "location_type"
+                ],
+                name=serializer.validated_data[
+                    "name"
+                ],
+                chainage_km=serializer.validated_data.get(
+                    "chainage_km"
+                ),
+                remarks=serializer.validated_data[
+                    "remarks"
+                ],
+                actor=request.user,
+            )
+
+        return success_response(
+            message=(
+                "Structure location recorded "
+                "successfully."
+            ),
+            data=StructureLocationSerializer(
+                location
+            ).data,
+        )
+
+
+class StructureLocationDetailAPIView(APIView):
+    """Deletes a mistakenly-recorded structure location - entry-role
+    only."""
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            location = StructureLocation.objects.select_related(
+                "structure__site"
+            ).get(pk=pk)
+        except (
+            StructureLocation.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Structure location not found."
+            ) from exc
+
+        _authorize_site(
+            request,
+            location.structure.site,
+            TASK.STRUCTURES.value,
+            write=True,
+        )
+
+        delete_location(location)
+
+        return success_response(
+            message=(
+                "Structure location deleted "
+                "successfully."
+            ),
+            data=None,
         )
 
 
@@ -949,7 +1090,7 @@ class StructureReviewAPIView(APIView):
         structure = Structure.objects.select_related(
             "structure_type"
         ).prefetch_related(
-            _activities_prefetch()
+            _activities_prefetch(), "locations"
         ).get(pk=structure.pk)
 
         return success_response(

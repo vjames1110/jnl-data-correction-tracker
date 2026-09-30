@@ -1,9 +1,28 @@
-import { render, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AddActivityForm } from "./AddActivityForm";
-import { GROUPS } from "./workspaceFixtures";
+import { GROUPS, row } from "./workspaceFixtures";
+
+const GROUPS_WITH_CUSTOM = [
+  GROUPS[0],
+  {
+    ...GROUPS[1],
+    rows: [
+      ...GROUPS[1].rows,
+      row("custom-1", "Anti-carbonation coating", "NOT_STARTED", {
+        is_custom: true,
+      }),
+    ],
+  },
+  GROUPS[2],
+];
 
 describe("AddActivityForm", () => {
   it("defaults the section to the one it was opened from", () => {
@@ -238,5 +257,121 @@ describe("AddActivityForm", () => {
     expect(
       screen.getByRole("button", { name: "Adding..." }),
     ).toBeDisabled();
+  });
+
+  describe("existing custom activities", () => {
+    let confirmSpy;
+
+    beforeEach(() => {
+      confirmSpy = vi
+        .spyOn(window, "confirm")
+        .mockReturnValue(true);
+    });
+
+    it("shows no list when the sheet has no custom activities", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onDeleteActivity={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByText("Custom activities on this sheet"),
+      ).toBeNull();
+    });
+
+    it("lists a hand-added activity with its section", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS_WITH_CUSTOM}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onDeleteActivity={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText("Custom activities on this sheet"),
+      ).toBeInTheDocument();
+      const item = screen
+        .getByText("Anti-carbonation coating")
+        .closest("li");
+      expect(
+        within(item).getByText(/Box Structure/),
+      ).toBeInTheDocument();
+    });
+
+    it("does not show the list at all without a delete handler", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS_WITH_CUSTOM}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByText("Custom activities on this sheet"),
+      ).toBeNull();
+    });
+
+    it("asks for confirmation, then deletes on confirm", () => {
+      const onDeleteActivity = vi.fn();
+      render(
+        <AddActivityForm
+          groups={GROUPS_WITH_CUSTOM}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onDeleteActivity={onDeleteActivity}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remove Anti-carbonation coating",
+        }),
+      );
+
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Anti-carbonation coating",
+        ),
+      );
+      expect(onDeleteActivity).toHaveBeenCalledWith(
+        "custom-1",
+        expect.objectContaining({
+          onSettled: expect.any(Function),
+        }),
+      );
+    });
+
+    it("does not delete when the confirmation is cancelled", () => {
+      confirmSpy.mockReturnValue(false);
+      const onDeleteActivity = vi.fn();
+      render(
+        <AddActivityForm
+          groups={GROUPS_WITH_CUSTOM}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onDeleteActivity={onDeleteActivity}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remove Anti-carbonation coating",
+        }),
+      );
+
+      expect(onDeleteActivity).not.toHaveBeenCalled();
+    });
   });
 });

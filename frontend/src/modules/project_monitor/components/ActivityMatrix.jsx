@@ -344,6 +344,8 @@ export function ActivityMatrix({
                 ? addActivityStatus.error
                 : null
             }
+            onDeleteActivity={onDeleteActivity}
+            deleteActivityStatus={deleteActivityStatus}
           />
         </ActivityPopup>
       ) : null}

@@ -177,6 +177,33 @@ export function useDeleteStructure(siteId) {
   });
 }
 
+export function useCreateStructureLocation(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ structureId, payload }) =>
+      projectMonitorService.createStructureLocation(
+        structureId,
+        payload,
+      ),
+    onSuccess: () =>
+      invalidateStructures(queryClient, siteId),
+  });
+}
+
+export function useDeleteStructureLocation(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (locationId) =>
+      projectMonitorService.deleteStructureLocation(
+        locationId,
+      ),
+    onSuccess: () =>
+      invalidateStructures(queryClient, siteId),
+  });
+}
+
 export function useUpdateActivity(siteId) {
   const queryClient = useQueryClient();
 

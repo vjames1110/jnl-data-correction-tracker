@@ -538,6 +538,100 @@ class Structure(
         return super().save(*args, **kwargs)
 
 
+class StructureLocationType(models.TextChoices):
+    CHAINAGE = "CHAINAGE", "Chainage"
+    RAMP = "RAMP", "Ramp"
+
+
+class StructureLocation(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    One named Chainage or Ramp reference on a Structure - some sites
+    have no real chainage at all (only interchange ramps), and a
+    single structure can genuinely span more than one of either (e.g.
+    a long FOB touching both the main line's chainage and a ramp), so
+    this is a list, not a single field.
+
+    ``Structure.chainage_km`` itself is untouched by this - it stays
+    the one thing every existing sort-order/display path (the default
+    list ordering, the Reports sheet, ``ItemGroupSection``'s own row)
+    already reads, so none of that needed to change. It is instead
+    kept automatically in sync by ``services.structure_locations``:
+    the smallest CHAINAGE-type value here, or cleared when the
+    structure has none (a Ramp-only structure then sorts like any
+    other structure with no chainage entered, same as today).
+    """
+
+    structure = models.ForeignKey(
+        Structure,
+        on_delete=models.CASCADE,
+        related_name="locations",
+    )
+    location_type = models.CharField(
+        max_length=10,
+        choices=StructureLocationType.choices,
+        default=StructureLocationType.CHAINAGE,
+    )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=(
+            "e.g. 'Down line', 'R2' - optional, a "
+            "structure with only one chainage/ramp "
+            "may not need one."
+        ),
+    )
+    chainage_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text=(
+            "The chainage/ramp's own numeric value, "
+            "when it has one - optional, since a ramp "
+            "may be identified purely by name."
+        ),
+    )
+    remarks = models.TextField(blank=True)
+
+    class Meta:
+        db_table = (
+            "project_monitor_structure_location"
+        )
+        ordering = [
+            "location_type",
+            models.F("chainage_km").asc(
+                nulls_last=True,
+            ),
+        ]
+        verbose_name = "Structure Location"
+        verbose_name_plural = (
+            "Structure Locations"
+        )
+
+    def __str__(self) -> str:
+        label = (
+            self.name
+            or self.get_location_type_display()
+        )
+        return f"{self.structure.name} - {label}"
+
+    def clean(self):
+        super().clean()
+
+        if self.name:
+            self.name = normalize_whitespace(
+                self.name
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class Building(
     UUIDPrimaryKeyModel,
     TimeStampedModel,

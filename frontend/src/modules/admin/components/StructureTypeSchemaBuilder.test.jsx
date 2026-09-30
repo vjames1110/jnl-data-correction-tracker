@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ConfigSchemaBuilder } from "./StructureTypeSchemaBuilder";
+import {
+  ConfigSchemaBuilder,
+  GroupTemplatesBuilder,
+} from "./StructureTypeSchemaBuilder";
 
 describe("ConfigSchemaBuilder - text field type", () => {
   it("offers Text as a field type option", () => {
@@ -187,6 +190,132 @@ describe("ConfigSchemaBuilder - group_list field type", () => {
         type: "group_list",
         default: [],
         fields: [],
+      },
+    ]);
+  });
+});
+
+describe("GroupTemplatesBuilder - repeat group per-index inputs", () => {
+  const ABUTMENTS_GROUP = {
+    kind: "repeat",
+    count_field: "abuts",
+    title_template: "Abutment A{n}",
+    item_fields: [
+      {
+        key: "abutName",
+        label_template: "A{n} name",
+        type: "text",
+        default: "",
+      },
+      {
+        key: "abutH",
+        label_template: "A{n} height (m)",
+        type: "number",
+        default: 6,
+      },
+    ],
+    rows: [],
+  };
+
+  it("offers Text as a per-index field type, defaulting to Number", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ABUTMENTS_GROUP]}
+        configSchema={[
+          {
+            key: "abuts",
+            type: "number",
+            default: 2,
+          },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const fieldTypeSelects = screen.getAllByRole(
+      "combobox",
+      { name: "Field type" },
+    );
+    expect(fieldTypeSelects[0]).toHaveValue("text");
+    expect(fieldTypeSelects[1]).toHaveValue(
+      "number",
+    );
+  });
+
+  it("switches a per-index field to text and resets its default to an empty string", () => {
+    const onChange = vi.fn();
+    render(
+      <GroupTemplatesBuilder
+        groups={[ABUTMENTS_GROUP]}
+        configSchema={[
+          {
+            key: "abuts",
+            type: "number",
+            default: 2,
+          },
+        ]}
+        onChange={onChange}
+      />,
+    );
+
+    const fieldTypeSelects = screen.getAllByRole(
+      "combobox",
+      { name: "Field type" },
+    );
+    fireEvent.change(fieldTypeSelects[1], {
+      target: { value: "text" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith([
+      {
+        ...ABUTMENTS_GROUP,
+        item_fields: [
+          ABUTMENTS_GROUP.item_fields[0],
+          {
+            ...ABUTMENTS_GROUP.item_fields[1],
+            type: "text",
+            default: "",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("a new per-index input defaults to a Number field", () => {
+    const onChange = vi.fn();
+    render(
+      <GroupTemplatesBuilder
+        groups={[
+          { ...ABUTMENTS_GROUP, item_fields: [] },
+        ]}
+        configSchema={[
+          {
+            key: "abuts",
+            type: "number",
+            default: 2,
+          },
+        ]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Add per-index input/,
+      }),
+    );
+
+    expect(onChange).toHaveBeenCalledWith([
+      {
+        ...ABUTMENTS_GROUP,
+        item_fields: [
+          {
+            key: "",
+            label_template: "",
+            type: "number",
+            default: 0,
+          },
+        ],
       },
     ]);
   });

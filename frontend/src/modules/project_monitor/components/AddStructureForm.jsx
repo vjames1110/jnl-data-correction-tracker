@@ -1,6 +1,10 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import {
+  useCreateStructureLocation,
+  useDeleteStructureLocation,
+} from "../../../hooks/useProjectMonitor";
 import { SlideDownForm } from "./SlideDownForm";
 
 function defaultScalarValue(field) {
@@ -11,6 +15,16 @@ function defaultScalarValue(field) {
     return field.default ?? "";
   }
   return field.default;
+}
+
+/** Same idea as ``defaultScalarValue`` but for a "repeat" group's
+ * per-index ``item_fields`` (number/text only today) - a text item
+ * (e.g. an abutment's name) pads with "", never the number fallback. */
+function defaultItemFieldValue(itemField) {
+  if (itemField.type === "text") {
+    return itemField.default ?? "";
+  }
+  return itemField.default ?? 0;
 }
 
 function buildDefaultConfig(definition) {
@@ -34,7 +48,7 @@ function buildDefaultConfig(definition) {
         (itemField) => {
           config[itemField.key] = Array.from(
             { length: count },
-            () => itemField.default ?? 0,
+            () => defaultItemFieldValue(itemField),
           );
         },
       );
@@ -74,8 +88,7 @@ function resizeItemFields(
             { length: count },
             (_, index) =>
               current[index] ??
-              itemField.default ??
-              0,
+              defaultItemFieldValue(itemField),
           );
         },
       );
@@ -364,6 +377,213 @@ function GroupListField({ field, value, onChange }) {
   );
 }
 
+const LOCATION_TYPE_LABEL = {
+  CHAINAGE: "Chainage",
+  RAMP: "Ramp",
+};
+
+/**
+ * A structure's own list of named Chainage/Ramp references - only
+ * meaningful once the structure exists (each entry is its own API
+ * record, not part of ``config``), so this only ever renders while
+ * editing, never on the initial "Add a structure" form. Adding the
+ * first one takes over the plain top-level "Chainage (km)" field,
+ * which the server then keeps in sync automatically (the smallest
+ * Chainage-type value here) rather than the two ever disagreeing.
+ */
+function StructureLocationsManager({ structure }) {
+  const siteId = structure.site;
+  const createLocation =
+    useCreateStructureLocation(siteId);
+  const deleteLocation =
+    useDeleteStructureLocation(siteId);
+  const [isAdding, setIsAdding] = useState(false);
+  const [locationType, setLocationType] =
+    useState("CHAINAGE");
+  const [name, setName] = useState("");
+  const [chainageKm, setChainageKm] = useState("");
+  const [remarks, setRemarks] = useState("");
+
+  const locations = structure.locations || [];
+
+  const resetForm = () => {
+    setLocationType("CHAINAGE");
+    setName("");
+    setChainageKm("");
+    setRemarks("");
+    setIsAdding(false);
+  };
+
+  const handleAdd = (event) => {
+    event.preventDefault();
+    createLocation.mutate(
+      {
+        structureId: structure.id,
+        payload: {
+          location_type: locationType,
+          name,
+          chainage_km: chainageKm || null,
+          remarks,
+        },
+      },
+      { onSuccess: resetForm },
+    );
+  };
+
+  return (
+    <div
+      className="form-field"
+      style={{ gridColumn: "1 / -1" }}
+    >
+      <span>Chainage / Ramp locations</span>
+
+      {locations.length > 0 ? (
+        <ul className="pm-group-list">
+          {locations.map((location) => (
+            <li
+              key={location.id}
+              className="pm-group-list__item"
+            >
+              <div className="pm-group-list__row">
+                <span>
+                  {LOCATION_TYPE_LABEL[
+                    location.location_type
+                  ] || location.location_type}
+                  {location.name
+                    ? ` · ${location.name}`
+                    : ""}
+                  {location.chainage_km != null
+                    ? ` · ${location.chainage_km} km`
+                    : ""}
+                </span>
+                <div className="table-actions">
+                  <button
+                    type="button"
+                    className="icon-button icon-button--danger"
+                    aria-label={`Remove ${location.name || LOCATION_TYPE_LABEL[location.location_type] || location.location_type}`}
+                    disabled={
+                      deleteLocation.isPending
+                    }
+                    onClick={() =>
+                      deleteLocation.mutate(
+                        location.id,
+                      )
+                    }
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {isAdding ? (
+        <SlideDownForm
+          eyebrow="Locations"
+          title="Add a chainage or ramp"
+          onClose={resetForm}
+        >
+          <form
+            className="pm-boq-slide__form"
+            onSubmit={handleAdd}
+          >
+            <div className="pm-boq-slide__row">
+              <label className="form-field">
+                <span>Type</span>
+                <select
+                  value={locationType}
+                  onChange={(event) =>
+                    setLocationType(
+                      event.target.value,
+                    )
+                  }
+                >
+                  <option value="CHAINAGE">
+                    Chainage
+                  </option>
+                  <option value="RAMP">
+                    Ramp
+                  </option>
+                </select>
+              </label>
+              <label className="form-field">
+                <span>Name (optional)</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) =>
+                    setName(event.target.value)
+                  }
+                  placeholder="e.g. Down line, R2"
+                />
+              </label>
+              <label className="form-field">
+                <span>
+                  Value (km)
+                  {locationType === "RAMP"
+                    ? " - optional"
+                    : ""}
+                </span>
+                <input
+                  type="number"
+                  step="0.001"
+                  value={chainageKm}
+                  onChange={(event) =>
+                    setChainageKm(
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+              <label className="form-field">
+                <span>Remarks (optional)</span>
+                <input
+                  type="text"
+                  value={remarks}
+                  onChange={(event) =>
+                    setRemarks(event.target.value)
+                  }
+                />
+              </label>
+            </div>
+            <div className="pm-slide-panel__actions">
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={createLocation.isPending}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="button button--tertiary"
+                onClick={resetForm}
+              >
+                Cancel
+              </button>
+            </div>
+            {createLocation.isError ? (
+              <div className="inline-alert inline-alert--error">
+                {createLocation.error.message}
+              </div>
+            ) : null}
+          </form>
+        </SlideDownForm>
+      ) : (
+        <button
+          type="button"
+          className="button button--secondary button--sm"
+          onClick={() => setIsAdding(true)}
+        >
+          <Plus size={14} /> Add chainage/ramp
+        </button>
+      )}
+    </div>
+  );
+}
+
 function RepeatGroupItemFields({
   group,
   config,
@@ -405,8 +625,17 @@ function RepeatGroupItemFields({
                   >
                     {index + 1}
                     <input
-                      type="number"
-                      style={{ width: 65 }}
+                      type={
+                        itemField.type === "text"
+                          ? "text"
+                          : "number"
+                      }
+                      style={{
+                        width:
+                          itemField.type === "text"
+                            ? 120
+                            : 65,
+                      }}
                       value={
                         (
                           config[
@@ -466,6 +695,28 @@ export function AddStructureForm({
       ? (initialStructure.chainage_km ?? "")
       : "",
   );
+  const [
+    syncedChainageKm,
+    setSyncedChainageKm,
+  ] = useState(
+    isEditing ? initialStructure.chainage_km : undefined,
+  );
+  const hasLocations =
+    isEditing &&
+    (initialStructure.locations || []).length > 0;
+  // Once a Chainage/Ramp location exists, the server keeps this
+  // field in sync automatically (see StructureLocationsManager) -
+  // follow it here too, so the (now disabled) field never shows a
+  // stale value left over from before the first location was added.
+  if (
+    isEditing &&
+    initialStructure.chainage_km !== syncedChainageKm
+  ) {
+    setSyncedChainageKm(initialStructure.chainage_km);
+    setChainageKm(
+      initialStructure.chainage_km ?? "",
+    );
+  }
   const [config, setConfig] = useState(() => {
     if (isEditing) {
       return { ...initialStructure.config };
@@ -599,11 +850,17 @@ export function AddStructureForm({
           />
         </label>
         <label className="form-field">
-          <span>Chainage (km)</span>
+          <span>
+            Chainage (km)
+            {hasLocations
+              ? " - managed automatically from the Chainage/Ramp locations below"
+              : ""}
+          </span>
           <input
             type="number"
             step="0.001"
             value={chainageKm}
+            disabled={hasLocations}
             onChange={(event) =>
               setChainageKm(
                 event.target.value,
@@ -612,6 +869,20 @@ export function AddStructureForm({
             placeholder="12.345"
           />
         </label>
+        {isEditing ? (
+          <StructureLocationsManager
+            structure={initialStructure}
+          />
+        ) : (
+          <p
+            className="pm-timeline-empty"
+            style={{ gridColumn: "1 / -1" }}
+          >
+            Chainage/Ramp locations (named, and
+            more than one) can be added once
+            this structure is created.
+          </p>
+        )}
         {(
           definition.config_schema || []
         ).map((field) =>

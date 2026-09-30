@@ -264,6 +264,7 @@ class TestFobActivityGeneration:
 
         assert structure.description == (
             "Chunar · 4 spans · girders: Railway scope"
+            " · 0 piles"
         )
 
     def test_activities_really_are_persisted_rows(self, site, fob_type):

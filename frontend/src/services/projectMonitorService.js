@@ -670,6 +670,24 @@ export const projectMonitorService = {
     );
   },
 
+  async createStructureLocation(
+    structureId,
+    payload,
+  ) {
+    const response = await apiClient.post(
+      `/project-monitor/structures/${structureId}/locations/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async deleteStructureLocation(locationId) {
+    await apiClient.delete(
+      `/project-monitor/structure-locations/${locationId}/`,
+    );
+  },
+
   async updateActivity(activityId, payload) {
     const response = await apiClient.patch(
       `/project-monitor/activities/${activityId}/`,

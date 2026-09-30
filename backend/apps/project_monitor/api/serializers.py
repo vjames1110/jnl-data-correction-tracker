@@ -27,6 +27,8 @@ from apps.project_monitor.models import (
     RdsoSpanLibraryEntry,
     ScopePatch,
     Structure,
+    StructureLocation,
+    StructureLocationType,
     StructureTypeDefinition,
 )
 from apps.project_monitor.services.linear_diagram import (
@@ -395,6 +397,48 @@ class ActivityGroupedSerializerMixin:
         }
 
 
+class StructureLocationSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = StructureLocation
+        fields = [
+            "id",
+            "location_type",
+            "name",
+            "chainage_km",
+            "remarks",
+        ]
+        read_only_fields = fields
+
+
+class StructureLocationCreateSerializer(
+    serializers.Serializer
+):
+    location_type = serializers.ChoiceField(
+        choices=StructureLocationType.choices,
+        required=False,
+        default=StructureLocationType.CHAINAGE,
+    )
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=100,
+    )
+    chainage_km = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        required=False,
+        allow_null=True,
+    )
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
 class StructureSerializer(
     ActivityGroupedSerializerMixin,
     serializers.ModelSerializer,
@@ -416,6 +460,9 @@ class StructureSerializer(
         source="structure_type.name",
         read_only=True,
     )
+    locations = StructureLocationSerializer(
+        many=True, read_only=True
+    )
 
     class Meta:
         model = Structure
@@ -429,6 +476,7 @@ class StructureSerializer(
             "chainage_km",
             "config",
             "description",
+            "locations",
             "created_at",
             "updated_at",
             "groups",
