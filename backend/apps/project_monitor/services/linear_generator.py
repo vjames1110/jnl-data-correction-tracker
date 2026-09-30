@@ -1,11 +1,15 @@
 """
 Creation helpers for Linear works - deliberately thin, since there's
 no Activity engine involved here (see ``models.LinearItem``'s own
-docstring for why). The one piece of real logic is auto-deriving
-``qty`` for ``M``-unit scope patches/progress entries from their
-chainage span (display/audit only, never re-applied later - same
-convention ``GirderSpan`` uses for RDSO library values copied in at
-pick-time); non-``M`` units keep whatever quantity was entered.
+docstring for why). ``qty`` is always optional and always whatever
+the client actually sent when given; the one piece of real logic is
+that an ``M``-unit scope patch/progress entry left blank auto-derives
+``qty`` from its own chainage span instead (display/audit only, never
+re-applied later - same convention ``GirderSpan`` uses for RDSO
+library values copied in at pick-time) - a real physical quantity
+(e.g. an actual drain length that isn't quite the raw chainage
+difference) can still be typed in directly. Non-``M`` units have no
+such auto-derivation at all - a blank ``qty`` there just stays blank.
 """
 
 from decimal import Decimal
@@ -23,11 +27,13 @@ METRES_PER_KM = Decimal("1000")
 def _resolved_qty(
     unit, from_chainage_km, to_chainage_km, qty
 ):
+    if qty is not None:
+        return qty
     if unit == LinearUnit.M:
         return (
             to_chainage_km - from_chainage_km
         ) * METRES_PER_KM
-    return qty
+    return None
 
 
 def create_linear_item(

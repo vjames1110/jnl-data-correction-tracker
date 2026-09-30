@@ -223,6 +223,100 @@ def test_linear_item_detail_and_delete(
 
 
 @pytest.mark.django_db
+def test_diagram_honours_a_custom_chainage_and_segment_override(
+    api_client, linear_item
+):
+    api_client.post(
+        reverse(
+            "project-monitor-api:scope-patch-list",
+            args=[linear_item.id],
+        ),
+        {
+            "from_chainage_km": "0.000",
+            "to_chainage_km": "10.000",
+            "side": "BOTH",
+        },
+        format="json",
+    )
+
+    response = api_client.get(
+        reverse(
+            "project-monitor-api:linear-item-detail",
+            args=[linear_item.id],
+        ),
+        {
+            "chainage_start_km": "0",
+            "chainage_end_km": "10",
+            "segment_length_km": "2",
+        },
+    )
+
+    assert (
+        response.status_code == status.HTTP_200_OK
+    )
+    diagram = response.data["data"]["diagram"]
+    assert diagram["segment_length_km"] == Decimal(
+        "2"
+    )
+    assert len(diagram["segments"]) == 5
+
+
+@pytest.mark.django_db
+def test_diagram_range_widens_past_a_too_narrow_custom_range(
+    api_client, linear_item
+):
+    api_client.post(
+        reverse(
+            "project-monitor-api:scope-patch-list",
+            args=[linear_item.id],
+        ),
+        {
+            "from_chainage_km": "0.000",
+            "to_chainage_km": "20.000",
+            "side": "BOTH",
+        },
+        format="json",
+    )
+
+    response = api_client.get(
+        reverse(
+            "project-monitor-api:linear-item-detail",
+            args=[linear_item.id],
+        ),
+        {
+            "chainage_start_km": "0",
+            "chainage_end_km": "10",
+        },
+    )
+
+    assert (
+        response.status_code == status.HTTP_200_OK
+    )
+    diagram = response.data["data"]["diagram"]
+    assert diagram["chainage_end_km"] == Decimal(
+        "20.000"
+    )
+
+
+@pytest.mark.django_db
+def test_diagram_rejects_a_malformed_segment_length(
+    api_client, linear_item
+):
+    response = api_client.get(
+        reverse(
+            "project-monitor-api:linear-item-detail",
+            args=[linear_item.id],
+        ),
+        {"segment_length_km": "not-a-number"},
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_400_BAD_REQUEST
+    )
+
+
+@pytest.mark.django_db
 def test_adding_a_scope_patch_auto_derives_qty_for_m_unit(
     api_client, linear_item
 ):
@@ -255,6 +349,41 @@ def test_adding_a_scope_patch_auto_derives_qty_for_m_unit(
     assert ScopePatch.objects.filter(
         linear_item=linear_item
     ).count() == 1
+
+
+@pytest.mark.django_db
+def test_an_explicit_qty_on_an_m_unit_scope_patch_is_kept_as_is(
+    api_client, linear_item
+):
+    """An M-unit item's real physical quantity isn't always exactly
+    the raw chainage difference (e.g. a drain that runs alongside a
+    curve) - a client-supplied qty must win over the auto-derived
+    one, not be silently discarded."""
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+
+    response = api_client.post(
+        reverse(
+            "project-monitor-api:scope-patch-list",
+            args=[linear_item.id],
+        ),
+        {
+            "from_chainage_km": "2.000",
+            "to_chainage_km": "4.500",
+            "side": "LHS",
+            "qty": "2650.000",
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_200_OK
+    )
+    patch = response.data["data"][
+        "scope_patches"
+    ][0]
+    assert patch["qty"] == "2650.000"
 
 
 @pytest.mark.django_db
@@ -398,6 +527,39 @@ def test_logging_a_progress_entry_updates_stats(
     assert ProgressEntry.objects.filter(
         linear_item=linear_item
     ).count() == 1
+
+
+@pytest.mark.django_db
+def test_an_explicit_qty_on_an_m_unit_progress_entry_is_kept_as_is(
+    api_client, linear_item
+):
+    pm = ProjectManagerUserFactory()
+    api_client.force_authenticate(user=pm)
+
+    response = api_client.post(
+        reverse(
+            "project-monitor-api:progress-entry-list",
+            args=[linear_item.id],
+        ),
+        {
+            "date": "2026-01-05",
+            "meeting_date": "2026-01-05",
+            "from_chainage_km": "0.000",
+            "to_chainage_km": "2.000",
+            "status": "COMPLETE",
+            "qty": "2150.000",
+        },
+        format="json",
+    )
+
+    assert (
+        response.status_code
+        == status.HTTP_200_OK
+    )
+    entry = response.data["data"][
+        "progress_entries"
+    ][0]
+    assert entry["qty"] == "2150.000"
 
 
 @pytest.mark.django_db

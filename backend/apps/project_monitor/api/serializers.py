@@ -29,6 +29,9 @@ from apps.project_monitor.models import (
     Structure,
     StructureTypeDefinition,
 )
+from apps.project_monitor.services.linear_diagram import (
+    compute_diagram,
+)
 from apps.project_monitor.services.linear_stats import (
     compute_item_stats,
 )
@@ -1283,6 +1286,7 @@ class LinearItemSerializer(
         many=True, read_only=True
     )
     stats = serializers.SerializerMethodField()
+    diagram = serializers.SerializerMethodField()
 
     class Meta:
         model = LinearItem
@@ -1294,12 +1298,27 @@ class LinearItemSerializer(
             "scope_patches",
             "progress_entries",
             "stats",
+            "diagram",
             "created_at",
         ]
         read_only_fields = fields
 
     def get_stats(self, obj):
         return compute_item_stats(obj)
+
+    def get_diagram(self, obj):
+        return compute_diagram(
+            obj,
+            chainage_start_km=self.context.get(
+                "chainage_start_km"
+            ),
+            chainage_end_km=self.context.get(
+                "chainage_end_km"
+            ),
+            segment_length_km=self.context.get(
+                "segment_length_km"
+            ),
+        )
 
 
 class LinearItemCreateSerializer(

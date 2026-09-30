@@ -993,6 +993,15 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async getLinearItem(itemId, params = {}) {
+    const response = await apiClient.get(
+      `/project-monitor/linear-items/${itemId}/`,
+      { params },
+    );
+
+    return response.data.data;
+  },
+
   async createLinearItem(siteId, payload) {
     const response = await apiClient.post(
       "/project-monitor/linear-items/",

@@ -780,6 +780,31 @@ export function useLinearItems(siteId) {
   });
 }
 
+/**
+ * Re-fetches one Linear Item's own diagram with a custom chainage
+ * window and/or segment size - used only while a user is overriding
+ * that one item's rolling-diagram display away from the server's own
+ * auto-suggested default (which the bulk ``useLinearItems`` list
+ * already carries per item, at no extra request). ``range`` is
+ * ``{chainageStartKm, chainageEndKm, segmentLengthKm}`` or ``null``.
+ */
+export function useLinearItemDiagram(itemId, range) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorLinearItemDetail({
+        id: itemId,
+        range,
+      }),
+    queryFn: () =>
+      projectMonitorService.getLinearItem(itemId, {
+        chainage_start_km: range.chainageStartKm,
+        chainage_end_km: range.chainageEndKm,
+        segment_length_km: range.segmentLengthKm,
+      }),
+    enabled: Boolean(itemId) && Boolean(range),
+  });
+}
+
 function invalidateLinearItems(
   queryClient,
   siteId,
@@ -792,6 +817,20 @@ function invalidateLinearItems(
     ],
     predicate: (query) =>
       query.queryKey[2]?.site === siteId,
+  });
+  // A user with a custom segment-length override active on an item's
+  // diagram (useLinearItemDiagram) would otherwise keep seeing that
+  // one item's diagram frozen at whatever it looked like the moment
+  // they applied it - new scope patches/progress entries would
+  // update the item's header stats (from the bulk list above) but
+  // never the diagram grid itself. Invalidated broadly (by item id
+  // is not known here without inspecting the cache); this is a cheap
+  // read and only mounted, active overrides actually refetch.
+  queryClient.invalidateQueries({
+    queryKey: [
+      "project-monitor",
+      "linear-item-detail",
+    ],
   });
   queryClient.invalidateQueries({
     queryKey:

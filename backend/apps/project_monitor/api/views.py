@@ -1,4 +1,5 @@
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import (
@@ -1737,6 +1738,58 @@ def _linear_item_queryset():
     )
 
 
+def _parse_query_decimal(request, key, *, require_positive=False):
+    raw = request.query_params.get(key)
+    if not raw:
+        return None
+    try:
+        value = Decimal(raw)
+    except InvalidOperation as exc:
+        raise ValidationError(
+            {key: "Must be a number."}
+        ) from exc
+    if require_positive and value <= 0:
+        raise ValidationError(
+            {key: "Must be a positive number."}
+        )
+    return value
+
+
+def _linear_diagram_context(request, site):
+    """The rolling diagram's x-axis bounds and segment length - the
+    site's own chainage range by default, but overridable per request
+    via ``?chainage_start_km=&chainage_end_km=&segment_length_km=``
+    (a display-only "custom entry" the user can apply and re-apply
+    without changing the site's own configured range) - shared by
+    every Linear Item GET so the diagram context is built identically
+    for the list and the detail view. ``resolve_range`` still widens
+    whatever range comes out of this to cover the item's own real
+    data, so a custom range can never hide it."""
+    segment_length_km = _parse_query_decimal(
+        request, "segment_length_km", require_positive=True
+    )
+    chainage_start_km = _parse_query_decimal(
+        request, "chainage_start_km"
+    )
+    chainage_end_km = _parse_query_decimal(
+        request, "chainage_end_km"
+    )
+
+    return {
+        "chainage_start_km": (
+            chainage_start_km
+            if chainage_start_km is not None
+            else site.chainage_start_km
+        ),
+        "chainage_end_km": (
+            chainage_end_km
+            if chainage_end_km is not None
+            else site.chainage_end_km
+        ),
+        "segment_length_km": segment_length_km,
+    }
+
+
 class LinearItemListCreateAPIView(APIView):
     """
     List every Linear Item (chainage-tracked continuous work) on a
@@ -1763,7 +1816,11 @@ class LinearItemListCreateAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                queryset, many=True
+                queryset,
+                many=True,
+                context=_linear_diagram_context(
+                    request, site
+                ),
             ).data,
         )
 
@@ -1793,7 +1850,10 @@ class LinearItemListCreateAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                item
+                item,
+                context=_linear_diagram_context(
+                    request, site
+                ),
             ).data,
         )
 
@@ -1837,7 +1897,10 @@ class LinearItemDetailAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                item
+                item,
+                context=_linear_diagram_context(
+                    request, item.site
+                ),
             ).data,
         )
 
@@ -1931,7 +1994,10 @@ class ScopePatchListCreateAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                linear_item
+                linear_item,
+                context=_linear_diagram_context(
+                    request, linear_item.site
+                ),
             ).data,
         )
 
@@ -2059,7 +2125,10 @@ class ProgressEntryListCreateAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                linear_item
+                linear_item,
+                context=_linear_diagram_context(
+                    request, linear_item.site
+                ),
             ).data,
         )
 
@@ -2134,7 +2203,10 @@ class ProgressEntryDetailAPIView(APIView):
                 "successfully."
             ),
             data=LinearItemSerializer(
-                linear_item
+                linear_item,
+                context=_linear_diagram_context(
+                    request, linear_item.site
+                ),
             ).data,
         )
 

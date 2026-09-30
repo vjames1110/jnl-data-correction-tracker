@@ -511,4 +511,9 @@ export const queryKeys = Object.freeze({
     "linear-items",
     params,
   ],
+  projectMonitorLinearItemDetail: (params) => [
+    "project-monitor",
+    "linear-item-detail",
+    params,
+  ],
 });

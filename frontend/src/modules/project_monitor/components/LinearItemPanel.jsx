@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { useLinearItemDiagram } from "../../../hooks/useProjectMonitor";
 import { formatQty } from "../utils/status";
 import { RollingDiagram } from "./RollingDiagram";
 
@@ -32,9 +33,7 @@ function AddScopePatchInlineForm({
       from_chainage_km: fromKm,
       to_chainage_km: toKm,
       side,
-      ...(isM
-        ? {}
-        : { qty: qty || null }),
+      qty: qty || null,
       remarks,
     });
   };
@@ -81,19 +80,22 @@ function AddScopePatchInlineForm({
           <option value="RHS">RHS</option>
         </select>
       </label>
-      {!isM ? (
-        <label className="form-field">
-          <span>Qty ({item.unit})</span>
-          <input
-            type="number"
-            step="0.001"
-            value={qty}
-            onChange={(event) =>
-              setQty(event.target.value)
-            }
-          />
-        </label>
-      ) : null}
+      <label className="form-field">
+        <span>
+          Scope quantity{" "}
+          {isM
+            ? "(m, optional - blank auto-calculates from chainage)"
+            : `(${item.unit}, optional)`}
+        </span>
+        <input
+          type="number"
+          step="0.001"
+          value={qty}
+          onChange={(event) =>
+            setQty(event.target.value)
+          }
+        />
+      </label>
       <label className="form-field pm-drawer-form__full">
         <span>Remarks</span>
         <input
@@ -156,9 +158,7 @@ function AddProgressEntryInlineForm({
         from_chainage_km: fromKm,
         to_chainage_km: toKm,
         side,
-        ...(isM
-          ? {}
-          : { qty: qty || null }),
+        qty: qty || null,
         contractor,
         status,
         remarks,
@@ -241,19 +241,22 @@ function AddProgressEntryInlineForm({
           <option value="RHS">RHS</option>
         </select>
       </label>
-      {!isM ? (
-        <label className="form-field">
-          <span>Qty ({item.unit})</span>
-          <input
-            type="number"
-            step="0.001"
-            value={qty}
-            onChange={(event) =>
-              setQty(event.target.value)
-            }
-          />
-        </label>
-      ) : null}
+      <label className="form-field">
+        <span>
+          Executed quantity{" "}
+          {isM
+            ? "(m, optional - blank auto-calculates from chainage)"
+            : `(${item.unit}, optional)`}
+        </span>
+        <input
+          type="number"
+          step="0.001"
+          value={qty}
+          onChange={(event) =>
+            setQty(event.target.value)
+          }
+        />
+      </label>
       <label className="form-field">
         <span>Contractor</span>
         <input
@@ -318,19 +321,18 @@ function AddProgressEntryInlineForm({
 }
 
 /**
- * One Linear Item's accordion - stats summary, the rolling diagram
- * (``M``-unit items only), and the two "add" forms. Editing/deleting
- * individual scope patches/progress entries happens in the combined
- * Scope/Progress registers at the page level, matching the
- * prototype's own separation.
+ * One Linear Item's accordion - stats summary, the chainage-segmented
+ * rolling diagram (every unit, not just ``M`` - see
+ * ``services.linear_diagram``), and the two "add" forms.
+ * Editing/deleting individual scope patches/progress entries happens
+ * in the combined Scope/Progress registers at the page level,
+ * matching the prototype's own separation.
  */
 export function LinearItemPanel({
   item,
   isExpanded,
   onToggle,
   canEdit,
-  chainageStart,
-  chainageEnd,
   onAddScopePatch,
   addScopePatchStatus,
   onAddProgressEntry,
@@ -343,6 +345,16 @@ export function LinearItemPanel({
     isProgressFormOpen,
     setIsProgressFormOpen,
   ] = useState(false);
+  const [rangeOverride, setRangeOverride] =
+    useState(null);
+
+  const overrideQuery = useLinearItemDiagram(
+    item.id,
+    rangeOverride,
+  );
+  const displayedItem =
+    (rangeOverride && overrideQuery.data) || item;
+  const diagram = displayedItem.diagram;
 
   const isM = item.unit === "M";
   const unitLabel = isM ? "m" : item.unit.toLowerCase();
@@ -390,18 +402,17 @@ export function LinearItemPanel({
 
       {isExpanded ? (
         <div className="pm-linear-item__body">
-          {isM ? (
-            <RollingDiagram
-              scopePatches={
-                item.scope_patches
-              }
-              progressEntries={
-                item.progress_entries
-              }
-              chainageStart={chainageStart}
-              chainageEnd={chainageEnd}
-            />
-          ) : null}
+          <RollingDiagram
+            diagram={diagram}
+            scopePatches={
+              displayedItem.scope_patches
+            }
+            progressEntries={
+              displayedItem.progress_entries
+            }
+            onApplyRange={setRangeOverride}
+            isApplyingRange={overrideQuery.isFetching}
+          />
 
           {canEdit ? (
             <div className="pm-inline-row">

@@ -289,16 +289,6 @@ export function LinearWorksPage() {
                         )
                       }
                       canEdit={canEdit}
-                      chainageStart={
-                        overviewQuery.data
-                          .site
-                          .chainage_start_km
-                      }
-                      chainageEnd={
-                        overviewQuery.data
-                          .site
-                          .chainage_end_km
-                      }
                       onAddScopePatch={(
                         itemId,
                         payload,
