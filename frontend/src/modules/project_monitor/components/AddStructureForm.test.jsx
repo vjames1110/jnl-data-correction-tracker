@@ -477,6 +477,112 @@ describe("AddStructureForm - text and group_list fields", () => {
   });
 });
 
+const FOB_BOOLEAN_FIRST = {
+  ...FOB,
+  config_schema: [
+    FOB.config_schema[0],
+    {
+      ...FOB.config_schema[1],
+      fields: [
+        // Boolean listed BEFORE the text "name" field - the exact
+        // ordering that used to make every item show the generic
+        // "Platform 1"/"Platform 2" fallback forever, since
+        // item[firstField.key] (a boolean, often false) is falsy.
+        {
+          key: "hasLift",
+          label: "Has Lift",
+          type: "boolean",
+          default: false,
+        },
+        {
+          key: "name",
+          label: "Name of Platform",
+          type: "text",
+        },
+      ],
+    },
+  ],
+};
+
+describe("AddStructureForm - group_list display name (bug fix)", () => {
+  it("shows the typed name even when a boolean field is listed first", () => {
+    render(
+      <AddStructureForm
+        structureTypes={[FOB_BOOLEAN_FIRST]}
+        onCreate={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Platform" }),
+    );
+    fireEvent.change(
+      screen.getByLabelText("Name of Platform"),
+      { target: { value: "Platform A" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save" }),
+    );
+
+    expect(
+      screen.getByText("Platform A"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Platform 1"),
+    ).toBeNull();
+  });
+
+  it("keeps the open edit form on the right item after an earlier item is removed", () => {
+    render(
+      <AddStructureForm
+        structureTypes={[FOB]}
+        onCreate={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    for (const name of ["Platform A", "Platform B", "Platform C"]) {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Add Platform",
+        }),
+      );
+      fireEvent.change(
+        screen.getByLabelText("Name of Platform"),
+        { target: { value: name } },
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save" }),
+      );
+    }
+
+    // Open Platform C's (the third item's) own edit form.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit Platform 3",
+      }),
+    );
+    expect(
+      screen.getByDisplayValue("Platform C"),
+    ).toBeInTheDocument();
+
+    // Remove Platform A (the first item) while C's form is open.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove Platform 1",
+      }),
+    );
+
+    // C's edit form must still be open, still showing C's own data -
+    // not silently closed just because an earlier item shifted its
+    // array index down.
+    expect(
+      screen.getByDisplayValue("Platform C"),
+    ).toBeInTheDocument();
+  });
+});
+
 const NAMED_ABUTMENTS = {
   id: "type-named-abutments",
   name: "Major Bridge",

@@ -10,6 +10,7 @@ from apps.project_monitor.models import (
     Activity,
     ActivityComment,
     ActivityDateEntry,
+    ActivityEditAccessRequest,
     ActivityKind,
     ActivityStatus,
     Building,
@@ -36,6 +37,9 @@ from apps.project_monitor.services.linear_diagram import (
 )
 from apps.project_monitor.services.linear_stats import (
     compute_item_stats,
+)
+from apps.project_monitor.services.notifications import (
+    resolve_activity_site,
 )
 from apps.project_monitor.services.structure_generator import (
     validate_definition_schema,
@@ -310,6 +314,7 @@ class ActivitySerializer(serializers.ModelSerializer):
             "reviewed_at",
             "review_remarks",
             "is_custom",
+            "is_hidden",
         ]
         read_only_fields = fields
 
@@ -334,7 +339,11 @@ class ActivityGroupedSerializerMixin:
     """
 
     def get_groups(self, obj):
-        activities = list(obj.activities.all())
+        activities = [
+            a
+            for a in obj.activities.all()
+            if not a.is_hidden
+        ]
         docs = [
             a for a in activities if a.group_order == 0
         ]
@@ -383,7 +392,8 @@ class ActivityGroupedSerializerMixin:
         activities = [
             a
             for a in obj.activities.all()
-            if a.status
+            if not a.is_hidden
+            and a.status
             != ActivityStatus.NOT_APPLICABLE
         ]
         done = sum(
@@ -395,6 +405,22 @@ class ActivityGroupedSerializerMixin:
             "done": done,
             "total": len(activities),
         }
+
+    def get_hidden_activities(self, obj):
+        """
+        The rows hidden from this sheet - shown separately so they
+        can be brought back (see ``ActivityUnhideAPIView``), never
+        mixed into ``groups`` itself.
+        """
+        return [
+            {
+                "id": str(activity.id),
+                "name": activity.name,
+                "group_title": activity.group_title,
+            }
+            for activity in obj.activities.all()
+            if activity.is_hidden
+        ]
 
 
 class StructureLocationSerializer(
@@ -452,6 +478,9 @@ class StructureSerializer(
     overall_progress = (
         serializers.SerializerMethodField()
     )
+    hidden_activities = (
+        serializers.SerializerMethodField()
+    )
     structure_type_code = serializers.CharField(
         source="structure_type.code",
         read_only=True,
@@ -481,6 +510,7 @@ class StructureSerializer(
             "updated_at",
             "groups",
             "overall_progress",
+            "hidden_activities",
         ]
         read_only_fields = fields
 
@@ -498,6 +528,9 @@ class BuildingSerializer(
     overall_progress = (
         serializers.SerializerMethodField()
     )
+    hidden_activities = (
+        serializers.SerializerMethodField()
+    )
 
     class Meta:
         model = Building
@@ -513,6 +546,7 @@ class BuildingSerializer(
             "updated_at",
             "groups",
             "overall_progress",
+            "hidden_activities",
         ]
         read_only_fields = fields
 
@@ -788,6 +822,99 @@ class ReviewInputSerializer(serializers.Serializer):
     )
 
 
+class EditAccessRequestCreateSerializer(
+    serializers.Serializer
+):
+    reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class EditAccessDecisionSerializer(
+    serializers.Serializer
+):
+    remarks = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class ActivityEditAccessRequestSerializer(
+    serializers.ModelSerializer
+):
+    """
+    One Project Manager/Incharge's request to keep editing or hiding
+    a task past its 48-hour window - enough context (which task, on
+    which site/element) for an Admin/Director to decide it without
+    opening the sheet itself.
+    """
+
+    activity_name = serializers.CharField(
+        source="activity.name", read_only=True
+    )
+    activity_group_title = serializers.CharField(
+        source="activity.group_title",
+        read_only=True,
+    )
+    parent_label = serializers.SerializerMethodField()
+    site_id = serializers.SerializerMethodField()
+    site_name = serializers.SerializerMethodField()
+    requested_by_name = serializers.CharField(
+        source="created_by.full_name",
+        read_only=True,
+        default="",
+    )
+    decided_by_name = serializers.CharField(
+        source="decided_by.full_name",
+        read_only=True,
+        default="",
+    )
+
+    class Meta:
+        model = ActivityEditAccessRequest
+        fields = [
+            "id",
+            "activity",
+            "activity_name",
+            "activity_group_title",
+            "parent_label",
+            "site_id",
+            "site_name",
+            "reason",
+            "status",
+            "requested_by_name",
+            "created_at",
+            "decided_by_name",
+            "decided_at",
+            "decision_remarks",
+            "access_until",
+        ]
+        read_only_fields = fields
+
+    def get_parent_label(self, obj):
+        parent = obj.activity.parent
+        if parent is None:
+            return ""
+        for attr in ("name", "bridge_name", "label"):
+            value = getattr(parent, attr, None)
+            if value:
+                return value
+        return ""
+
+    def get_site_id(self, obj):
+        site = resolve_activity_site(obj.activity)
+        return str(site.id) if site else None
+
+    def get_site_name(self, obj):
+        site = resolve_activity_site(obj.activity)
+        if not site:
+            return ""
+        return site.project_name or site.site_name
+
+
 class RdsoSpanLibraryEntrySerializer(
     serializers.ModelSerializer
 ):
@@ -834,6 +961,9 @@ class GirderSpanSerializer(
     overall_progress = (
         serializers.SerializerMethodField()
     )
+    hidden_activities = (
+        serializers.SerializerMethodField()
+    )
 
     class Meta:
         model = GirderSpan
@@ -852,6 +982,7 @@ class GirderSpanSerializer(
             "row_order",
             "groups",
             "overall_progress",
+            "hidden_activities",
         ]
         read_only_fields = fields
 
@@ -871,6 +1002,9 @@ class GirderJobSerializer(
 
     groups = serializers.SerializerMethodField()
     overall_progress = (
+        serializers.SerializerMethodField()
+    )
+    hidden_activities = (
         serializers.SerializerMethodField()
     )
     spans = GirderSpanSerializer(
@@ -904,6 +1038,7 @@ class GirderJobSerializer(
             "groups",
             "spans",
             "overall_progress",
+            "hidden_activities",
         ]
         read_only_fields = fields
 
@@ -911,14 +1046,16 @@ class GirderJobSerializer(
         activities = [
             a
             for a in obj.activities.all()
-            if a.status
+            if not a.is_hidden
+            and a.status
             != ActivityStatus.NOT_APPLICABLE
         ]
         for span in obj.spans.all():
             activities += [
                 a
                 for a in span.activities.all()
-                if a.status
+                if not a.is_hidden
+                and a.status
                 != ActivityStatus.NOT_APPLICABLE
             ]
         done = sum(

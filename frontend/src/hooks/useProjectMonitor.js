@@ -440,6 +440,89 @@ export function useDeleteActivity(siteId) {
   });
 }
 
+export function useUnhideActivity(siteId) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (activityId) =>
+      projectMonitorService.unhideActivity(activityId),
+    onSuccess: () => {
+      invalidateStructures(queryClient, siteId);
+      invalidateBuildings(queryClient, siteId);
+      invalidateGirderJobs(queryClient, siteId);
+    },
+  });
+}
+
+// A bare prefix, not the keyed factory (which would need the exact
+// same `params` to match) - every list, whatever status it's
+// filtered to, shares this prefix, so one invalidation here catches
+// them all.
+const EDIT_ACCESS_REQUESTS_PREFIX = [
+  "project-monitor",
+  "edit-access-requests",
+];
+
+export function useCreateEditAccessRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ activityId, payload }) =>
+      projectMonitorService.createEditAccessRequest(
+        activityId,
+        payload,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: EDIT_ACCESS_REQUESTS_PREFIX,
+      });
+    },
+  });
+}
+
+export function useEditAccessRequests(params = {}) {
+  return useQuery({
+    queryKey:
+      queryKeys.projectMonitorEditAccessRequests(params),
+    queryFn: () =>
+      projectMonitorService.listEditAccessRequests(params),
+  });
+}
+
+export function useGrantEditAccessRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ requestId, payload }) =>
+      projectMonitorService.grantEditAccessRequest(
+        requestId,
+        payload,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: EDIT_ACCESS_REQUESTS_PREFIX,
+      });
+    },
+  });
+}
+
+export function useDenyEditAccessRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ requestId, payload }) =>
+      projectMonitorService.denyEditAccessRequest(
+        requestId,
+        payload,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: EDIT_ACCESS_REQUESTS_PREFIX,
+      });
+    },
+  });
+}
+
 export function useGirderJobs(siteId) {
   return useQuery({
     queryKey:

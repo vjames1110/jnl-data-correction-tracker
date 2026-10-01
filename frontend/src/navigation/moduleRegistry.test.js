@@ -393,6 +393,7 @@ describe("Project Management HO, departments and the Director's masters", () => 
     );
     expect(nav.map((entry) => entry.label)).toEqual([
       "Project Monitor",
+      "Edit Access Requests",
       "Structure Types",
       "RDSO Span Library",
       "Site Access",

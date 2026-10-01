@@ -30,6 +30,7 @@ import {
 
 import {
   isAdminRole,
+  projectMonitorEditAccessRequestsPath,
   projectMonitorHrPath,
   projectMonitorMachineryPath,
   projectMonitorOverviewPath,
@@ -243,6 +244,14 @@ function adminNav(moduleKey) {
           "master",
           "manage_project_monitor",
         ),
+        item(
+          "edit-access-requests",
+          "Edit Access Requests",
+          "/admin/project-monitor/edit-access-requests",
+          ShieldCheck,
+          "transaction",
+          "manage_project_monitor",
+        ),
       ];
     case MODULE_KEYS.ADMINISTRATION:
       return [
@@ -380,6 +389,13 @@ function directorNav(moduleKey) {
           projectMonitorSiteAccessPath(),
           KeyRound,
           "master",
+        ),
+        item(
+          "edit-access-requests",
+          "Edit Access Requests",
+          projectMonitorEditAccessRequestsPath(),
+          ShieldCheck,
+          "transaction",
         ),
       ];
     case MODULE_KEYS.ADMINISTRATION:

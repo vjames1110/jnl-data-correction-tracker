@@ -16,10 +16,12 @@ import {
   useAddBuildingActivity,
   useBuildings,
   useCreateBuilding,
+  useCreateEditAccessRequest,
   useDeleteActivity,
   useDeleteBuilding,
   useReviewActivity,
   useReviewBuilding,
+  useUnhideActivity,
   useUpdateActivity,
 } from "../../../hooks/useProjectMonitor";
 import { ActivityWorkspace } from "../components/ActivityWorkspace";
@@ -78,6 +80,10 @@ export function BuildingsPage() {
   const deleteActivity = useDeleteActivity(
     selectedSite,
   );
+  const unhideActivity = useUnhideActivity(
+    selectedSite,
+  );
+  const requestEditAccess = useCreateEditAccessRequest();
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -320,6 +326,29 @@ export function BuildingsPage() {
                         : undefined
                     }
                     deleteActivityStatus={deleteActivity}
+                    onUnhideActivity={
+                      canEdit
+                        ? (activityId, options) =>
+                            unhideActivity.mutate(
+                              activityId,
+                              options,
+                            )
+                        : undefined
+                    }
+                    unhideActivityStatus={unhideActivity}
+                    onRequestEditAccess={(
+                      activityId,
+                      payload,
+                      options,
+                    ) =>
+                      requestEditAccess.mutate(
+                        { activityId, payload },
+                        options,
+                      )
+                    }
+                    requestEditAccessStatus={
+                      requestEditAccess
+                    }
                   />
                 )}
                 onDelete={handleDelete}

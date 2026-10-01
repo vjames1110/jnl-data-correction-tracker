@@ -817,6 +817,48 @@ export const projectMonitorService = {
     );
   },
 
+  async unhideActivity(activityId) {
+    await apiClient.post(
+      `/project-monitor/activities/${activityId}/unhide/`,
+    );
+  },
+
+  async createEditAccessRequest(activityId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/activities/${activityId}/edit-access-requests/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async listEditAccessRequests(params = {}) {
+    const response = await apiClient.get(
+      "/project-monitor/edit-access-requests/",
+      { params },
+    );
+
+    return response.data.data;
+  },
+
+  async grantEditAccessRequest(requestId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/edit-access-requests/${requestId}/grant/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
+  async denyEditAccessRequest(requestId, payload) {
+    const response = await apiClient.post(
+      `/project-monitor/edit-access-requests/${requestId}/deny/`,
+      payload,
+    );
+
+    return response.data.data;
+  },
+
   async listGirderJobs(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/girder-jobs/",

@@ -19,6 +19,8 @@ from apps.organization.models import Site
 from apps.project_monitor.api.common import as_drf_validation
 from apps.project_monitor.services import project_scope
 from apps.project_monitor.services.notifications import (
+    notify_edit_access_decided,
+    notify_edit_access_requested,
     resolve_activity_site,
     resolve_activity_task,
 )
@@ -26,18 +28,22 @@ from apps.project_monitor.api.permissions import (
     HasProjectMonitorMasterAccess,
     HasProjectMonitorPortalAccess,
     HasProjectMonitorReportingAccess,
+    IsProjectMonitorAdmin,
 )
 from apps.project_monitor.api.serializers import (
     ActionItemCreateSerializer,
     CustomActivityCreateSerializer,
     ActionItemSerializer,
     ActionItemUpdateSerializer,
+    ActivityEditAccessRequestSerializer,
     ActivitySerializer,
     ActivityUpdateSerializer,
     BuildingCreateSerializer,
     BuildingSerializer,
     ChainageSegmentCreateSerializer,
     ChainageSegmentSerializer,
+    EditAccessDecisionSerializer,
+    EditAccessRequestCreateSerializer,
     GirderJobCreateSerializer,
     GirderJobSerializer,
     GirderSpanSerializer,
@@ -65,6 +71,7 @@ from apps.project_monitor.api.serializers import (
 from apps.project_monitor.models import (
     ActionItem,
     Activity,
+    ActivityEditAccessRequest,
     ActivityStatus,
     Building,
     ChainageSegment,
@@ -87,7 +94,14 @@ from apps.project_monitor.services.activity_engine import (
     add_custom_activity,
     apply_material_status_update,
     apply_update,
-    delete_custom_activity,
+    hide_activity,
+    unhide_activity,
+)
+from apps.project_monitor.services.edit_access import (
+    deny_edit_access,
+    ensure_can_edit_activity,
+    grant_edit_access,
+    request_edit_access,
 )
 from apps.project_monitor.services.building_generator import (
     create_building,
@@ -2401,6 +2415,9 @@ class ActivityUpdateAPIView(APIView):
             resolve_activity_task(activity),
             write=True,
         )
+        ensure_can_edit_activity(
+            request.user, activity
+        )
 
         serializer = ActivityUpdateSerializer(
             data=request.data
@@ -2463,9 +2480,11 @@ class ActivityUpdateAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         """
-        Remove a hand-added activity (``is_custom``) - a generated
-        row can never be deleted this way, only marked Not Applicable
-        through Edit, same as always.
+        Hide this row from its sheet - a soft delete. Its history is
+        kept and it can be shown again later (see
+        ``ActivityUnhideAPIView``); the structure type's own
+        template, and every other structure/building using it, are
+        never touched.
         """
         activity = self._get_activity(pk)
         _authorize_site(
@@ -2474,11 +2493,213 @@ class ActivityUpdateAPIView(APIView):
             resolve_activity_task(activity),
             write=True,
         )
-        delete_custom_activity(activity)
+        ensure_can_edit_activity(
+            request.user, activity
+        )
+        hide_activity(activity)
         return success_response(
-            message="Activity deleted successfully.",
+            message="Activity hidden successfully.",
             data=None,
         )
+
+
+class ActivityUnhideAPIView(APIView):
+    """
+    Undo ``ActivityUpdateAPIView.delete`` - shows a hidden row again
+    on its sheet.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            activity = Activity.objects.get(pk=pk)
+        except (
+            Activity.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Activity not found."
+            ) from exc
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=True,
+        )
+        ensure_can_edit_activity(
+            request.user, activity
+        )
+        unhide_activity(activity)
+        return success_response(
+            message="Activity restored successfully.",
+            data=None,
+        )
+
+
+class EditAccessRequestCreateAPIView(APIView):
+    """
+    A Project Manager/Incharge's own request to keep editing or
+    hiding one task past its 48-hour window - the recovery path for
+    the ``EditWindowExpired`` error ``ActivityUpdateAPIView``/
+    ``ActivityUnhideAPIView`` raise once that window has closed.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            activity = Activity.objects.get(pk=pk)
+        except (
+            Activity.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Activity not found."
+            ) from exc
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=True,
+        )
+
+        serializer = EditAccessRequestCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        edit_request = request_edit_access(
+            activity=activity,
+            actor=request.user,
+            reason=serializer.validated_data["reason"],
+        )
+        notify_edit_access_requested(
+            edit_request=edit_request,
+            actor=request.user,
+        )
+
+        return success_response(
+            message="Edit access request sent.",
+            data=ActivityEditAccessRequestSerializer(
+                edit_request
+            ).data,
+        )
+
+
+class EditAccessRequestListAPIView(APIView):
+    """
+    Every edit-access request, for the Admin/Director "request
+    section" - pending ones first (oldest first, so the queue clears
+    in order), then the rest, newest first. ``?status=PENDING`` narrows
+    to just one status.
+    """
+
+    permission_classes = [IsProjectMonitorAdmin]
+
+    def get(self, request, *args, **kwargs):
+        queryset = (
+            ActivityEditAccessRequest.objects.select_related(
+                "activity",
+                "created_by",
+                "decided_by",
+            )
+        )
+        status_filter = request.query_params.get(
+            "status"
+        )
+        if status_filter:
+            queryset = queryset.filter(
+                status=status_filter.upper()
+            )
+        else:
+            queryset = queryset.order_by(
+                "status", "created_at"
+            )
+
+        return success_response(
+            message="Edit access requests loaded.",
+            data=ActivityEditAccessRequestSerializer(
+                queryset, many=True
+            ).data,
+        )
+
+
+class EditAccessRequestGrantAPIView(APIView):
+    permission_classes = [IsProjectMonitorAdmin]
+
+    def post(self, request, pk, *args, **kwargs):
+        edit_request = _get_edit_access_request(pk)
+        serializer = EditAccessDecisionSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        grant_edit_access(
+            edit_request,
+            actor=request.user,
+            remarks=serializer.validated_data["remarks"],
+        )
+        notify_edit_access_decided(
+            edit_request=edit_request,
+            actor=request.user,
+        )
+
+        return success_response(
+            message="Edit access granted for 48 more hours.",
+            data=ActivityEditAccessRequestSerializer(
+                edit_request
+            ).data,
+        )
+
+
+class EditAccessRequestDenyAPIView(APIView):
+    permission_classes = [IsProjectMonitorAdmin]
+
+    def post(self, request, pk, *args, **kwargs):
+        edit_request = _get_edit_access_request(pk)
+        serializer = EditAccessDecisionSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        deny_edit_access(
+            edit_request,
+            actor=request.user,
+            remarks=serializer.validated_data["remarks"],
+        )
+        notify_edit_access_decided(
+            edit_request=edit_request,
+            actor=request.user,
+        )
+
+        return success_response(
+            message="Edit access request denied.",
+            data=ActivityEditAccessRequestSerializer(
+                edit_request
+            ).data,
+        )
+
+
+def _get_edit_access_request(pk):
+    try:
+        return ActivityEditAccessRequest.objects.select_related(
+            "activity", "created_by"
+        ).get(pk=pk)
+    except (
+        ActivityEditAccessRequest.DoesNotExist,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise NotFound(
+            "Edit access request not found."
+        ) from exc
 
 
 class ActivityReviewAPIView(APIView):

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { formatDate } from "../utils/status";
+import { formatDateTime } from "../utils/status";
 import { ActivityPopup } from "./ActivityPopup";
 import { ActivityTimeline } from "./ActivityTimeline";
 
@@ -74,7 +74,7 @@ export function ActivityRowTools({
         aria-expanded={openTool === "review"}
         aria-label={
           isReviewed
-            ? `Reviewed by ${activity.reviewed_by_name || "someone"} on ${formatDate(activity.reviewed_at)}`
+            ? `Reviewed by ${activity.reviewed_by_name || "someone"} on ${formatDateTime(activity.reviewed_at)}`
             : `Mark ${activity.name} as reviewed`
         }
         title={
@@ -132,7 +132,7 @@ export function ReviewBody({
         <p className="pm-review-block__status">
           <CheckCircle2 size={13} />
           Reviewed by {activity.reviewed_by_name || "someone"} on{" "}
-          {formatDate(activity.reviewed_at)}
+          {formatDateTime(activity.reviewed_at)}
           {activity.review_remarks
             ? ` - "${activity.review_remarks}"`
             : ""}

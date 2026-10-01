@@ -190,6 +190,11 @@ export function ActivityMatrix({
   addActivityStatus,
   onDeleteActivity,
   deleteActivityStatus,
+  hiddenActivities,
+  onUnhideActivity,
+  unhideActivityStatus,
+  onRequestEditAccess,
+  requestEditAccessStatus,
 }) {
   // Where the last click landed, so the popup can line up with it.
   const [clickX, setClickX] = useState(undefined);
@@ -322,6 +327,19 @@ export function ActivityMatrix({
                 : undefined
             }
             deleteStatus={deleteActivityStatus}
+            onRequestEditAccess={
+              onRequestEditAccess
+                ? (activityId, payload, options) =>
+                    onRequestEditAccess(
+                      activityId,
+                      payload,
+                      options,
+                    )
+                : undefined
+            }
+            requestEditAccessStatus={
+              requestEditAccessStatus
+            }
           />
         </ActivityPopup>
       ) : null}
@@ -346,6 +364,9 @@ export function ActivityMatrix({
             }
             onDeleteActivity={onDeleteActivity}
             deleteActivityStatus={deleteActivityStatus}
+            hiddenActivities={hiddenActivities}
+            onUnhideActivity={onUnhideActivity}
+            unhideActivityStatus={unhideActivityStatus}
           />
         </ActivityPopup>
       ) : null}

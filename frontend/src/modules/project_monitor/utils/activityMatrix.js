@@ -27,8 +27,29 @@ import {
 const groupKey = (group) =>
   `${group.group_order}-${group.group_title}`;
 
+/**
+ * A hand-added activity (``is_custom``) exists on exactly one element
+ * (one pier, one span) - never on every element of a repeated group
+ * the way a template row does. Both layouts below (the per-element
+ * stack, the per-span pivot) decide their *shape* - which columns
+ * exist, whether several groups merge into one table - from the
+ * template rows alone, then slot any custom rows in afterwards as
+ * extra columns scoped to the one line they belong to. Deciding shape
+ * from the full row list (the previous behaviour) meant adding one
+ * custom row to a single pier changed that pier's row-name
+ * "signature" just enough to stop it matching its sibling piers -
+ * splitting one "Piers" table into several different ones mid-session,
+ * and for a per-span sheet, a custom row with an unexpected name could
+ * abort the pivot for the whole span-wise table. Neither can happen
+ * once the shape depends only on the template.
+ */
+const isTemplateRow = (row) => !row.is_custom;
+
 function pivotBlock(group) {
-  const parts = group.rows.map((row) => clusterParts(row.name));
+  const templateRows = group.rows.filter(isTemplateRow);
+  const customRows = group.rows.filter((row) => row.is_custom);
+
+  const parts = templateRows.map((row) => clusterParts(row.name));
   if (!parts.length || parts.some((part) => !part)) {
     return null;
   }
@@ -44,8 +65,7 @@ function pivotBlock(group) {
   const seen = new Map();
   const lines = new Map(labels.map((label) => [label, new Map()]));
 
-  group.rows.forEach((row, index) => {
-    const { label, rest } = parts[index];
+  const place = (row, label, rest) => {
     const count = (seen.get(`${label}|${rest}`) ?? 0) + 1;
     seen.set(`${label}|${rest}`, count);
     const key = `${rest}#${count}`;
@@ -54,6 +74,26 @@ function pivotBlock(group) {
       columns.push({ key, label: rest });
     }
     lines.get(label).set(key, row);
+  };
+
+  templateRows.forEach((row, index) => {
+    const { label, rest } = parts[index];
+    place(row, label, rest);
+  });
+
+  // A custom row named like its span's own rows ("S2 - Extra check")
+  // slots in as one more column, present only on that span; one that
+  // doesn't name a span already in this pivot can't be placed in the
+  // grid at all, so it is kept aside instead of being dropped or
+  // breaking the table (see ``overflowRows``).
+  const overflowRows = [];
+  customRows.forEach((row) => {
+    const part = clusterParts(row.name);
+    if (!part || !lines.has(part.label)) {
+      overflowRows.push(row);
+      return;
+    }
+    place(row, part.label, part.rest);
   });
 
   return {
@@ -68,25 +108,41 @@ function pivotBlock(group) {
         (column) => lines.get(label).get(column.key) ?? null,
       ),
     })),
+    overflowRows,
   };
 }
 
 function lineBlock(group) {
-  const columns = group.rows.map((row) => ({
+  const templateRows = group.rows.filter(isTemplateRow);
+  const customRows = group.rows.filter((row) => row.is_custom);
+  const templateColumns = templateRows.map((row) => ({
     key: row.id,
     label: row.name,
+  }));
+  const customColumns = customRows.map((row) => ({
+    key: row.id,
+    label: row.name,
+    custom: true,
   }));
   return {
     type: "line",
     group,
-    columns,
-    signature: columns.map((column) => column.label).join("\u0001"),
+    // Only a group with at least one template row can ever stack with
+    // another - an all-custom group (see ``overflowRows`` above) has
+    // nothing to match a sibling's signature against and must stand
+    // alone, so its signature is never reused.
+    signature: templateColumns.length
+      ? templateColumns.map((column) => column.label).join("\u0001")
+      : null,
+    templateColumns,
+    customColumns,
     lines: [
       {
         key: groupKey(group),
         label: group.group_title,
         sublabel: group.group_subtitle || "",
-        cells: group.rows,
+        templateCells: templateRows,
+        customCells: customRows,
       },
     ],
   };
@@ -131,15 +187,36 @@ function toTable(block) {
       lines: block.lines,
     };
   }
+  // Every merged line shares the template columns, in the same order,
+  // by construction (only lines with an identical template signature
+  // are ever merged - see ``mergeStacks``); a custom column, though,
+  // belongs to whichever one line added it, so every other line gets
+  // ``null`` there rather than a cell that was never generated for it.
+  const columns = [
+    ...block.templateColumns,
+    ...block.customColumns,
+  ];
+  const lines = block.lines.map((line) => ({
+    key: line.key,
+    label: line.label,
+    sublabel: line.sublabel,
+    cells: [
+      ...line.templateCells,
+      ...block.customColumns.map(
+        (column) =>
+          line.customCells.find(
+            (row) => row.name === column.label,
+          ) ?? null,
+      ),
+    ],
+  }));
   return {
-    key: block.lines[0].key,
+    key: lines[0].key,
     title:
-      block.lines.length > 1
-        ? stackTitle(block.lines)
-        : block.lines[0].label,
+      lines.length > 1 ? stackTitle(lines) : lines[0].label,
     subcaption: "",
-    columns: block.columns,
-    lines: block.lines,
+    columns,
+    lines,
   };
 }
 
@@ -150,14 +227,28 @@ function mergeStacks(blocks) {
     if (
       block.type === "line" &&
       last?.type === "line" &&
+      last.signature !== null &&
       last.signature === block.signature
     ) {
       last.lines.push(...block.lines);
+      block.customColumns.forEach((column) => {
+        if (
+          !last.customColumns.some(
+            (existing) => existing.label === column.label,
+          )
+        ) {
+          last.customColumns.push(column);
+        }
+      });
       return;
     }
     merged.push(
       block.type === "line"
-        ? { ...block, lines: [...block.lines] }
+        ? {
+            ...block,
+            lines: [...block.lines],
+            customColumns: [...block.customColumns],
+          }
         : block,
     );
   });
@@ -166,11 +257,32 @@ function mergeStacks(blocks) {
 
 /** The matrices for one sheet (see the file comment). */
 export function buildMatrix(groups) {
-  return mergeStacks(
-    (groups ?? [])
-      .filter((group) => group.rows?.length)
-      .map((group) => pivotBlock(group) ?? lineBlock(group)),
-  ).map(toTable);
+  const blocks = [];
+  (groups ?? [])
+    .filter((group) => group.rows?.length)
+    .forEach((group) => {
+      const pivot = pivotBlock(group);
+      if (!pivot) {
+        blocks.push(lineBlock(group));
+        return;
+      }
+      blocks.push(pivot);
+      // A custom row that couldn't be placed in the per-span grid (see
+      // ``pivotBlock``) still needs to show up somewhere - as its own
+      // small table right after the one it was added to, rather than
+      // being silently dropped or forced into the grid where it
+      // doesn't belong.
+      if (pivot.overflowRows.length) {
+        blocks.push(
+          lineBlock({
+            ...group,
+            group_title: `${group.group_title} - other activities`,
+            rows: pivot.overflowRows,
+          }),
+        );
+      }
+    });
+  return mergeStacks(blocks).map(toTable);
 }
 
 /**

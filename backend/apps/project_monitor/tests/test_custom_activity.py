@@ -361,8 +361,17 @@ class TestAddingACustomActivity:
 
 
 @pytest.mark.django_db
-class TestDeletingACustomActivity:
-    def test_a_custom_activity_can_be_deleted(
+class TestHidingAnActivity:
+    """
+    "Delete" on any activity row is a soft delete: it hides the row
+    from this one sheet (kept, with its full history, and can be
+    shown again) rather than removing it - a hand-added row and a
+    generated row behave identically, since a site may need a
+    different subset of the same structure type's activities
+    visible than another site does.
+    """
+
+    def test_a_custom_activity_can_be_hidden(
         self, api, site, minor_structure
     ):
         api.force_authenticate(user=ProjectManagerUserFactory())
@@ -382,9 +391,21 @@ class TestDeletingACustomActivity:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert not Activity.objects.filter(pk=activity_id).exists()
+        activity = Activity.objects.get(pk=activity_id)
+        assert activity.is_hidden is True
 
-    def test_a_generated_activity_cannot_be_deleted(
+        refetched = api.get(
+            f"{url('structure-detail', minor_structure.id)}?site={site.id}"
+        )
+        assert all(
+            r["name"] != "Extra check"
+            for r in rows_of(refetched, "Box structure")
+        )
+        assert {
+            h["id"] for h in refetched.data["data"]["hidden_activities"]
+        } == {str(activity_id)}
+
+    def test_a_generated_activity_can_also_be_hidden(
         self, api, site, minor_structure
     ):
         api.force_authenticate(user=ProjectManagerUserFactory())
@@ -396,10 +417,60 @@ class TestDeletingACustomActivity:
             f"{url('activity-update', generated.id)}?site={site.id}"
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_200_OK
+        generated.refresh_from_db()
+        assert generated.is_hidden is True
         assert Activity.objects.filter(pk=generated.id).exists()
 
-    def test_a_custom_activity_on_a_girder_span_can_be_deleted(
+    def test_a_hidden_activity_can_be_shown_again(
+        self, api, site, minor_structure
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        generated = Activity.objects.get(
+            object_id=minor_structure.id, name="Box raft"
+        )
+        api.delete(
+            f"{url('activity-update', generated.id)}?site={site.id}"
+        )
+
+        response = api.post(
+            f"{url('activity-unhide', generated.id)}?site={site.id}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        generated.refresh_from_db()
+        assert generated.is_hidden is False
+
+        refetched = api.get(
+            f"{url('structure-detail', minor_structure.id)}?site={site.id}"
+        )
+        assert any(
+            r["name"] == "Box raft"
+            for r in rows_of(refetched, "Box structure")
+        )
+        assert refetched.data["data"]["hidden_activities"] == []
+
+    def test_a_hidden_activity_drops_out_of_overall_progress(
+        self, api, site, minor_structure
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        before = api.get(
+            f"{url('structure-detail', minor_structure.id)}?site={site.id}"
+        ).data["data"]["overall_progress"]["total"]
+        generated = Activity.objects.get(
+            object_id=minor_structure.id, name="Box raft"
+        )
+
+        api.delete(
+            f"{url('activity-update', generated.id)}?site={site.id}"
+        )
+
+        after = api.get(
+            f"{url('structure-detail', minor_structure.id)}?site={site.id}"
+        ).data["data"]["overall_progress"]["total"]
+        assert after == before - 1
+
+    def test_a_custom_activity_on_a_girder_span_can_be_hidden(
         self, api, site, girder_job
     ):
         api.force_authenticate(user=ProjectManagerUserFactory())
@@ -419,7 +490,8 @@ class TestDeletingACustomActivity:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert not Activity.objects.filter(pk=activity_id).exists()
+        activity = Activity.objects.get(pk=activity_id)
+        assert activity.is_hidden is True
 
 
 @pytest.mark.django_db

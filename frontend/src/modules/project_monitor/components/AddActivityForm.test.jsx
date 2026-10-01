@@ -335,7 +335,7 @@ describe("AddActivityForm", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "Remove Anti-carbonation coating",
+          name: "Hide Anti-carbonation coating",
         }),
       );
 
@@ -367,11 +367,93 @@ describe("AddActivityForm", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "Remove Anti-carbonation coating",
+          name: "Hide Anti-carbonation coating",
         }),
       );
 
       expect(onDeleteActivity).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("hidden activities", () => {
+    const HIDDEN = [
+      { id: "hidden-1", name: "Old check", group_title: "Box Structure" },
+    ];
+
+    it("shows no hidden-activities list when nothing is hidden", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onUnhideActivity={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByText("Hidden activities on this sheet"),
+      ).toBeNull();
+    });
+
+    it("lists a hidden activity with its section", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS}
+          hiddenActivities={HIDDEN}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onUnhideActivity={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText("Hidden activities on this sheet"),
+      ).toBeInTheDocument();
+      const item = screen.getByText("Old check").closest("li");
+      expect(within(item).getByText(/Box Structure/)).toBeInTheDocument();
+    });
+
+    it("does not show the list without an unhide handler", () => {
+      render(
+        <AddActivityForm
+          groups={GROUPS}
+          hiddenActivities={HIDDEN}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByText("Hidden activities on this sheet"),
+      ).toBeNull();
+    });
+
+    it("shows the activity again on click, no confirmation needed", () => {
+      const onUnhideActivity = vi.fn();
+      render(
+        <AddActivityForm
+          groups={GROUPS}
+          hiddenActivities={HIDDEN}
+          defaultGroupTitle="Approvals"
+          onAdd={vi.fn()}
+          onClose={vi.fn()}
+          onUnhideActivity={onUnhideActivity}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show Old check again" }),
+      );
+
+      expect(onUnhideActivity).toHaveBeenCalledWith(
+        "hidden-1",
+        expect.objectContaining({
+          onSettled: expect.any(Function),
+        }),
+      );
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Trash2, X } from "lucide-react";
+import { Eye, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 /**
@@ -8,13 +8,18 @@ import { useState } from "react";
  * ``CustomActivityCreateSerializer`` on the backend field for field.
  *
  * Also lists every hand-added activity already on this sheet (across
- * every section, not just the one being added to) with its own Remove
+ * every section, not just the one being added to) with its own Hide
  * button right here - the same place you'd come to add one, rather
  * than having to find and reopen a custom row's own update popup just
- * to remove it.
+ * to hide it. Any row (hand-added or generated) can also be hidden
+ * from its own update popup - hiding never deletes it, so a second
+ * section below lists whatever is currently hidden on this sheet with
+ * a Show-again button, since a hidden row no longer appears in the
+ * sections above to be reopened that way.
  */
 export function AddActivityForm({
   groups,
+  hiddenActivities,
   defaultGroupTitle,
   onAdd,
   onClose,
@@ -22,6 +27,8 @@ export function AddActivityForm({
   error,
   onDeleteActivity,
   deleteActivityStatus,
+  onUnhideActivity,
+  unhideActivityStatus,
 }) {
   const sections = uniqueSections(groups);
   const [groupTitle, setGroupTitle] = useState(
@@ -37,6 +44,8 @@ export function AddActivityForm({
   const [relativeId, setRelativeId] = useState("");
   const [pendingDeleteId, setPendingDeleteId] =
     useState(null);
+  const [pendingUnhideId, setPendingUnhideId] =
+    useState(null);
 
   const customActivities = groups.flatMap((group) =>
     group.rows
@@ -50,7 +59,7 @@ export function AddActivityForm({
   const handleDelete = (activity) => {
     if (
       !window.confirm(
-        `Remove "${activity.name}"? This was added by hand and can't be undone.`,
+        `Hide "${activity.name}" from this sheet? Its history is kept, and it can be shown again below.`,
       )
     ) {
       return;
@@ -58,6 +67,13 @@ export function AddActivityForm({
     setPendingDeleteId(activity.id);
     onDeleteActivity(activity.id, {
       onSettled: () => setPendingDeleteId(null),
+    });
+  };
+
+  const handleUnhide = (activity) => {
+    setPendingUnhideId(activity.id);
+    onUnhideActivity(activity.id, {
+      onSettled: () => setPendingUnhideId(null),
     });
   };
 
@@ -119,8 +135,8 @@ export function AddActivityForm({
                 <button
                   type="button"
                   className="icon-button icon-button--danger"
-                  aria-label={`Remove ${activity.name}`}
-                  title="Remove this activity"
+                  aria-label={`Hide ${activity.name}`}
+                  title="Hide this activity"
                   disabled={
                     pendingDeleteId === activity.id &&
                     deleteActivityStatus?.isPending
@@ -136,6 +152,46 @@ export function AddActivityForm({
           deleteActivityStatus?.isError ? (
             <div className="inline-alert inline-alert--error">
               {deleteActivityStatus.error.message}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {hiddenActivities?.length && onUnhideActivity ? (
+        <div className="pm-add-activity__existing">
+          <span className="pm-add-activity__existing-label">
+            Hidden activities on this sheet
+          </span>
+          <ul className="pm-add-activity__existing-list">
+            {hiddenActivities.map((activity) => (
+              <li key={activity.id}>
+                <span>
+                  {activity.name}
+                  <span className="sub">
+                    {" "}
+                    &middot; {activity.group_title}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`Show ${activity.name} again`}
+                  title="Show this activity again"
+                  disabled={
+                    pendingUnhideId === activity.id &&
+                    unhideActivityStatus?.isPending
+                  }
+                  onClick={() => handleUnhide(activity)}
+                >
+                  <Eye size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {pendingUnhideId &&
+          unhideActivityStatus?.isError ? (
+            <div className="inline-alert inline-alert--error">
+              {unhideActivityStatus.error.message}
             </div>
           ) : null}
         </div>

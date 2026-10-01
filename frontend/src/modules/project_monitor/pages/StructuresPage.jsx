@@ -14,6 +14,7 @@ import {
 } from "../../../hooks/useProjectMonitor";
 import {
   useAddStructureActivity,
+  useCreateEditAccessRequest,
   useCreateStructure,
   useDeleteActivity,
   useDeleteStructure,
@@ -21,6 +22,7 @@ import {
   useReviewStructure,
   useStructures,
   useStructureTypes,
+  useUnhideActivity,
   useUpdateActivity,
   useUpdateStructure,
 } from "../../../hooks/useProjectMonitor";
@@ -85,6 +87,10 @@ export function StructuresPage() {
   const deleteActivity = useDeleteActivity(
     selectedSite,
   );
+  const unhideActivity = useUnhideActivity(
+    selectedSite,
+  );
+  const requestEditAccess = useCreateEditAccessRequest();
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -368,6 +374,29 @@ export function StructuresPage() {
                         : undefined
                     }
                     deleteActivityStatus={deleteActivity}
+                    onUnhideActivity={
+                      canEdit
+                        ? (activityId, options) =>
+                            unhideActivity.mutate(
+                              activityId,
+                              options,
+                            )
+                        : undefined
+                    }
+                    unhideActivityStatus={unhideActivity}
+                    onRequestEditAccess={(
+                      activityId,
+                      payload,
+                      options,
+                    ) =>
+                      requestEditAccess.mutate(
+                        { activityId, payload },
+                        options,
+                      )
+                    }
+                    requestEditAccessStatus={
+                      requestEditAccess
+                    }
                   />
                 )}
                 onEdit={(structure) => {

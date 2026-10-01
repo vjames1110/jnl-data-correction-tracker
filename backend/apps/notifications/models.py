@@ -88,6 +88,14 @@ class NotificationEventType(models.TextChoices):
         "PROJECT_MONITOR_ACTIVITY_REVIEWED",
         "Project Activity Reviewed",
     )
+    PROJECT_MONITOR_EDIT_ACCESS_REQUESTED = (
+        "PROJECT_MONITOR_EDIT_ACCESS_REQUESTED",
+        "Project Edit Access Requested",
+    )
+    PROJECT_MONITOR_EDIT_ACCESS_DECIDED = (
+        "PROJECT_MONITOR_EDIT_ACCESS_DECIDED",
+        "Project Edit Access Decided",
+    )
 
 
 class NotificationSeverity(models.TextChoices):

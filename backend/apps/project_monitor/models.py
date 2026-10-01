@@ -229,6 +229,18 @@ class Activity(
             "config is later regenerated."
         ),
     )
+    is_hidden = models.BooleanField(
+        default=False,
+        help_text=(
+            "Hidden from this one sheet's UI - its history is "
+            "kept and it can be shown again later. Hiding a "
+            "generated row here never touches the structure "
+            "type's own template or any other structure/building "
+            "using it, since different sites often need a "
+            "different subset of the same type's activities "
+            "visible."
+        ),
+    )
 
     class Meta:
         db_table = "project_monitor_activity"
@@ -1002,6 +1014,76 @@ class ActivityComment(
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class EditAccessRequestStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    GRANTED = "GRANTED", "Granted"
+    DENIED = "DENIED", "Denied"
+
+
+class ActivityEditAccessRequest(
+    UUIDPrimaryKeyModel,
+    TimeStampedModel,
+    UserTrackingModel,
+):
+    """
+    A Project Manager/Incharge's request to keep editing or hiding one
+    task past the rolling 48-hour window ``services.edit_access``
+    otherwise enforces on them once an Admin/Director has acted on it
+    (Director and above never need this - see ``ADMIN_ROLES`` in
+    ``services.project_scope``). ``created_by`` (from
+    ``UserTrackingModel``) is the requester; a grant is good for
+    exactly one more 48-hour window, counted from the moment it is
+    granted, not from the original entry.
+    """
+
+    activity = models.ForeignKey(
+        Activity,
+        on_delete=models.CASCADE,
+        related_name="edit_access_requests",
+    )
+    reason = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=EditAccessRequestStatus.choices,
+        default=EditAccessRequestStatus.PENDING,
+        db_index=True,
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    decided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    decision_remarks = models.TextField(blank=True)
+    access_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Set when granted - the requester may edit or hide "
+            "this one activity until this moment, regardless of "
+            "how long ago it was last touched."
+        ),
+    )
+
+    class Meta:
+        db_table = (
+            "project_monitor_activity_edit_access_request"
+        )
+        ordering = ["-created_at"]
+        verbose_name = "Activity Edit Access Request"
+        verbose_name_plural = (
+            "Activity Edit Access Requests"
+        )
+
+    def __str__(self) -> str:
+        return f"{self.activity_id} - {self.status}"
 
 
 class ChainageSegment(

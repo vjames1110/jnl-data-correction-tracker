@@ -341,11 +341,25 @@ def add_custom_activity(
     )
 
 
-def delete_custom_activity(activity: Activity) -> None:
-    if not activity.is_custom:
-        raise ValidationError(
-            "Only a hand-added activity can be deleted - a "
-            "generated row is marked Not Applicable instead, "
-            "through Edit."
-        )
-    activity.delete()
+def hide_activity(activity: Activity) -> None:
+    """
+    Hide this row from its sheet without deleting it - its full
+    date/comment history and review sign-off are kept exactly as
+    they are, and it can be shown again later via
+    ``unhide_activity``. Works on any row, not just a hand-added
+    one: two sites sharing the same structure type often need a
+    different subset of its activities visible, and hiding a
+    generated row here never touches the structure type's own
+    template, nor any other structure/building using it.
+    """
+    if activity.is_hidden:
+        return
+    activity.is_hidden = True
+    activity.save(update_fields=["is_hidden"])
+
+
+def unhide_activity(activity: Activity) -> None:
+    if not activity.is_hidden:
+        return
+    activity.is_hidden = False
+    activity.save(update_fields=["is_hidden"])

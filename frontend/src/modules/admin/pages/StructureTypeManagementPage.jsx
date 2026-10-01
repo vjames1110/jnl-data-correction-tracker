@@ -19,11 +19,17 @@ import {
 import {
   ConfigSchemaBuilder,
   GroupTemplatesBuilder,
+  GroupTemplatesOutline,
 } from "../components/StructureTypeSchemaBuilder";
-import {
-  ManagementPanel,
-  StatusChip,
-} from "../components/OrganizationControls";
+import { StatusChip } from "../components/OrganizationControls";
+import { SlideDownForm } from "../../project_monitor/components/SlideDownForm";
+import { WorkspaceSwitch } from "../../project_monitor/components/WorkspaceSwitch";
+
+const FORM_SECTIONS = [
+  { key: "fields", label: "Input fields" },
+  { key: "preview", label: "Preview" },
+  { key: "groups", label: "Activity groups" },
+];
 
 const BLANK_FORM = {
   code: "",
@@ -82,6 +88,7 @@ function StructureTypeForm({
   const [form, setForm] = useState(
     initial || BLANK_FORM,
   );
+  const [section, setSection] = useState("fields");
 
   const setField = (key, value) =>
     setForm((current) => ({
@@ -256,37 +263,61 @@ function StructureTypeForm({
         ) : null}
       </div>
 
-      <h3 style={{ marginTop: 20 }}>
-        Input fields
-      </h3>
-      <p className="sub">
-        What the "Add a structure" form
-        should ask for.
-      </p>
-      <ConfigSchemaBuilder
-        fields={form.config_schema}
-        onChange={(fields) =>
-          setField("config_schema", fields)
-        }
-      />
+      <div style={{ marginTop: 20 }}>
+        <WorkspaceSwitch
+          label="Structure type section"
+          value={section}
+          onChange={setSection}
+          options={FORM_SECTIONS}
+        />
+      </div>
 
-      <h3 style={{ marginTop: 20 }}>
-        Activity groups
-      </h3>
-      <p className="sub">
-        How those inputs turn into the
-        activity sheet.
-      </p>
-      <GroupTemplatesBuilder
-        groups={form.group_templates}
-        configSchema={form.config_schema}
-        onChange={(groups) =>
-          setField(
-            "group_templates",
-            groups,
-          )
-        }
-      />
+      {section === "fields" ? (
+        <>
+          <p className="sub">
+            What the "Add a structure" form
+            should ask for.
+          </p>
+          <ConfigSchemaBuilder
+            fields={form.config_schema}
+            onChange={(fields) =>
+              setField("config_schema", fields)
+            }
+          />
+        </>
+      ) : null}
+
+      {section === "preview" ? (
+        <>
+          <p className="sub">
+            What this sheet will contain, read
+            straight off the activity groups
+            below.
+          </p>
+          <GroupTemplatesOutline
+            groups={form.group_templates}
+          />
+        </>
+      ) : null}
+
+      {section === "groups" ? (
+        <>
+          <p className="sub">
+            How those inputs turn into the
+            activity sheet.
+          </p>
+          <GroupTemplatesBuilder
+            groups={form.group_templates}
+            configSchema={form.config_schema}
+            onChange={(groups) =>
+              setField(
+                "group_templates",
+                groups,
+              )
+            }
+          />
+        </>
+      ) : null}
 
       <div className="management-panel__actions">
         <button
@@ -425,7 +456,7 @@ export function StructureTypeManagementPage() {
       </div>
 
       {isFormOpen ? (
-        <ManagementPanel
+        <SlideDownForm
           eyebrow="Structure Types"
           title={
             editing
@@ -443,7 +474,7 @@ export function StructureTypeManagementPage() {
                 ? toFormState(editing)
                 : null
             }
-            copyFrom={types}
+            copyFrom={editing ? [] : types}
             onSubmit={handleSubmit}
             onCancel={() => {
               setIsFormOpen(false);
@@ -455,7 +486,7 @@ export function StructureTypeManagementPage() {
             }
             error={formError}
           />
-        </ManagementPanel>
+        </SlideDownForm>
       ) : null}
 
       {typesQuery.isLoading ? (

@@ -5,6 +5,7 @@ from apps.project_monitor.models import (
     Activity,
     ActivityComment,
     ActivityDateEntry,
+    ActivityEditAccessRequest,
     Building,
     ChainageSegment,
     ConcreteProduction,
@@ -350,6 +351,27 @@ class CostingBoqItemAdmin(admin.ModelAdmin):
 class DprDayUnlockAdmin(admin.ModelAdmin):
     list_display = ["site", "date", "reason", "created_by"]
     list_filter = ["site"]
+
+
+@admin.register(ActivityEditAccessRequest)
+class ActivityEditAccessRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        "activity",
+        "status",
+        "created_by",
+        "created_at",
+        "decided_by",
+        "access_until",
+    ]
+    list_filter = ["status"]
+    readonly_fields = [
+        "activity",
+        "created_by",
+        "created_at",
+        "decided_by",
+        "decided_at",
+        "access_until",
+    ]
 
 
 class RaBillLineInline(admin.TabularInline):

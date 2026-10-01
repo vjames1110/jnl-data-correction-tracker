@@ -113,6 +113,7 @@ function SpanPanel({
 
       <ActivityMatrix
         groups={span.groups}
+        hiddenActivities={span.hidden_activities}
         canEdit={canEdit}
         onAddActivity={
           onAddSpanActivity
@@ -207,6 +208,7 @@ export function GirderJobWorkspace({
       ) : (
         <ActivityMatrix
           groups={job.groups}
+          hiddenActivities={job.hidden_activities}
           canEdit={canEdit}
           onSelectActivity={onSelectActivity}
           onAddActivity={

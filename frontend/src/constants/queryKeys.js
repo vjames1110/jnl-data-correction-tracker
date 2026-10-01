@@ -516,4 +516,9 @@ export const queryKeys = Object.freeze({
     "linear-item-detail",
     params,
   ],
+  projectMonitorEditAccessRequests: (params) => [
+    "project-monitor",
+    "edit-access-requests",
+    params,
+  ],
 });

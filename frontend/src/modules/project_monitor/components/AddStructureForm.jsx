@@ -260,7 +260,18 @@ function GroupListField({ field, value, onChange }) {
   const [openIndex, setOpenIndex] = useState(null);
   const items = value || [];
   const itemLabel = field.item_label || field.label;
-  const nameKey = field.fields?.[0]?.key;
+  // Prefer the first TEXT sub-field as the display name - falling
+  // back to whichever field is simply listed first only when there
+  // is no text field at all. Using the first field unconditionally
+  // silently showed the generic "Platform 1"/"Platform 2" fallback
+  // forever whenever a schema author's first sub-field happened to
+  // be a boolean/number (any falsy value, e.g. ``false`` or ``0``,
+  // made ``item[nameKey] || fallback`` always take the fallback).
+  const nameKey = (
+    field.fields?.find(
+      (subField) => subField.type === "text",
+    ) || field.fields?.[0]
+  )?.key;
 
   const closeForm = () => setOpenIndex(null);
 
@@ -280,8 +291,18 @@ function GroupListField({ field, value, onChange }) {
 
   const handleRemove = (index) => {
     onChange(items.filter((_, i) => i !== index));
+    // The open form is keyed by array position, not item identity -
+    // removing an earlier item shifts every later index down by one,
+    // so the open form's own index must follow it (otherwise it
+    // silently disappears, even though the item it belonged to is
+    // still there, just one slot earlier now).
     if (openIndex === index) {
       closeForm();
+    } else if (
+      typeof openIndex === "number" &&
+      index < openIndex
+    ) {
+      setOpenIndex(openIndex - 1);
     }
   };
 
@@ -913,9 +934,9 @@ export function AddStructureForm({
             (group) =>
               group.kind === "repeat",
           )
-          .map((group) => (
+          .map((group, groupIndex) => (
             <RepeatGroupItemFields
-              key={group.count_field}
+              key={`${group.count_field}-${groupIndex}`}
               group={group}
               config={config}
               onArrayValueChange={

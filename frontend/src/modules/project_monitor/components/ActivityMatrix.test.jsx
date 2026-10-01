@@ -747,7 +747,7 @@ describe("ActivityMatrix popup corner: Action History and review", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent(
-      'Reviewed by Dev Director on 26-09-2026 - "Checked"',
+      /Reviewed by Dev Director on 26-09-2026, \d{2}:\d{2} (am|pm) - "Checked"/i,
     );
     fireEvent.change(within(dialog).getByLabelText("Review remark"), {
       target: { value: "Rechecked" },
@@ -938,7 +938,7 @@ describe("ActivityMatrix add-activity", () => {
   });
 });
 
-describe("ActivityMatrix remove-activity", () => {
+describe("ActivityMatrix hide-activity", () => {
   const CUSTOM_ROW = {
     ...GROUPS[1],
     rows: [
@@ -947,7 +947,7 @@ describe("ActivityMatrix remove-activity", () => {
     ],
   };
 
-  it("shows no remove option for a generated task", () => {
+  it("offers to hide a generated task too, not just a hand-added one", () => {
     renderMatrix({
       groups: [CUSTOM_ROW],
       activeActivityId: "b1",
@@ -955,19 +955,19 @@ describe("ActivityMatrix remove-activity", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: /remove this activity/i }),
-    ).toBeNull();
+      screen.getByRole("button", { name: /hide this activity/i }),
+    ).toBeInTheDocument();
   });
 
-  it("shows no remove option when the page gives no handler", () => {
+  it("shows no hide option when the page gives no handler", () => {
     renderMatrix({ groups: [CUSTOM_ROW], activeActivityId: "cx" });
 
     expect(
-      screen.queryByRole("button", { name: /remove this activity/i }),
+      screen.queryByRole("button", { name: /hide this activity/i }),
     ).toBeNull();
   });
 
-  it("removes a hand-added task after confirming", () => {
+  it("hides a task after confirming", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const onSelectActivity = vi.fn();
     const onDeleteActivity = vi.fn((_id, options) => options.onSuccess());
@@ -979,7 +979,7 @@ describe("ActivityMatrix remove-activity", () => {
     });
 
     fireEvent.click(
-      screen.getByRole("button", { name: /remove this activity/i }),
+      screen.getByRole("button", { name: /hide this activity/i }),
     );
 
     expect(onDeleteActivity).toHaveBeenCalledWith(
@@ -1000,10 +1000,112 @@ describe("ActivityMatrix remove-activity", () => {
     });
 
     fireEvent.click(
-      screen.getByRole("button", { name: /remove this activity/i }),
+      screen.getByRole("button", { name: /hide this activity/i }),
     );
 
     expect(onDeleteActivity).not.toHaveBeenCalled();
     window.confirm.mockRestore();
+  });
+});
+
+describe("ActivityMatrix - request edit access past the 48-hour window", () => {
+  // The shared API error handler sanitises every PermissionDenied's
+  // top-level message to one generic string - the real detail only
+  // ever survives in `errors.detail` (see `normalizeApiError`), so
+  // that's the shape a real refusal actually takes.
+  const LOCKED_ERROR = {
+    message: "You do not have permission to perform this action.",
+    errors: {
+      detail:
+        "This task hasn't been touched in the last 48 hours. Ask an Admin or Director for edit access, or send a request below.",
+    },
+  };
+
+  it("offers to request access when a save is refused for being stale", () => {
+    renderMatrix({
+      activeActivityId: "b1",
+      updateStatus: { isPending: false, isError: true, error: LOCKED_ERROR },
+      onRequestEditAccess: vi.fn(),
+      requestEditAccessStatus: { isPending: false, isError: false },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Request edit access" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer it for an unrelated error", () => {
+    renderMatrix({
+      activeActivityId: "b1",
+      updateStatus: {
+        isPending: false,
+        isError: true,
+        error: { message: "Something else went wrong." },
+      },
+      onRequestEditAccess: vi.fn(),
+      requestEditAccessStatus: { isPending: false, isError: false },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Request edit access" }),
+    ).toBeNull();
+  });
+
+  it("does not offer it when the page gives no handler", () => {
+    renderMatrix({
+      activeActivityId: "b1",
+      updateStatus: { isPending: false, isError: true, error: LOCKED_ERROR },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Request edit access" }),
+    ).toBeNull();
+  });
+
+  it("sends the typed reason when requesting access", () => {
+    const onRequestEditAccess = vi.fn();
+    renderMatrix({
+      activeActivityId: "b1",
+      updateStatus: { isPending: false, isError: true, error: LOCKED_ERROR },
+      onRequestEditAccess,
+      requestEditAccessStatus: { isPending: false, isError: false },
+    });
+
+    fireEvent.change(
+      screen.getByLabelText(/Why do you need edit access/),
+      { target: { value: "Need to fix a typo" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Request edit access" }),
+    );
+
+    expect(onRequestEditAccess).toHaveBeenCalledWith(
+      "b1",
+      { reason: "Need to fix a typo" },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it("shows a confirmation once the request is sent", () => {
+    const onRequestEditAccess = vi.fn((_id, _payload, options) =>
+      options.onSuccess(),
+    );
+    renderMatrix({
+      activeActivityId: "b1",
+      updateStatus: { isPending: false, isError: true, error: LOCKED_ERROR },
+      onRequestEditAccess,
+      requestEditAccessStatus: { isPending: false, isError: false },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Request edit access" }),
+    );
+
+    expect(
+      screen.getByText(/Request sent/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Request edit access" }),
+    ).toBeNull();
   });
 });

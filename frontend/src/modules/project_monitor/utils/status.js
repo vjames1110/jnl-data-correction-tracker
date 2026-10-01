@@ -1,4 +1,7 @@
-import { formatCalendarDate } from "../../../utils/dateFormat";
+import {
+  formatCalendarDate,
+  formatDateTime as formatDateTimeShared,
+} from "../../../utils/dateFormat";
 
 export const STATUS_LABELS = {
   NOT_STARTED: "Not Taken Up",
@@ -45,6 +48,11 @@ export function formatQty(value) {
 
 export function formatDate(value) {
   return formatCalendarDate(value) ?? "-";
+}
+
+/** A real timestamp (``created_at``, ``reviewed_at``) with its time of day. */
+export function formatDateTime(value) {
+  return formatDateTimeShared(value) ?? "-";
 }
 
 export function activityProgressPercent(activity) {

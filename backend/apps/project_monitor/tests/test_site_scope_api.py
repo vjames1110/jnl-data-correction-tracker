@@ -741,8 +741,8 @@ TASK_SCOPED_ROUTES = {
     "girder-job-activity-create", "girder-span-activity-create",
     "action-item-list", "action-item-detail", "linear-item-list", "linear-item-detail",
     "scope-patch-list", "scope-patch-detail", "progress-entry-list", "progress-entry-detail",
-    "activity-update", "activity-review", "dashboard", "due-tracker", "overdue-counts",
-    "project-sites",
+    "activity-update", "activity-review", "activity-unhide", "dashboard", "due-tracker", "overdue-counts",
+    "project-sites", "edit-access-request-create",
 }
 # Finance tasks: per-task rules in services/site_access (test_project_scope,
 # test_dpr_api, test_hr_api, test_machinery_api).
@@ -752,6 +752,7 @@ SITE_LESS_ROUTES = {
     "structure-type-list", "structure-type-detail", "rdso-span-library-list",
     "rdso-span-library-detail", "site-access-list", "site-access-detail",
     "site-access-set", "site-scope",
+    "edit-access-request-list", "edit-access-request-grant", "edit-access-request-deny",
 }
 # Costing: Director/Admin only, no per-site task grant at all (see
 # HasProjectMonitorCostingAccess) - covered by test_costing_api.py.

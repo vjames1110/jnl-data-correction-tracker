@@ -15,6 +15,7 @@ import {
 import {
   useActionItems,
   useCreateActionItem,
+  useCreateEditAccessRequest,
   useDeleteActionItem,
   useReviewActivity,
   useUpdateActionItem,
@@ -65,6 +66,7 @@ export function ActionItemsPage() {
   const reviewActivity = useReviewActivity(
     selectedSite,
   );
+  const requestEditAccess = useCreateEditAccessRequest();
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -300,6 +302,19 @@ export function ActionItemsPage() {
                 updateActionItem
               }
               onDeleteItem={handleDelete}
+              onRequestEditAccess={(
+                activityId,
+                payload,
+                options,
+              ) =>
+                requestEditAccess.mutate(
+                  { activityId, payload },
+                  options,
+                )
+              }
+              requestEditAccessStatus={
+                requestEditAccess
+              }
             />
           </SurfaceCard>
 
@@ -360,6 +375,19 @@ export function ActionItemsPage() {
               onDeleteItem={handleDelete}
               onReopen={handleReopen}
               isCompletedTable
+              onRequestEditAccess={(
+                activityId,
+                payload,
+                options,
+              ) =>
+                requestEditAccess.mutate(
+                  { activityId, payload },
+                  options,
+                )
+              }
+              requestEditAccessStatus={
+                requestEditAccess
+              }
             />
           </SurfaceCard>
         </>

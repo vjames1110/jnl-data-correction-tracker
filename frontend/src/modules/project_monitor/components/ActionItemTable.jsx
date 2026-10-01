@@ -135,6 +135,8 @@ export function ActionItemTable({
   onDeleteItem,
   onReopen,
   isCompletedTable = false,
+  onRequestEditAccess,
+  requestEditAccessStatus,
 }) {
   const [editingItemId, setEditingItemId] =
     useState(null);
@@ -321,6 +323,19 @@ export function ActionItemTable({
             isPending={updateStatus.isPending}
             error={
               updateStatus.isError ? updateStatus.error : null
+            }
+            onRequestEditAccess={
+              onRequestEditAccess
+                ? (activityId, payload, options) =>
+                    onRequestEditAccess(
+                      activityId,
+                      payload,
+                      options,
+                    )
+                : undefined
+            }
+            requestEditAccessStatus={
+              requestEditAccessStatus
             }
           />
         </ActivityPopup>

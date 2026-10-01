@@ -28,11 +28,30 @@ describe("ActivityWorkspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not repeat the description or progress the row above already shows", () => {
+  it("shows the description (e.g. a computed pile count) but not the progress the row above already shows", () => {
     renderWorkspace();
 
-    expect(screen.queryByText(/1 cell box/)).toBeNull();
+    expect(
+      screen.getByText(/1 cell box/),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/activities complete/)).toBeNull();
+  });
+
+  it("shows nothing extra when the structure type has no description", () => {
+    render(
+      <ActivityWorkspace
+        item={{ ...STRUCTURE, description: "" }}
+        onReviewAll={vi.fn()}
+        reviewAllStatus={{ isPending: false }}
+        {...handlers()}
+      />,
+    );
+
+    expect(
+      document.querySelector(
+        ".pm-workspace-panel__description",
+      ),
+    ).toBeNull();
   });
 
   it("offers the sheet's sections as buttons, each with its progress", () => {

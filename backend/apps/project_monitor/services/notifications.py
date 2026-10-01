@@ -14,7 +14,11 @@ already covered by the per-activity sign-off in ``services/review.py``):
    role-wide broadcast - skipping the reviewer themselves.
 """
 
-from apps.authentication.models import UserRole
+from apps.authentication.models import (
+    AccountStatus,
+    User,
+    UserRole,
+)
 from apps.notifications.models import (
     Notification,
     NotificationEventType,
@@ -23,10 +27,14 @@ from apps.notifications.services.delivery import notify_users
 from apps.project_monitor.models import (
     ActionItem,
     Building,
+    EditAccessRequestStatus,
     GirderJob,
     GirderSpan,
     ProjectSiteAccessRole,
     Structure,
+)
+from apps.project_monitor.services.project_scope import (
+    ADMIN_ROLES,
 )
 
 
@@ -190,3 +198,93 @@ def _notify_reviewed_users(
             ),
             payload={"site": str(site.id)},
         )
+
+
+def notify_edit_access_requested(
+    *, edit_request, actor
+) -> None:
+    """
+    Every Admin/Director (company-wide, not just the site's own
+    Director - whoever is free to decide it) is notified the moment a
+    Project Manager/Incharge asks to keep editing a task past its
+    48-hour window.
+    """
+    recipients = list(
+        User.objects.filter(
+            role__in=ADMIN_ROLES,
+            is_active=True,
+            account_status=AccountStatus.ACTIVE,
+        )
+    )
+    if not recipients:
+        return
+
+    site = resolve_activity_site(edit_request.activity)
+    project_label = _project_label(site) if site else ""
+    notify_users(
+        recipients=recipients,
+        event_type=(
+            NotificationEventType.PROJECT_MONITOR_EDIT_ACCESS_REQUESTED
+        ),
+        actor=actor,
+        title="Edit access requested",
+        message=(
+            f"{actor.full_name} asked for edit access to "
+            f"{edit_request.activity.name}"
+            f"{f' on {project_label}' if project_label else ''}."
+        ),
+        deep_link=(
+            _overview_deep_link(UserRole.DIRECTOR, site.id)
+            if site
+            else ""
+        ),
+        payload={"edit_request": str(edit_request.id)},
+    )
+
+
+def notify_edit_access_decided(
+    *, edit_request, actor
+) -> None:
+    """The requester is told once their request is granted or denied."""
+    requester = edit_request.created_by
+    if not requester or requester.id == actor.id:
+        return
+
+    site = resolve_activity_site(edit_request.activity)
+    project_label = _project_label(site) if site else ""
+    granted = (
+        edit_request.status
+        == EditAccessRequestStatus.GRANTED
+    )
+    notify_users(
+        recipients=[requester],
+        event_type=(
+            NotificationEventType.PROJECT_MONITOR_EDIT_ACCESS_DECIDED
+        ),
+        actor=actor,
+        title=(
+            "Edit access granted"
+            if granted
+            else "Edit access denied"
+        ),
+        message=(
+            (
+                f"{actor.full_name} granted you edit access to "
+                f"{edit_request.activity.name}"
+                f"{f' on {project_label}' if project_label else ''} "
+                "for 48 more hours."
+            )
+            if granted
+            else (
+                f"{actor.full_name} denied your edit access "
+                f"request for {edit_request.activity.name}"
+                f"{f' on {project_label}' if project_label else ''}."
+            )
+        ),
+        deep_link=(
+            _overview_deep_link(requester.role, site.id)
+            if site
+            else ""
+        ),
+        payload={"edit_request": str(edit_request.id)},
+    )

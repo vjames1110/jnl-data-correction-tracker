@@ -15,6 +15,7 @@ import {
 import {
   useAddGirderJobActivity,
   useAddGirderSpanActivity,
+  useCreateEditAccessRequest,
   useCreateGirderJob,
   useDeleteActivity,
   useDeleteGirderJob,
@@ -23,6 +24,7 @@ import {
   useReviewActivity,
   useReviewGirderJob,
   useStructures,
+  useUnhideActivity,
   useUpdateActivity,
   useUpdateGirderSpan,
 } from "../../../hooks/useProjectMonitor";
@@ -96,6 +98,10 @@ export function GirdersPage() {
   const deleteActivity = useDeleteActivity(
     selectedSite,
   );
+  const unhideActivity = useUnhideActivity(
+    selectedSite,
+  );
+  const requestEditAccess = useCreateEditAccessRequest();
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -398,6 +404,29 @@ export function GirdersPage() {
                       : undefined
                   }
                   deleteActivityStatus={deleteActivity}
+                  onUnhideActivity={
+                    canEdit
+                      ? (activityId, options) =>
+                          unhideActivity.mutate(
+                            activityId,
+                            options,
+                          )
+                      : undefined
+                  }
+                  unhideActivityStatus={unhideActivity}
+                  onRequestEditAccess={(
+                    activityId,
+                    payload,
+                    options,
+                  ) =>
+                    requestEditAccess.mutate(
+                      { activityId, payload },
+                      options,
+                    )
+                  }
+                  requestEditAccessStatus={
+                    requestEditAccess
+                  }
                 />
               )}
               onDelete={handleDelete}

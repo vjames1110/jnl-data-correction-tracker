@@ -44,6 +44,7 @@ import { MachineryPage } from "../modules/project_monitor/pages/MachineryPage";
 import { DprBillsPage } from "../modules/project_monitor/pages/DprBillsPage";
 import { LinearWorksPage } from "../modules/project_monitor/pages/LinearWorksPage";
 import { ProjectMonitorReportPage } from "../modules/project_monitor/pages/ProjectMonitorReportPage";
+import { EditAccessRequestsPage } from "../modules/admin/pages/EditAccessRequestsPage";
 import { ProjectMonitorSiteAccessPage } from "../modules/admin/pages/ProjectMonitorSiteAccessPage";
 import { RdsoSpanLibraryPage } from "../modules/admin/pages/RdsoSpanLibraryPage";
 import { StructureTypeManagementPage } from "../modules/admin/pages/StructureTypeManagementPage";
@@ -537,6 +538,12 @@ export const router = createBrowserRouter([
                 path: "/admin/project-monitor/site-access",
                 element: (
                   <ProjectMonitorSiteAccessPage />
+                ),
+              },
+              {
+                path: "/admin/project-monitor/edit-access-requests",
+                element: (
+                  <EditAccessRequestsPage />
                 ),
               },
             ],

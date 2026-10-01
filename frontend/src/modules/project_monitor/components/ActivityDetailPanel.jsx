@@ -16,6 +16,78 @@ const VIEW_LABELS = {
 };
 
 /**
+ * The backend refuses an edit/hide/unhide past the 48-hour window
+ * with this exact wording (``services.edit_access.EDIT_WINDOW_MESSAGE``)
+ * - matched here so the popup can offer "Request edit access" right
+ * where the refusal happened, instead of a dead-end error.
+ *
+ * Every ``PermissionDenied`` (DRF's base class or a subclass like
+ * ``EditWindowExpired``) is shown a single generic top-level message
+ * by the shared API error handler (``apps.core.api.exceptions``), by
+ * design - it never leaks a specific denial reason through
+ * ``error.message``. The original detail survives underneath, in
+ * ``error.errors.detail`` (``normalizeApiError`` always preserves the
+ * server's raw ``errors`` object alongside the sanitised message), so
+ * that is what needs matching here, not ``error.message``.
+ */
+function isEditWindowExpired(error) {
+  return Boolean(
+    error?.errors?.detail?.includes("48 hours"),
+  );
+}
+
+function RequestEditAccessBlock({
+  activityId,
+  onRequestEditAccess,
+  requestEditAccessStatus,
+}) {
+  const [reason, setReason] = useState("");
+  const [sentId, setSentId] = useState(null);
+
+  if (sentId === activityId) {
+    return (
+      <p className="pm-timeline-empty">
+        Request sent - an Admin or Director will review it.
+      </p>
+    );
+  }
+
+  return (
+    <div className="pm-edit-access-request">
+      <label className="form-field">
+        <span>Why do you need edit access? (optional)</span>
+        <textarea
+          rows={2}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="button button--secondary button--sm"
+        disabled={requestEditAccessStatus?.isPending}
+        onClick={() =>
+          onRequestEditAccess(
+            activityId,
+            { reason },
+            { onSuccess: () => setSentId(activityId) },
+          )
+        }
+      >
+        {requestEditAccessStatus?.isPending
+          ? "Sending..."
+          : "Request edit access"}
+      </button>
+      {requestEditAccessStatus?.isError ? (
+        <div className="inline-alert inline-alert--error">
+          {requestEditAccessStatus.error.message}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The content of the popup that opens beside a task when it is
  * clicked (see ActivityPopup): the task's name and status, and the
  * update form for anyone who can edit.
@@ -38,6 +110,8 @@ export function ActivityDetailPanel({
   reviewStatus,
   onDelete,
   deleteStatus,
+  onRequestEditAccess,
+  requestEditAccessStatus,
 }) {
   const [view, setView] = useState("update");
 
@@ -109,7 +183,19 @@ export function ActivityDetailPanel({
             </p>
           )}
 
-          {canEdit && activity.is_custom && onDelete ? (
+          {canEdit &&
+          onRequestEditAccess &&
+          isEditWindowExpired(error) ? (
+            <RequestEditAccessBlock
+              activityId={activity.id}
+              onRequestEditAccess={onRequestEditAccess}
+              requestEditAccessStatus={
+                requestEditAccessStatus
+              }
+            />
+          ) : null}
+
+          {canEdit && onDelete ? (
             <div className="pm-update-panel__danger">
               <button
                 type="button"
@@ -118,7 +204,7 @@ export function ActivityDetailPanel({
                 onClick={() => {
                   if (
                     window.confirm(
-                      `Remove "${activity.name}"? This was added by hand and can't be undone.`,
+                      `Hide "${activity.name}" from this sheet? Its history is kept, and it can be shown again from "+ Add activity".`,
                     )
                   ) {
                     onDelete();
@@ -126,13 +212,24 @@ export function ActivityDetailPanel({
                 }}
               >
                 {deleteStatus?.isPending
-                  ? "Removing..."
-                  : "Remove this activity"}
+                  ? "Hiding..."
+                  : "Hide this activity"}
               </button>
               {deleteStatus?.isError ? (
                 <div className="inline-alert inline-alert--error">
                   {deleteStatus.error.message}
                 </div>
+              ) : null}
+              {canEdit &&
+              onRequestEditAccess &&
+              isEditWindowExpired(deleteStatus?.error) ? (
+                <RequestEditAccessBlock
+                  activityId={activity.id}
+                  onRequestEditAccess={onRequestEditAccess}
+                  requestEditAccessStatus={
+                    requestEditAccessStatus
+                  }
+                />
               ) : null}
             </div>
           ) : null}

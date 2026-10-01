@@ -286,6 +286,15 @@ export function projectMonitorSiteAccessPath() {
   return "/admin/project-monitor/site-access";
 }
 
+/**
+ * The "request section" for the 48-hour edit/delete window: Admin and
+ * Director alike grant or deny a Project Manager/Incharge's request
+ * to keep editing a task, both at the same URL.
+ */
+export function projectMonitorEditAccessRequestsPath() {
+  return "/admin/project-monitor/edit-access-requests";
+}
+
 export function projectMonitorStructureTypesPath(role) {
   if (role === USER_ROLES.DIRECTOR) {
     return "/director/project-monitor/structure-types";

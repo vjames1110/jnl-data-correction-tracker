@@ -102,6 +102,14 @@ EVENT_DEFAULTS = {
         "title": "Update reviewed",
         "severity": NotificationSeverity.SUCCESS,
     },
+    NotificationEventType.PROJECT_MONITOR_EDIT_ACCESS_REQUESTED: {
+        "title": "Edit access requested",
+        "severity": NotificationSeverity.WARNING,
+    },
+    NotificationEventType.PROJECT_MONITOR_EDIT_ACCESS_DECIDED: {
+        "title": "Edit access request decided",
+        "severity": NotificationSeverity.INFO,
+    },
 }
 
 

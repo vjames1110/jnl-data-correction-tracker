@@ -1,4 +1,4 @@
-import { formatDate } from "../utils/status";
+import { formatDate, formatDateTime } from "../utils/status";
 
 function initialsOf(name) {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -16,10 +16,14 @@ function initialsOf(name) {
  * events reads at a glance.
  */
 export function ActivityTimeline({ activity }) {
-  const comments = [...(activity.comments || [])].sort(
-    (a, b) =>
-      a.meeting_date < b.meeting_date ? 1 : -1,
-  );
+  const comments = [...(activity.comments || [])].sort((a, b) => {
+    if (a.meeting_date !== b.meeting_date) {
+      return a.meeting_date < b.meeting_date ? 1 : -1;
+    }
+    // Same meeting - fall back to the real logging order so two
+    // updates entered for one meeting don't shuffle arbitrarily.
+    return a.created_at < b.created_at ? 1 : -1;
+  });
 
   if (!comments.length) {
     return (
@@ -42,8 +46,13 @@ export function ActivityTimeline({ activity }) {
                 {comment.created_by_name || "Someone"}
               </strong>
               <time dateTime={comment.meeting_date}>
-                {formatDate(comment.meeting_date)}
+                Meeting: {formatDate(comment.meeting_date)}
               </time>
+              {comment.created_at ? (
+                <time dateTime={comment.created_at}>
+                  Logged {formatDateTime(comment.created_at)}
+                </time>
+              ) : null}
             </div>
             <p className="pm-thread__text">{comment.text}</p>
           </div>

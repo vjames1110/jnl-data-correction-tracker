@@ -206,6 +206,108 @@ describe("buildMatrix: rows that repeat per span", () => {
   });
 });
 
+describe("buildMatrix: a hand-added activity never disturbs its siblings (bug fix)", () => {
+  const pier = (n, extraRows = []) =>
+    group(n, `Pier P${n}`, [
+      row(`p${n}a`, "Pile"),
+      row(`p${n}b`, "Stem"),
+      ...extraRows,
+    ]);
+
+  it("keeps Piers stacked as one table when one pier gets a custom row", () => {
+    const tables = buildMatrix([
+      pier(1),
+      pier(2, [row("extra", "Extra check", "NOT_STARTED", { is_custom: true })]),
+      pier(3),
+    ]);
+
+    expect(tables).toHaveLength(1);
+    expect(tables[0].lines.map((line) => line.label)).toEqual([
+      "Pier P1",
+      "Pier P2",
+      "Pier P3",
+    ]);
+  });
+
+  it("gives the custom row its own column, blank for every other pier", () => {
+    const [table] = buildMatrix([
+      pier(1),
+      pier(2, [row("extra", "Extra check", "NOT_STARTED", { is_custom: true })]),
+      pier(3),
+    ]);
+
+    expect(names(table)).toEqual(["Pile", "Stem", "Extra check"]);
+    expect(cellIds(table.lines[0])).toEqual(["p1a", "p1b", null]);
+    expect(cellIds(table.lines[1])).toEqual(["p2a", "p2b", "extra"]);
+    expect(cellIds(table.lines[2])).toEqual(["p3a", "p3b", null]);
+  });
+
+  it("never lets a custom row's own table key or title drift onto a sibling", () => {
+    const withoutExtra = buildMatrix([pier(1), pier(2), pier(3)]);
+    const withExtra = buildMatrix([
+      pier(1),
+      pier(2, [row("extra", "Extra check", "NOT_STARTED", { is_custom: true })]),
+      pier(3),
+    ]);
+
+    expect(withExtra[0].key).toBe(withoutExtra[0].key);
+    expect(withExtra[0].title).toBe(withoutExtra[0].title);
+  });
+
+  it("merges two differently-named custom rows on two different piers as two extra columns", () => {
+    const [table] = buildMatrix([
+      pier(1, [row("e1", "Rebar check", "NOT_STARTED", { is_custom: true })]),
+      pier(2, [row("e2", "Survey", "NOT_STARTED", { is_custom: true })]),
+    ]);
+
+    expect(names(table)).toEqual(["Pile", "Stem", "Rebar check", "Survey"]);
+    expect(cellIds(table.lines[0])).toEqual(["p1a", "p1b", "e1", null]);
+    expect(cellIds(table.lines[1])).toEqual(["p2a", "p2b", null, "e2"]);
+  });
+
+  it("shares one column when two piers add a custom row with the exact same name", () => {
+    const [table] = buildMatrix([
+      pier(1, [row("e1", "Rebar check", "NOT_STARTED", { is_custom: true })]),
+      pier(2, [row("e2", "Rebar check", "NOT_STARTED", { is_custom: true })]),
+    ]);
+
+    expect(names(table)).toEqual(["Pile", "Stem", "Rebar check"]);
+    expect(cellIds(table.lines[0])).toEqual(["p1a", "p1b", "e1"]);
+    expect(cellIds(table.lines[1])).toEqual(["p2a", "p2b", "e2"]);
+  });
+
+  it("keeps a single-span pivot intact when a span-named custom row is added", () => {
+    const spans = group(1, "Spans", [
+      row("s1a", "S1 - Bearings"),
+      row("s2a", "S2 - Bearings"),
+      row("extra", "S2 - Extra check", "NOT_STARTED", { is_custom: true }),
+    ]);
+    const [table] = buildMatrix([spans]);
+
+    expect(table.lines.map((line) => line.label)).toEqual(["S1", "S2"]);
+    expect(names(table)).toEqual(["Bearings", "Extra check"]);
+    expect(cellIds(table.lines[0])).toEqual(["s1a", null]);
+    expect(cellIds(table.lines[1])).toEqual(["s2a", "extra"]);
+  });
+
+  it("does not collapse the whole per-span pivot when a custom row's name doesn't fit the pattern", () => {
+    const spans = group(1, "Spans", [
+      row("s1a", "S1 - Bearings"),
+      row("s2a", "S2 - Bearings"),
+      row("extra", "General check", "NOT_STARTED", { is_custom: true }),
+    ]);
+    const tables = buildMatrix([spans]);
+
+    const pivot = tables.find((table) => table.title === "Spans");
+    expect(pivot.lines.map((line) => line.label)).toEqual(["S1", "S2"]);
+    expect(names(pivot)).toEqual(["Bearings"]);
+    // The row that doesn't fit the per-span grid gets its own small
+    // table instead of being dropped or breaking the grid for S1/S2.
+    expect(tables).toHaveLength(2);
+    expect(cellIds(tables[1].lines[0])).toEqual(["extra"]);
+  });
+});
+
 describe("tableProgress", () => {
   it("counts the completed tasks of those that apply", () => {
     const [table] = buildMatrix([
