@@ -151,6 +151,34 @@ export function canManageProjectMasters(role) {
 }
 
 /**
+ * Who may open the Structure Type master page at all - everyone
+ * ``canManageProjectMasters`` already covers, plus a Project
+ * Manager/Incharge, who may create/edit a type owned by their own
+ * site (never a global one, never another site's - the backend
+ * enforces this; the page itself shows a site picker and scopes
+ * accordingly for these two roles). The RDSO span library stays
+ * behind ``canManageProjectMasters`` alone.
+ */
+export function canAccessStructureTypeMaster(role) {
+  return (
+    canManageProjectMasters(role) ||
+    role === USER_ROLES.PROJECT_MANAGER ||
+    role === USER_ROLES.PROJECT_INCHARGE
+  );
+}
+
+/**
+ * Who may give another site use-access to a site-owned structure
+ * type ("distribute"): Admin, Super Admin and the Director only -
+ * deliberately narrower than ``canManageProjectMasters``, which also
+ * includes the Project Management HO, since distribution is the one
+ * action reserved for Admin/Director specifically.
+ */
+export function canDistributeStructureTypes(role) {
+  return canManageSetup(role);
+}
+
+/**
  * Roles that work in the Project Management portal or hold every
  * entry right on it (Admin). The Director enters everywhere too but
  * uses the /director tree, so it is not part of this portal check.

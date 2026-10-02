@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { bandClasses, clusterKey, rowBands } from "./rowBands";
+import {
+  bandClasses,
+  clusterKey,
+  clusterParts,
+  rowBands,
+} from "./rowBands";
 
 const named = (...names) => names.map((name) => ({ name }));
 
@@ -11,6 +16,7 @@ describe("clusterKey", () => {
     ["P3 — Cap", "P3"],
     ["Pier 2 - Cap", "PIER2"],
     ["s4 – deck slab", "S4"],
+    ["PC-01 – Foundation", "PC-01"],
   ])("%s -> %s", (name, key) => {
     expect(clusterKey(name)).toBe(key);
   });
@@ -25,6 +31,30 @@ describe("clusterKey", () => {
     null,
   ])("%s has no cluster", (name) => {
     expect(clusterKey(name)).toBeNull();
+  });
+});
+
+describe("clusterParts", () => {
+  it("parses a hyphen-joined label, for a nested_repeat group's PC-01 style naming", () => {
+    expect(clusterParts("PC-01 – Foundation")).toEqual({
+      label: "PC-01",
+      rest: "Foundation",
+    });
+    expect(clusterParts("PC-12 - Casting")).toEqual({
+      label: "PC-12",
+      rest: "Casting",
+    });
+  });
+
+  it("still parses a plain space-joined label", () => {
+    expect(clusterParts("S1 – Bearings")).toEqual({
+      label: "S1",
+      rest: "Bearings",
+    });
+  });
+
+  it("returns null for a name with no cluster label", () => {
+    expect(clusterParts("Excavation")).toBeNull();
   });
 });
 

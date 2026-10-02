@@ -12,9 +12,11 @@
  * banded; an ordinary group keeps its plain rows.
  */
 
-// "S1 - x", "S2 – x", "P3 — x": a short label ending in a
-// number, then a dash, then the task. "R/W 1" (no dash) never matches.
-const CLUSTER = /^\s*([A-Za-z]{1,6}\s?\d+)\s*[–—-]\s+\S/;
+// "S1 - x", "S2 – x", "P3 — x", "PC-01 – x": a short label ending in
+// a number (optionally joined to the letters by a hyphen, for a
+// nested_repeat group's "PC-01" style labels), then a dash, then the
+// task. "R/W 1" (no dash) never matches.
+const CLUSTER = /^\s*([A-Za-z]{1,6}[\s-]?\d+)\s*[–—-]\s+\S/;
 
 export function clusterKey(name) {
   const match = CLUSTER.exec(name || "");
@@ -23,7 +25,7 @@ export function clusterKey(name) {
     : null;
 }
 
-const CLUSTER_PARTS = /^\s*([A-Za-z]{1,6}\s?\d+)\s*[–—-]\s+(\S.*?)\s*$/;
+const CLUSTER_PARTS = /^\s*([A-Za-z]{1,6}[\s-]?\d+)\s*[–—-]\s+(\S.*?)\s*$/;
 
 /**
  * "S1 - Bearings" -> ``{label: "S1", rest: "Bearings"}``; null for a

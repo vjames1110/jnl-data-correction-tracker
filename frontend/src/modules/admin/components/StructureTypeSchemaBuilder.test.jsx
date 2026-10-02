@@ -499,6 +499,146 @@ describe("GroupTemplatesBuilder - repeat group naming mode (bug fix)", () => {
   });
 });
 
+describe("GroupTemplatesBuilder - nested_repeat group (ESP A/B/C, each with PC-01/02/03)", () => {
+  const ESP_GROUP = {
+    kind: "nested_repeat",
+    count_field: "espCount",
+    title_template: "ESP {alpha}",
+    child_count_field: "pcCount",
+    child_label_template: "PC-{nn}",
+    rows: [],
+  };
+
+  const CONFIG_SCHEMA = [
+    { key: "espCount", type: "number", default: 3 },
+    { key: "pcCount", type: "number", default: 2 },
+  ];
+
+  it("offers Nested repeat as a shape option", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={vi.fn()}
+      />,
+    );
+    expandCard("ESP {alpha}");
+
+    expect(
+      screen.getByRole("option", {
+        name: /Nested repeat/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the outer title field with the {alpha} hint, already filled in", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={vi.fn()}
+      />,
+    );
+    expandCard("ESP {alpha}");
+
+    expect(
+      screen.getByLabelText(/Outer unit title/),
+    ).toHaveValue("ESP {alpha}");
+  });
+
+  it("shows outer and inner count-field selectors, both filled in", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={vi.fn()}
+      />,
+    );
+    expandCard("ESP {alpha}");
+
+    expect(
+      screen.getByLabelText(/Outer unit count/),
+    ).toHaveValue("espCount");
+    expect(
+      screen.getByLabelText(/Inner unit count/),
+    ).toHaveValue("pcCount");
+  });
+
+  it("shows the inner label pattern field, already filled in", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={vi.fn()}
+      />,
+    );
+    expandCard("ESP {alpha}");
+
+    expect(
+      screen.getByLabelText(/Inner unit label/),
+    ).toHaveValue("PC-{nn}");
+  });
+
+  it("editing the inner label pattern updates only that field", () => {
+    const onChange = vi.fn();
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={onChange}
+      />,
+    );
+    expandCard("ESP {alpha}");
+
+    fireEvent.change(
+      screen.getByLabelText(/Inner unit label/),
+      { target: { value: "PC-{n}" } },
+    );
+
+    expect(onChange).toHaveBeenCalledWith([
+      { ...ESP_GROUP, child_label_template: "PC-{n}" },
+    ]);
+  });
+
+  it("shows the nested_repeat badge", () => {
+    render(
+      <GroupTemplatesBuilder
+        groups={[ESP_GROUP]}
+        configSchema={CONFIG_SCHEMA}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Nested repeat")).toBeInTheDocument();
+  });
+});
+
+describe("GroupTemplatesOutline - nested_repeat group", () => {
+  it("describes both the outer and inner naming in the meta line", () => {
+    render(
+      <GroupTemplatesOutline
+        groups={[
+          {
+            kind: "nested_repeat",
+            count_field: "espCount",
+            title_template: "ESP {alpha}",
+            child_count_field: "pcCount",
+            child_label_template: "PC-{nn}",
+            rows: [{ name: "Foundation" }],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("ESP {alpha}")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /one group per "espCount", each with rows per "pcCount" labelled "PC-\{nn\}"/,
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("ConfigSchemaBuilder - choice options text box", () => {
   const CHOICE_FIELD = {
     key: "foundation",

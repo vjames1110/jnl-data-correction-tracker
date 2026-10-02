@@ -87,6 +87,27 @@ this engine.
   ``{between:count_field}``/``{girder_scope_suffix:field}`` - see
   below); ``false`` (Major) puts every index's rows into ONE group,
   each row's name prefixed via ``name_prefix_template`` (``{n}``).
+- ``"nested_repeat"`` - a group of groups, for a structure made of
+  several named units, each itself built from several identical
+  numbered sub-units (e.g. an ESP structure with ESP A/B/C, each
+  containing PC-01/PC-02/PC-03, each with the same task list).
+  ``count_field`` (outer count, e.g. how many ESP units) +
+  ``title_template`` (``{n}`` for a plain number, ``{alpha}`` for
+  A/B/C/.../Z/AA/... - one group per outer index, same as
+  ``"repeat"``); ``child_count_field`` (inner count PER outer unit,
+  the same for every one of them) + ``child_label_template`` (``{n}``
+  for a plain number, ``{nn}`` for zero-padded two digits, e.g.
+  ``"PC-{nn}"``). ``rows`` is the per-sub-unit task list, rendered
+  once per inner index and prefixed with that index's label - exactly
+  the same row-prefixing ``"chain"`` (``group_per_item: false``)
+  already does, just inside an outer loop instead of at the top
+  level. This deliberately reuses the chain's row-prefixing mechanism
+  (down to the frontend table it produces) rather than inventing a
+  real two-level data shape: each outer unit becomes its own ordinary
+  activity group, whose prefixed row names
+  (``"PC-01 – Task"``/``"PC-02 – Task"``) the frontend already
+  auto-pivots into a sub-unit x task table, the same way it already
+  does for a per-span sheet.
 
 Row templates (used everywhere above) share one shape::
 
@@ -164,6 +185,7 @@ _VALID_GROUP_KINDS = {
     "repeat",
     "sides",
     "chain",
+    "nested_repeat",
 }
 _VALID_ROW_KINDS = {"TASK", "LENGTH"}
 _VALID_NA_TYPES = {
@@ -348,6 +370,7 @@ def validate_definition_schema(
         if kind in (
             "repeat",
             "chain",
+            "nested_repeat",
         ) and not group.get("count_field"):
             errors.append(
                 f"{prefix} ({kind}): needs a "
@@ -367,6 +390,28 @@ def validate_definition_schema(
                 "'title_by_position' or "
                 "'title_rule'."
             )
+        if kind == "nested_repeat":
+            if not group.get("title_template"):
+                errors.append(
+                    f"{prefix} (nested_repeat): "
+                    "needs a 'title_template'."
+                )
+            if not group.get(
+                "child_count_field"
+            ):
+                errors.append(
+                    f"{prefix} (nested_repeat): "
+                    "needs a "
+                    "'child_count_field'."
+                )
+            if not group.get(
+                "child_label_template"
+            ):
+                errors.append(
+                    f"{prefix} (nested_repeat): "
+                    "needs a "
+                    "'child_label_template'."
+                )
         if kind == "repeat":
             for (
                 item_index,
@@ -602,6 +647,7 @@ def normalize_config(definition, raw):
         if kind not in (
             "repeat",
             "chain",
+            "nested_repeat",
         ) or not count_field:
             continue
 
@@ -609,6 +655,20 @@ def normalize_config(definition, raw):
             config.get(count_field, 0)
         )
         config[count_field] = count
+
+        if kind == "nested_repeat":
+            child_count_field = group.get(
+                "child_count_field"
+            )
+            if child_count_field:
+                config[child_count_field] = (
+                    _clamped_count(
+                        config.get(
+                            child_count_field, 0
+                        )
+                    )
+                )
+            continue
 
         if kind != "repeat":
             continue
@@ -741,6 +801,20 @@ def floor_label(index):
     if index == 1:
         return "Ground Floor"
     return f"{ordinal(index - 1)} Floor"
+
+
+def alpha_label(index):
+    """
+    1 -> "A", 2 -> "B", ..., 26 -> "Z", 27 -> "AA", ... - spreadsheet
+    column naming, for a ``nested_repeat`` group's outer units (ESP
+    A/B/C/...) where a plain number would be less readable.
+    """
+
+    label = ""
+    while index > 0:
+        index, remainder = divmod(index - 1, 26)
+        label = chr(65 + remainder) + label
+    return label
 
 
 def _fill_template(
@@ -1255,6 +1329,74 @@ def _render_chain_group(
     ]
 
 
+def _render_nested_repeat_group(
+    group_template, definition, config
+):
+    count_field = group_template["count_field"]
+    count = _clamped_count(
+        config.get(count_field, 0)
+    )
+    child_count_field = group_template[
+        "child_count_field"
+    ]
+    child_count = _clamped_count(
+        config.get(child_count_field, 0)
+    )
+    title_template = group_template.get(
+        "title_template", ""
+    )
+    child_label_template = group_template.get(
+        "child_label_template", "{n}"
+    )
+    row_templates = group_template.get(
+        "rows", []
+    )
+
+    groups = []
+    for index in range(1, count + 1):
+        title = title_template.replace(
+            "{alpha}", alpha_label(index)
+        ).replace("{n}", str(index))
+        subtitle = _fill_template(
+            group_template.get(
+                "subtitle_template", ""
+            ),
+            config,
+            definition=definition,
+            index=index,
+        )
+
+        rows = []
+        for child_index in range(
+            1, child_count + 1
+        ):
+            label = child_label_template.replace(
+                "{nn}", f"{child_index:02d}"
+            ).replace(
+                "{n}", str(child_index)
+            )
+            prefix = f"{label} – "
+            for row_template in row_templates:
+                for row in _resolve_variant_or_conditional(
+                    row_template,
+                    config,
+                    index=child_index,
+                ):
+                    row["name"] = (
+                        f"{prefix}{row['name']}"
+                    )
+                    rows.append(row)
+
+        groups.append(
+            {
+                "title": title,
+                "subtitle": subtitle,
+                "rows": rows,
+            }
+        )
+    return groups
+
+
 def render_groups(definition, config):
     groups = []
     for group_template in (
@@ -1286,6 +1428,14 @@ def render_groups(definition, config):
         elif kind == "chain":
             groups.extend(
                 _render_chain_group(
+                    group_template,
+                    definition,
+                    config,
+                )
+            )
+        elif kind == "nested_repeat":
+            groups.extend(
+                _render_nested_repeat_group(
                     group_template,
                     definition,
                     config,

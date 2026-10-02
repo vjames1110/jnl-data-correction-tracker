@@ -69,7 +69,7 @@ export function AddActionItemForm({
           />
         </label>
         <label className="form-field">
-          <span>Target date</span>
+          <span>Approval date</span>
           <input
             type="date"
             value={form.targetDate}

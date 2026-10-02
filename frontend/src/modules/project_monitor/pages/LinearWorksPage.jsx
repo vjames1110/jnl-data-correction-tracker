@@ -1,4 +1,10 @@
-import { CalendarDays, ChartGantt, Plus } from "lucide-react";
+import {
+  CalendarDays,
+  ChartGantt,
+  ClipboardList,
+  ListChecks,
+  Plus,
+} from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -26,7 +32,10 @@ import {
 import { AddLinearItemForm } from "../components/AddLinearItemForm";
 import { DayWisePivot } from "../components/DayWisePivot";
 import { LinearItemPanel } from "../components/LinearItemPanel";
-import { LinearRegisters } from "../components/LinearRegisters";
+import {
+  ProgressRegisterTable,
+  ScopeRegisterTable,
+} from "../components/LinearRegisters";
 import { NoTaskAccess } from "../components/NoTaskAccess";
 import { ProjectMonitorTabs } from "../components/ProjectMonitorTabs";
 import { SlideDownForm } from "../components/SlideDownForm";
@@ -259,110 +268,118 @@ export function LinearWorksPage() {
                 label: "Day-wise",
                 icon: CalendarDays,
               },
+              {
+                key: "scope-register",
+                label: "Scope register",
+                icon: ListChecks,
+              },
+              {
+                key: "progress-register",
+                label: "Progress register",
+                icon: ClipboardList,
+              },
             ]}
           />
 
           {subTab === "diagram" ? (
-            <>
-              <SurfaceCard>
-                {items.length === 0 ? (
-                  <p className="pm-timeline-empty">
-                    No linear items added
-                    yet.
-                  </p>
-                ) : (
-                  items.map((item) => (
-                    <LinearItemPanel
-                      key={item.id}
-                      item={item}
-                      isExpanded={
-                        expandedItemId ===
-                        item.id
-                      }
-                      onToggle={() =>
-                        setExpandedItemId(
-                          (current) =>
-                            current ===
-                            item.id
-                              ? null
-                              : item.id,
-                        )
-                      }
-                      canEdit={canEdit}
-                      onAddScopePatch={(
-                        itemId,
-                        payload,
-                        options,
-                      ) =>
-                        createScopePatch.mutate(
-                          {
-                            linearItemId:
-                              itemId,
-                            payload,
-                          },
-                          options,
-                        )
-                      }
-                      addScopePatchStatus={
-                        createScopePatch
-                      }
-                      onAddProgressEntry={(
-                        itemId,
-                        payload,
-                        options,
-                      ) =>
-                        createProgressEntry.mutate(
-                          {
-                            linearItemId:
-                              itemId,
-                            payload,
-                          },
-                          options,
-                        )
-                      }
-                      addProgressEntryStatus={
-                        createProgressEntry
-                      }
-                      onDeleteItem={
-                        handleDeleteItem
-                      }
-                    />
-                  ))
-                )}
-              </SurfaceCard>
-
-              <SurfaceCard>
-                <LinearRegisters
-                  items={items}
-                  canEdit={canEdit}
-                  onDeleteScopePatch={
-                    deleteScopePatch.mutate
-                  }
-                  onUpdateProgressEntry={(
-                    entryId,
-                    payload,
-                    options,
-                  ) =>
-                    updateProgressEntry.mutate(
-                      {
-                        entryId,
-                        payload,
-                      },
+            <SurfaceCard>
+              {items.length === 0 ? (
+                <p className="pm-timeline-empty">
+                  No linear items added yet.
+                </p>
+              ) : (
+                items.map((item) => (
+                  <LinearItemPanel
+                    key={item.id}
+                    item={item}
+                    isExpanded={
+                      expandedItemId ===
+                      item.id
+                    }
+                    onToggle={() =>
+                      setExpandedItemId(
+                        (current) =>
+                          current === item.id
+                            ? null
+                            : item.id,
+                      )
+                    }
+                    canEdit={canEdit}
+                    onAddScopePatch={(
+                      itemId,
+                      payload,
                       options,
-                    )
-                  }
-                  updateProgressEntryStatus={
-                    updateProgressEntry
-                  }
-                  onDeleteProgressEntry={
-                    deleteProgressEntry.mutate
-                  }
-                />
-              </SurfaceCard>
-            </>
-          ) : (
+                    ) =>
+                      createScopePatch.mutate(
+                        {
+                          linearItemId: itemId,
+                          payload,
+                        },
+                        options,
+                      )
+                    }
+                    addScopePatchStatus={
+                      createScopePatch
+                    }
+                    onAddProgressEntry={(
+                      itemId,
+                      payload,
+                      options,
+                    ) =>
+                      createProgressEntry.mutate(
+                        {
+                          linearItemId: itemId,
+                          payload,
+                        },
+                        options,
+                      )
+                    }
+                    addProgressEntryStatus={
+                      createProgressEntry
+                    }
+                    onDeleteItem={
+                      handleDeleteItem
+                    }
+                  />
+                ))
+              )}
+            </SurfaceCard>
+          ) : subTab === "day-wise" ? (
             <SurfaceCard>
               <DayWisePivot items={items} />
+            </SurfaceCard>
+          ) : subTab === "scope-register" ? (
+            <SurfaceCard>
+              <ScopeRegisterTable
+                items={items}
+                canEdit={canEdit}
+                onDeleteScopePatch={
+                  deleteScopePatch.mutate
+                }
+              />
+            </SurfaceCard>
+          ) : (
+            <SurfaceCard>
+              <ProgressRegisterTable
+                items={items}
+                canEdit={canEdit}
+                onUpdateProgressEntry={(
+                  entryId,
+                  payload,
+                  options,
+                ) =>
+                  updateProgressEntry.mutate(
+                    { entryId, payload },
+                    options,
+                  )
+                }
+                updateProgressEntryStatus={
+                  updateProgressEntry
+                }
+                onDeleteProgressEntry={
+                  deleteProgressEntry.mutate
+                }
+              />
             </SurfaceCard>
           )}
         </>

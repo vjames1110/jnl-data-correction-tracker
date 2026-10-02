@@ -24,6 +24,7 @@ import {
   useStructureTypes,
   useUnhideActivity,
   useUpdateActivity,
+  useUpdateActivityCommentMeetingDate,
   useUpdateStructure,
 } from "../../../hooks/useProjectMonitor";
 import { AddStructureForm } from "../components/AddStructureForm";
@@ -50,8 +51,10 @@ export function StructuresPage() {
     useState(null);
 
   const sitesQuery = useProjectSites();
-  const structureTypesQuery =
-    useStructureTypes();
+  const structureTypesQuery = useStructureTypes(
+    false,
+    selectedSite,
+  );
   const structuresQuery = useStructures(
     selectedSite,
   );
@@ -91,6 +94,9 @@ export function StructuresPage() {
     selectedSite,
   );
   const requestEditAccess = useCreateEditAccessRequest();
+  const editMeetingDate = useUpdateActivityCommentMeetingDate(
+    selectedSite,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -397,6 +403,17 @@ export function StructuresPage() {
                     requestEditAccessStatus={
                       requestEditAccess
                     }
+                    onEditMeetingDate={(
+                      commentId,
+                      meetingDate,
+                      options,
+                    ) =>
+                      editMeetingDate.mutate(
+                        { commentId, meetingDate },
+                        options,
+                      )
+                    }
+                    editMeetingDateStatus={editMeetingDate}
                   />
                 )}
                 onEdit={(structure) => {

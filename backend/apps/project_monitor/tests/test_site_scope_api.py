@@ -741,7 +741,8 @@ TASK_SCOPED_ROUTES = {
     "girder-job-activity-create", "girder-span-activity-create",
     "action-item-list", "action-item-detail", "linear-item-list", "linear-item-detail",
     "scope-patch-list", "scope-patch-detail", "progress-entry-list", "progress-entry-detail",
-    "activity-update", "activity-review", "activity-unhide", "dashboard", "due-tracker", "overdue-counts",
+    "activity-update", "activity-review", "activity-unhide", "activity-comment-update",
+    "dashboard", "due-tracker", "overdue-counts",
     "project-sites", "edit-access-request-create",
 }
 # Finance tasks: per-task rules in services/site_access (test_project_scope,
@@ -749,7 +750,8 @@ TASK_SCOPED_ROUTES = {
 FINANCE_ROUTES_PREFIXES = ("dpr-", "ra-bill", "financial-", "hr-", "machinery-")
 # Global masters and Admin-only screens: no site task involved.
 SITE_LESS_ROUTES = {
-    "structure-type-list", "structure-type-detail", "rdso-span-library-list",
+    "structure-type-list", "structure-type-detail", "structure-type-distribute",
+    "rdso-span-library-list",
     "rdso-span-library-detail", "site-access-list", "site-access-detail",
     "site-access-set", "site-scope",
     "edit-access-request-list", "edit-access-request-grant", "edit-access-request-deny",

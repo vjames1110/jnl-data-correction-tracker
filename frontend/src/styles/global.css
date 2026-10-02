@@ -32,6 +32,23 @@ textarea {
   font: inherit;
 }
 
+/* Every number input loses its native up/down spinner - with ~115 of
+   them across the app, a mouse resting over one while the page is
+   scrolled (or just a stray wheel tick) silently changes whatever
+   value was typed, which is worse than the spinner is useful. The
+   scroll-still-changes-the-value browser behaviour itself (separate
+   from the spinner's visibility) is blocked app-wide by the wheel
+   listener in main.jsx. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 button,
 select {
   cursor: pointer;

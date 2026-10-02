@@ -137,6 +137,8 @@ export function ActionItemTable({
   isCompletedTable = false,
   onRequestEditAccess,
   requestEditAccessStatus,
+  onEditMeetingDate,
+  editMeetingDateStatus,
 }) {
   const [editingItemId, setEditingItemId] =
     useState(null);
@@ -178,7 +180,7 @@ export function ActionItemTable({
             <th>Action</th>
             <th>Responsibility</th>
             <th>Status</th>
-            <th>Target date</th>
+            <th>Approval date</th>
             <th className="pm-tools-head">History / Review</th>
             {canEdit ? <th></th> : null}
           </tr>
@@ -354,6 +356,20 @@ export function ActionItemTable({
             )
           }
           reviewStatus={reviewActivityStatus}
+          canEdit={canEdit}
+          onEditMeetingDate={onEditMeetingDate}
+          editMeetingDateStatus={editMeetingDateStatus}
+          onRequestEditAccess={
+            onRequestEditAccess
+              ? (activityId, payload, options) =>
+                  onRequestEditAccess(
+                    activityId,
+                    payload,
+                    options,
+                  )
+              : undefined
+          }
+          requestEditAccessStatus={requestEditAccessStatus}
         />
       ) : null}
     </div>

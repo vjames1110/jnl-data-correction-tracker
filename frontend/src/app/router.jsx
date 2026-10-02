@@ -81,6 +81,7 @@ import { ProjectMasterRoute } from "../routes/ProjectMasterRoute";
 import { ResponsibleRoute } from "../routes/ResponsibleRoute";
 import { StoreHoRoute } from "../routes/StoreHoRoute";
 import { StoreRoute } from "../routes/StoreRoute";
+import { StructureTypeRoute } from "../routes/StructureTypeRoute";
 import { UserRoute } from "../routes/UserRoute";
 import { CapabilityRoute } from "../routes/CapabilityRoute";
 import {
@@ -328,7 +329,7 @@ export const router = createBrowserRouter([
                 ),
               },
               {
-                element: <ProjectMasterRoute />,
+                element: <StructureTypeRoute />,
                 children: [
                   {
                     path: "/project-manager/structure-types",
@@ -336,6 +337,11 @@ export const router = createBrowserRouter([
                       <StructureTypeManagementPage />
                     ),
                   },
+                ],
+              },
+              {
+                element: <ProjectMasterRoute />,
+                children: [
                   {
                     path: "/project-manager/rdso-span-library",
                     element: (

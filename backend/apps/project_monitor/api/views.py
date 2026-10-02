@@ -17,7 +17,10 @@ from rest_framework.views import APIView
 from apps.core.api.responses import success_response
 from apps.organization.models import Site
 from apps.project_monitor.api.common import as_drf_validation
-from apps.project_monitor.services import project_scope
+from apps.project_monitor.services import (
+    project_scope,
+    structure_type_scope,
+)
 from apps.project_monitor.services.notifications import (
     notify_edit_access_decided,
     notify_edit_access_requested,
@@ -28,6 +31,7 @@ from apps.project_monitor.api.permissions import (
     HasProjectMonitorMasterAccess,
     HasProjectMonitorPortalAccess,
     HasProjectMonitorReportingAccess,
+    HasStructureTypeMasterAccess,
     IsProjectMonitorAdmin,
 )
 from apps.project_monitor.api.serializers import (
@@ -35,6 +39,7 @@ from apps.project_monitor.api.serializers import (
     CustomActivityCreateSerializer,
     ActionItemSerializer,
     ActionItemUpdateSerializer,
+    ActivityCommentMeetingDateUpdateSerializer,
     ActivityEditAccessRequestSerializer,
     ActivitySerializer,
     ActivityUpdateSerializer,
@@ -71,6 +76,7 @@ from apps.project_monitor.api.serializers import (
 from apps.project_monitor.models import (
     ActionItem,
     Activity,
+    ActivityComment,
     ActivityEditAccessRequest,
     ActivityStatus,
     Building,
@@ -2503,6 +2509,87 @@ class ActivityUpdateAPIView(APIView):
         )
 
 
+class ActivityCommentUpdateAPIView(APIView):
+    """
+    Correct a past meeting-update's meeting date - e.g. typed by
+    mistake in the update popup. Standardized on the exact same
+    48-hour edit window as every other change to the activity
+    (``ensure_can_edit_activity``), so fixing a mistaken meeting date
+    is subject to the same rule as fixing anything else on this
+    activity, not a second, parallel timer.
+    """
+
+    permission_classes = [
+        HasProjectMonitorPortalAccess,
+    ]
+
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            comment = (
+                ActivityComment.objects.select_related(
+                    "activity"
+                ).get(pk=pk)
+            )
+        except (
+            ActivityComment.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Comment not found."
+            ) from exc
+
+        activity = comment.activity
+        _authorize_site(
+            request,
+            resolve_activity_site(activity),
+            resolve_activity_task(activity),
+            write=True,
+        )
+        ensure_can_edit_activity(
+            request.user, activity
+        )
+
+        serializer = (
+            ActivityCommentMeetingDateUpdateSerializer(
+                data=request.data
+            )
+        )
+        serializer.is_valid(raise_exception=True)
+        comment.meeting_date = (
+            serializer.validated_data[
+                "meeting_date"
+            ]
+        )
+        comment.updated_by = request.user
+        comment.save(
+            update_fields=[
+                "meeting_date",
+                "updated_by",
+                "updated_at",
+            ]
+        )
+
+        activity.updated_by = request.user
+        activity.save(
+            update_fields=[
+                "updated_by",
+                "updated_at",
+            ]
+        )
+        activity = Activity.objects.prefetch_related(
+            "date_entries", "comments"
+        ).get(pk=activity.pk)
+
+        return success_response(
+            message=(
+                "Meeting date corrected "
+                "successfully."
+            ),
+            data=ActivitySerializer(activity).data,
+        )
+
+
 class ActivityUnhideAPIView(APIView):
     """
     Undo ``ActivityUpdateAPIView.delete`` - shows a hidden row again
@@ -2768,20 +2855,46 @@ class ActivityReviewAPIView(APIView):
 class StructureTypeListCreateAPIView(APIView):
     """
     The Structure Type master: every type (Minor Bridge/Major
-    Bridge/RUB/ROB seeded as built-ins, plus whatever an Admin has
-    since added) that the "Add a structure" form and matrix can
-    offer. GET defaults to active types only (what an entry user
-    should be offered); pass ``?all=1`` (the Admin settings page)
-    to see inactive ones too, so they can be reactivated.
+    Bridge/RUB/ROB seeded as built-ins, plus whatever an Admin or a
+    Project Manager/Incharge has since added) that the "Add a
+    structure" form and matrix can offer. GET defaults to active
+    types only (what an entry user should be offered); pass
+    ``?all=1`` (the Admin settings page) to see inactive ones too, so
+    they can be reactivated.
+
+    ``?site=`` narrows the list to what's usable on that one site
+    (global + owned by it + distributed to it) - the "Add a
+    structure" form always passes it. Without it, a company-wide role
+    (Director/Admin/Super Admin/Project HO) still sees every type
+    (the master-management view); a Project Manager/Incharge instead
+    sees the union of every type usable on any site they hold the
+    Structures task on, since they have no single "manage everything"
+    view.
+
+    POST with no ``?site=`` creates a global type (Admin/Director/HO
+    only, unchanged); with ``?site=``, a Project Manager/Incharge
+    creates a type owned by that site instead - ``owner_site`` always
+    comes from the site, never from the request body.
     """
 
     permission_classes = [
-        HasProjectMonitorMasterAccess,
+        HasStructureTypeMasterAccess,
     ]
 
     def get(self, request, *args, **kwargs):
+        site = self._get_optional_site(request)
+        if site is not None:
+            project_scope.ensure_can_view_task(
+                request.user,
+                site,
+                TASK.STRUCTURES.value,
+            )
         queryset = (
-            StructureTypeDefinition.objects.all()
+            structure_type_scope.visible_queryset(
+                StructureTypeDefinition,
+                request.user,
+                site,
+            )
         )
         if not request.query_params.get("all"):
             queryset = queryset.filter(
@@ -2799,11 +2912,30 @@ class StructureTypeListCreateAPIView(APIView):
         )
 
     def post(self, request, *args, **kwargs):
+        site = self._get_optional_site(request)
+        owner_site = None
+        if site is not None:
+            structure_type_scope.ensure_can_create_for_site(
+                request.user, site
+            )
+            owner_site = site
+        elif not project_scope.is_company_wide(
+            request.user
+        ):
+            raise ValidationError(
+                {
+                    "site": (
+                        "Site is required."
+                    )
+                }
+            )
+
         serializer = StructureTypeSerializer(
             data=request.data
         )
         serializer.is_valid(raise_exception=True)
         instance = serializer.save(
+            owner_site=owner_site,
             created_by=request.user,
             updated_by=request.user,
         )
@@ -2818,6 +2950,24 @@ class StructureTypeListCreateAPIView(APIView):
             ).data,
         )
 
+    @staticmethod
+    def _get_optional_site(request):
+        site_id = request.query_params.get(
+            "site"
+        )
+        if not site_id:
+            return None
+        try:
+            return Site.objects.get(pk=site_id)
+        except (
+            Site.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise ValidationError(
+                {"site": "Site not found."}
+            ) from exc
+
 
 class StructureTypeDetailAPIView(APIView):
     """
@@ -2826,10 +2976,15 @@ class StructureTypeDetailAPIView(APIView):
     (``on_delete=PROTECT``) - deactivate it instead so it stops
     being offered on the "Add a structure" form without losing the
     history of structures already built from it.
+
+    A Project Manager/Incharge may only change/delete a type owned by
+    their own site - never a global one, never another site's, and
+    never one merely distributed to their site -
+    ``structure_type_scope.ensure_can_edit`` enforces this.
     """
 
     permission_classes = [
-        HasProjectMonitorMasterAccess,
+        HasStructureTypeMasterAccess,
     ]
 
     def _get_definition(self, pk):
@@ -2850,6 +3005,9 @@ class StructureTypeDetailAPIView(APIView):
 
     def patch(self, request, pk, *args, **kwargs):
         definition = self._get_definition(pk)
+        structure_type_scope.ensure_can_edit(
+            request.user, definition
+        )
         serializer = StructureTypeSerializer(
             definition,
             data=request.data,
@@ -2872,6 +3030,9 @@ class StructureTypeDetailAPIView(APIView):
 
     def delete(self, request, pk, *args, **kwargs):
         definition = self._get_definition(pk)
+        structure_type_scope.ensure_can_edit(
+            request.user, definition
+        )
 
         try:
             definition.delete()
@@ -2905,6 +3066,80 @@ class StructureTypeDetailAPIView(APIView):
             for label, count in sorted(
                 counts.items()
             )
+        )
+
+
+class StructureTypeDistributeAPIView(APIView):
+    """
+    Admin/Director-only: give other sites use-access to a site-owned
+    Structure Type (they can then pick it on the Add-a-structure
+    form, but never edit it - only the owning site's own Project
+    Manager/Incharge, or an Admin/Director, can do that). Replaces
+    the full ``distributed_sites`` set in one call, same "set" shape
+    as the Site Access grants endpoint.
+    """
+
+    permission_classes = [IsProjectMonitorAdmin]
+
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            definition = (
+                StructureTypeDefinition.objects.get(
+                    pk=pk
+                )
+            )
+        except (
+            StructureTypeDefinition.DoesNotExist,
+            ValueError,
+            TypeError,
+        ) as exc:
+            raise NotFound(
+                "Structure type not found."
+            ) from exc
+
+        if definition.owner_site_id is None:
+            raise ValidationError(
+                "This is already a global "
+                "structure type - it's usable "
+                "everywhere, there's nothing to "
+                "distribute."
+            )
+
+        site_ids = request.data.get(
+            "site_ids", []
+        )
+        if not isinstance(site_ids, list):
+            raise ValidationError(
+                {
+                    "site_ids": (
+                        "Must be a list of "
+                        "site ids."
+                    )
+                }
+            )
+
+        sites = Site.objects.filter(
+            id__in=site_ids, is_active=True
+        ).exclude(
+            id=definition.owner_site_id
+        )
+        definition.distributed_sites.set(sites)
+        definition.updated_by = request.user
+        definition.save(
+            update_fields=[
+                "updated_by",
+                "updated_at",
+            ]
+        )
+
+        return success_response(
+            message=(
+                "Structure type distribution "
+                "updated successfully."
+            ),
+            data=StructureTypeSerializer(
+                definition
+            ).data,
         )
 
 

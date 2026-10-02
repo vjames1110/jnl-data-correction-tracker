@@ -106,14 +106,13 @@ class HasProjectSitePickerAccess(BasePermission):
 
 class HasProjectMonitorMasterAccess(BasePermission):
     """
-    The Project Management masters (the Structure Type master - which
-    config fields/activity groups a structure type generates - and the
-    RDSO span library) are configuration, not day-to-day entry.
-    Read access (so the Add-a-structure form and matrix can list
-    active types) is open to anyone with portal or reporting access;
-    writes are for Admin/Super Admin, the Director and the Project
-    Management HO. (Who may use which site stays on Site Access,
-    which is for Admin/Super Admin and the Director.)
+    The Project Management masters (the RDSO span library; the
+    Structure Type master uses its own, slightly broader
+    ``HasStructureTypeMasterAccess`` below). Read access is open to
+    anyone with portal or reporting access; writes are for
+    Admin/Super Admin, the Director and the Project Management HO.
+    (Who may use which site stays on Site Access, which is for
+    Admin/Super Admin and the Director.)
     """
 
     message = (
@@ -137,6 +136,41 @@ class HasProjectMonitorMasterAccess(BasePermission):
 
         return user.role in {
             UserRole.DIRECTOR,
+            UserRole.PROJECT_HO,
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        }
+
+
+class HasStructureTypeMasterAccess(BasePermission):
+    """
+    The Structure Type master specifically: read access is open to
+    anyone with portal or reporting access, same as every other
+    master. Writes are for Admin/Super Admin, the Director and the
+    Project Management HO (unchanged) - plus now a Project
+    Manager/Incharge, who may create or edit a type **owned by their
+    own site** (never a global one, never another site's). This is
+    only the role gate; which exact row a Project Manager/Incharge
+    may touch is enforced per-object by
+    ``services.structure_type_scope.can_edit`` in the view itself -
+    deliberately a separate class from ``HasProjectMonitorMasterAccess``
+    so broadening this gate for Project Manager/Incharge does not also
+    open the RDSO span library's writes to them.
+    """
+
+    message = (
+        "Structure Type master access is required."
+    )
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not _is_active_authenticated(user):
+            return False
+
+        return user.role in {
+            UserRole.DIRECTOR,
+            UserRole.PROJECT_MANAGER,
+            UserRole.PROJECT_INCHARGE,
             UserRole.PROJECT_HO,
             UserRole.ADMIN,
             UserRole.SUPER_ADMIN,

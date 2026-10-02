@@ -78,23 +78,18 @@ function EditProgressEntryForm({
 }
 
 /**
- * The two flat, cross-item registers under the rolling diagram - a
- * Scope register (every patch on every item) and a Progress
- * register (every entry on every item, newest first) - the
+ * The Scope register - every patch on every item - one of the
  * prototype's own "two registers", distinct from both the diagram
- * and the day-wise pivot.
+ * and the day-wise pivot. Shown only on its own tab (see
+ * ``LinearWorksPage``) rather than always alongside the diagram, so
+ * it reads as a deliberate "view" rather than a wall of tables
+ * competing with it for space.
  */
-export function LinearRegisters({
+export function ScopeRegisterTable({
   items,
   canEdit,
   onDeleteScopePatch,
-  onUpdateProgressEntry,
-  updateProgressEntryStatus,
-  onDeleteProgressEntry,
 }) {
-  const [editingEntryId, setEditingEntryId] =
-    useState(null);
-
   const scopeRows = items.flatMap((item) =>
     item.scope_patches.map((patch) => ({
       item,
@@ -102,23 +97,8 @@ export function LinearRegisters({
     })),
   );
 
-  const progressRows = items
-    .flatMap((item) =>
-      item.progress_entries.map((entry) => ({
-        item,
-        entry,
-      })),
-    )
-    .sort(
-      (a, b) =>
-        b.entry.date.localeCompare(
-          a.entry.date,
-        ),
-    );
-
   return (
     <div className="pm-linear-registers">
-      <h3>Scope register</h3>
       {scopeRows.length === 0 ? (
         <p className="pm-timeline-empty">
           No scope patches recorded yet.
@@ -180,10 +160,41 @@ export function LinearRegisters({
           </table>
         </div>
       )}
+    </div>
+  );
+}
 
-      <h3 style={{ marginTop: 18 }}>
-        Progress register (all entries)
-      </h3>
+/**
+ * The Progress register - every entry on every item, newest first -
+ * the prototype's other register, shown on its own tab for the same
+ * reason the Scope register is (see ``ScopeRegisterTable`` above).
+ */
+export function ProgressRegisterTable({
+  items,
+  canEdit,
+  onUpdateProgressEntry,
+  updateProgressEntryStatus,
+  onDeleteProgressEntry,
+}) {
+  const [editingEntryId, setEditingEntryId] =
+    useState(null);
+
+  const progressRows = items
+    .flatMap((item) =>
+      item.progress_entries.map((entry) => ({
+        item,
+        entry,
+      })),
+    )
+    .sort(
+      (a, b) =>
+        b.entry.date.localeCompare(
+          a.entry.date,
+        ),
+    );
+
+  return (
+    <div className="pm-linear-registers">
       {progressRows.length === 0 ? (
         <p className="pm-timeline-empty">
           No progress entries logged yet.

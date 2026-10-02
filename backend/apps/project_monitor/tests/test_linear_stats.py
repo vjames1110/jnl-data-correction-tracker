@@ -62,6 +62,9 @@ def test_no_scope_means_unrestricted(
 
     stats = compute_item_stats(item)
 
+    # qty auto-derives from chainage (2-4 km = 2000 m)
+    # only because none was typed in - once stored it
+    # is a plain figure, not recalculated from chainage.
     assert stats["scope"] == 0
     assert stats["done"] == Decimal("2000")
     assert stats["ongoing"] == 0
@@ -69,7 +72,9 @@ def test_no_scope_means_unrestricted(
 
 
 @pytest.mark.django_db
-def test_done_shrinks_ongoing(site, actor):
+def test_explicit_qty_is_never_recalculated_from_chainage(
+    site, actor
+):
     item = create_linear_item(
         site=site,
         name="P.Way linking",
@@ -81,6 +86,7 @@ def test_done_shrinks_ongoing(site, actor):
         from_chainage_km=Decimal("0.000"),
         to_chainage_km=Decimal("10.000"),
         side="BOTH",
+        qty=Decimal("9500"),
         actor=actor,
     )
     create_progress_entry(
@@ -89,6 +95,7 @@ def test_done_shrinks_ongoing(site, actor):
         from_chainage_km=Decimal("2.000"),
         to_chainage_km=Decimal("8.000"),
         side="BOTH",
+        qty=Decimal("5500"),
         status=ActivityStatus.IN_PROGRESS,
         meeting_date=date(2026, 1, 5),
         actor=actor,
@@ -99,6 +106,7 @@ def test_done_shrinks_ongoing(site, actor):
         from_chainage_km=Decimal("2.000"),
         to_chainage_km=Decimal("4.000"),
         side="BOTH",
+        qty=Decimal("1800"),
         status=ActivityStatus.COMPLETE,
         meeting_date=date(2026, 1, 6),
         actor=actor,
@@ -106,17 +114,19 @@ def test_done_shrinks_ongoing(site, actor):
 
     stats = compute_item_stats(item)
 
-    assert stats["scope"] == Decimal("10000")
-    assert stats["done"] == Decimal("2000")
-    # ongoing was 2-8 (6 km = 6000 m), minus the
-    # 2-4 (2 km = 2000 m) now done, leaving 4-8
-    # (4 km = 4000 m).
-    assert stats["ongoing"] == Decimal("4000")
-    assert stats["pending"] == Decimal("8000")
+    # Every figure is exactly what was typed in, with no
+    # chainage-derived recalculation and no "done shrinks
+    # ongoing" clipping - the chainage here (0-10, 2-8, 2-4)
+    # is only for the rolling diagram's own visual, and is
+    # never consulted by compute_item_stats.
+    assert stats["scope"] == Decimal("9500")
+    assert stats["done"] == Decimal("1800")
+    assert stats["ongoing"] == Decimal("5500")
+    assert stats["pending"] == Decimal("7700")
 
 
 @pytest.mark.django_db
-def test_entries_outside_scope_are_clipped(
+def test_entries_outside_scope_still_count_their_own_qty(
     site, actor
 ):
     item = create_linear_item(
@@ -145,10 +155,13 @@ def test_entries_outside_scope_are_clipped(
 
     stats = compute_item_stats(item)
 
+    # The scope patch's own qty auto-derives to 1000 m
+    # (5-6 km); the progress entry's qty auto-derives to
+    # 10000 m (0-10 km) since neither typed one in - done
+    # is no longer clipped to the scope's chainage range,
+    # since scope and chainage are no longer linked.
     assert stats["scope"] == Decimal("1000")
-    # done is clipped to only the in-scope 5-6 km
-    # stretch, not the full 0-10 km entry.
-    assert stats["done"] == Decimal("1000")
+    assert stats["done"] == Decimal("10000")
     assert stats["pending"] == 0
 
 

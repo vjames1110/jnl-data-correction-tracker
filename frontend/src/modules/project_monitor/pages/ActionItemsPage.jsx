@@ -20,6 +20,7 @@ import {
   useReviewActivity,
   useUpdateActionItem,
   useUpdateActivity,
+  useUpdateActivityCommentMeetingDate,
 } from "../../../hooks/useProjectMonitor";
 import { ActionItemTable } from "../components/ActionItemTable";
 import { AddActionItemForm } from "../components/AddActionItemForm";
@@ -67,6 +68,9 @@ export function ActionItemsPage() {
     selectedSite,
   );
   const requestEditAccess = useCreateEditAccessRequest();
+  const editMeetingDate = useUpdateActivityCommentMeetingDate(
+    selectedSite,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -315,6 +319,17 @@ export function ActionItemsPage() {
               requestEditAccessStatus={
                 requestEditAccess
               }
+              onEditMeetingDate={(
+                commentId,
+                meetingDate,
+                options,
+              ) =>
+                editMeetingDate.mutate(
+                  { commentId, meetingDate },
+                  options,
+                )
+              }
+              editMeetingDateStatus={editMeetingDate}
             />
           </SurfaceCard>
 
@@ -388,6 +403,17 @@ export function ActionItemsPage() {
               requestEditAccessStatus={
                 requestEditAccess
               }
+              onEditMeetingDate={(
+                commentId,
+                meetingDate,
+                options,
+              ) =>
+                editMeetingDate.mutate(
+                  { commentId, meetingDate },
+                  options,
+                )
+              }
+              editMeetingDateStatus={editMeetingDate}
             />
           </SurfaceCard>
         </>

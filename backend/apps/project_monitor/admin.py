@@ -113,11 +113,13 @@ class StructureTypeDefinitionAdmin(
     list_display = [
         "name",
         "code",
+        "owner_site",
         "is_active",
         "display_order",
     ]
-    list_filter = ["is_active"]
+    list_filter = ["is_active", "owner_site"]
     search_fields = ["name", "code"]
+    autocomplete_fields = ["owner_site", "distributed_sites"]
 
 
 @admin.register(Building)

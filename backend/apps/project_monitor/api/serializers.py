@@ -260,6 +260,20 @@ class ActivityCommentSerializer(
         read_only_fields = fields
 
 
+class ActivityCommentMeetingDateUpdateSerializer(
+    serializers.Serializer
+):
+    """
+    Correcting a past meeting-update's meeting date (e.g. typed by
+    mistake) - the one field of an otherwise append-only
+    ``ActivityComment`` that may be fixed after the fact, gated by the
+    same 48-hour edit window as every other change to the activity
+    (see ``ActivityCommentUpdateAPIView``).
+    """
+
+    meeting_date = serializers.DateField()
+
+
 class ActivitySerializer(serializers.ModelSerializer):
     """
     One Activity row plus its full date-revision history and
@@ -591,7 +605,24 @@ class StructureTypeSerializer(
     CRUD) and the Project Manager's "Add a structure" form (read
     only, to know what fields/groups to render) use this same
     shape.
+
+    ``owner_site``/``distributed_sites`` are deliberately not
+    writable here - who may own or distribute a type is a permission
+    decision (see ``services.structure_type_scope``), set by the view
+    directly on the model instance, never from client-supplied data.
     """
+
+    owner_site_name = serializers.CharField(
+        source="owner_site.site_name",
+        read_only=True,
+        default=None,
+    )
+    distributed_site_ids = serializers.PrimaryKeyRelatedField(
+        source="distributed_sites",
+        many=True,
+        read_only=True,
+    )
+    distributed_site_names = serializers.SerializerMethodField()
 
     class Meta:
         model = StructureTypeDefinition
@@ -605,13 +636,24 @@ class StructureTypeSerializer(
             "include_approval_docs",
             "display_order",
             "is_active",
+            "owner_site",
+            "owner_site_name",
+            "distributed_site_ids",
+            "distributed_site_names",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
+            "owner_site",
             "created_at",
             "updated_at",
+        ]
+
+    def get_distributed_site_names(self, obj):
+        return [
+            site.site_name
+            for site in obj.distributed_sites.all()
         ]
 
     def validate(self, attrs):

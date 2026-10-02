@@ -206,6 +206,46 @@ describe("buildMatrix: rows that repeat per span", () => {
   });
 });
 
+describe("buildMatrix: a nested_repeat structure (ESP A/B/C, each with PC-01/02/03)", () => {
+  // The backend's "nested_repeat" group kind generates one ordinary
+  // group per outer unit (ESP A, ESP B, ESP C), each with its rows
+  // prefixed by the inner unit's label (PC-01, PC-02, ...) - the same
+  // row-prefixing "chain" already does for spans, just inside an
+  // outer loop. No new frontend logic should be needed: each ESP
+  // group independently qualifies as its own per-sub-unit pivot.
+  const esp = (letter, pcCount) =>
+    group(
+      letter.charCodeAt(0),
+      `ESP ${letter}`,
+      Array.from({ length: pcCount }, (_, i) => i + 1).flatMap(
+        (n) => [
+          row(`${letter}${n}a`, `PC-0${n} – Foundation`),
+          row(`${letter}${n}b`, `PC-0${n} – Casting`),
+        ],
+      ),
+    );
+
+  it("gives each ESP unit its own separate table, not one merged across units", () => {
+    const tables = buildMatrix([esp("A", 2), esp("B", 2)]);
+
+    expect(tables).toHaveLength(2);
+    expect(tables[0].title).toBe("ESP A");
+    expect(tables[1].title).toBe("ESP B");
+  });
+
+  it("pivots each ESP's rows into a PC-row x task-column table", () => {
+    const [table] = buildMatrix([esp("A", 3)]);
+
+    expect(table.lines.map((line) => line.label)).toEqual([
+      "PC-01",
+      "PC-02",
+      "PC-03",
+    ]);
+    expect(names(table)).toEqual(["Foundation", "Casting"]);
+    expect(cellIds(table.lines[1])).toEqual(["A2a", "A2b"]);
+  });
+});
+
 describe("buildMatrix: a hand-added activity never disturbs its siblings (bug fix)", () => {
   const pier = (n, extraRows = []) =>
     group(n, `Pier P${n}`, [

@@ -82,9 +82,16 @@ def test_admin_can_create_a_new_structure_type(
 
 
 @pytest.mark.django_db
-def test_project_manager_cannot_create_a_structure_type(
+def test_project_manager_creating_with_no_site_is_rejected(
     api_client,
 ):
+    """
+    A Project Manager/Incharge may now create a structure type for
+    their OWN site (see test_structure_type_site_scope.py) - but with
+    no ``?site=`` at all, there's nothing to own it, so this is a
+    plain validation error (missing required field), not a
+    permission one.
+    """
     pm = ProjectManagerUserFactory()
     api_client.force_authenticate(user=pm)
 
@@ -98,8 +105,11 @@ def test_project_manager_cannot_create_a_structure_type(
 
     assert (
         response.status_code
-        == status.HTTP_403_FORBIDDEN
+        == status.HTTP_400_BAD_REQUEST
     )
+    assert not StructureTypeDefinition.objects.filter(
+        code="SKYWALK"
+    ).exists()
 
 
 @pytest.mark.django_db
@@ -365,14 +375,10 @@ def test_project_ho_can_add_structure_types(api_client):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    "factory",
-    [ProjectManagerUserFactory, UserFactory],
-)
-def test_everyone_else_cannot_write_structure_types(
-    api_client, factory
+def test_a_plain_user_cannot_write_structure_types(
+    api_client,
 ):
-    api_client.force_authenticate(user=factory())
+    api_client.force_authenticate(user=UserFactory())
 
     response = api_client.post(
         reverse(

@@ -293,18 +293,26 @@ function adminNav(moduleKey) {
   }
 }
 
-// Structure Types and the RDSO span library: Admin (in its own
-// nav), Director and the Project Management HO. Site Access is added
-// for the Director alone, next to these.
+// The Structure Type master alone: Admin/Director/Project HO manage
+// every type; a Project Manager/Incharge may now also open it to
+// create/edit a type owned by their own site (never a global one,
+// never another site's - enforced server-side).
+function structureTypesItem(role) {
+  return item(
+    "structure-types",
+    "Structure Types",
+    projectMonitorStructureTypesPath(role),
+    Layers,
+    "master",
+  );
+}
+
+// Structure Types and the RDSO span library together: Admin (in its
+// own nav), Director and the Project Management HO only - RDSO stays
+// out of the Project Manager/Incharge's reach.
 function projectMasterItems(role) {
   return [
-    item(
-      "structure-types",
-      "Structure Types",
-      projectMonitorStructureTypesPath(role),
-      Layers,
-      "master",
-    ),
+    structureTypesItem(role),
     item(
       "rdso-span-library",
       "RDSO Span Library",
@@ -564,7 +572,10 @@ function projectPortalNav(moduleKey, role) {
     ),
     ...(role === USER_ROLES.PROJECT_HO
       ? projectMasterItems(role)
-      : []),
+      : role === USER_ROLES.PROJECT_MANAGER ||
+          role === USER_ROLES.PROJECT_INCHARGE
+        ? [structureTypesItem(role)]
+        : []),
   ];
 }
 

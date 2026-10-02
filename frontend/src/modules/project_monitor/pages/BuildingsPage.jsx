@@ -23,6 +23,7 @@ import {
   useReviewBuilding,
   useUnhideActivity,
   useUpdateActivity,
+  useUpdateActivityCommentMeetingDate,
 } from "../../../hooks/useProjectMonitor";
 import { ActivityWorkspace } from "../components/ActivityWorkspace";
 import { AddBuildingForm } from "../components/AddBuildingForm";
@@ -84,6 +85,9 @@ export function BuildingsPage() {
     selectedSite,
   );
   const requestEditAccess = useCreateEditAccessRequest();
+  const editMeetingDate = useUpdateActivityCommentMeetingDate(
+    selectedSite,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -349,6 +353,17 @@ export function BuildingsPage() {
                     requestEditAccessStatus={
                       requestEditAccess
                     }
+                    onEditMeetingDate={(
+                      commentId,
+                      meetingDate,
+                      options,
+                    ) =>
+                      editMeetingDate.mutate(
+                        { commentId, meetingDate },
+                        options,
+                      )
+                    }
+                    editMeetingDateStatus={editMeetingDate}
                   />
                 )}
                 onDelete={handleDelete}

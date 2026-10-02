@@ -195,6 +195,8 @@ export function ActivityMatrix({
   unhideActivityStatus,
   onRequestEditAccess,
   requestEditAccessStatus,
+  onEditMeetingDate,
+  editMeetingDateStatus,
 }) {
   // Where the last click landed, so the popup can line up with it.
   const [clickX, setClickX] = useState(undefined);
@@ -340,6 +342,8 @@ export function ActivityMatrix({
             requestEditAccessStatus={
               requestEditAccessStatus
             }
+            onEditMeetingDate={onEditMeetingDate}
+            editMeetingDateStatus={editMeetingDateStatus}
           />
         </ActivityPopup>
       ) : null}

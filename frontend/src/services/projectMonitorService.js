@@ -697,6 +697,18 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
+  async updateActivityCommentMeetingDate(
+    commentId,
+    meetingDate,
+  ) {
+    const response = await apiClient.patch(
+      `/project-monitor/activity-comments/${commentId}/`,
+      { meeting_date: meetingDate },
+    );
+
+    return response.data.data;
+  },
+
   async listStructureTypes(params = {}) {
     const response = await apiClient.get(
       "/project-monitor/structure-types/",
@@ -706,10 +718,13 @@ export const projectMonitorService = {
     return response.data.data;
   },
 
-  async createStructureType(payload) {
+  async createStructureType(payload, siteId) {
     const response = await apiClient.post(
       "/project-monitor/structure-types/",
       payload,
+      siteId
+        ? { params: { site: siteId } }
+        : undefined,
     );
 
     return response.data.data;
@@ -731,6 +746,18 @@ export const projectMonitorService = {
     await apiClient.delete(
       `/project-monitor/structure-types/${structureTypeId}/`,
     );
+  },
+
+  async distributeStructureType(
+    structureTypeId,
+    siteIds,
+  ) {
+    const response = await apiClient.patch(
+      `/project-monitor/structure-types/${structureTypeId}/distribute/`,
+      { site_ids: siteIds },
+    );
+
+    return response.data.data;
   },
 
   async listBuildings(params = {}) {

@@ -102,7 +102,7 @@ function ActivityTable({ groups }) {
           <th>Task</th>
           <th>Status</th>
           <th>Progress</th>
-          <th>Target date</th>
+          <th>Approval date</th>
           <th>Hindrance</th>
           <th>Reviewed</th>
           <th>Latest update</th>
@@ -858,7 +858,7 @@ export function ProjectMonitorReportSheet({
                 <th>Item</th>
                 <th>Responsibility</th>
                 <th>Status</th>
-                <th>Target date</th>
+                <th>Approval date</th>
                 <th>Overdue</th>
                 <th>Remarks</th>
                 <th>Latest update</th>

@@ -3,6 +3,7 @@ import {
   Pencil,
   Plus,
   Power,
+  Share2,
   Trash2,
 } from "lucide-react";
 
@@ -10,12 +11,21 @@ import { AppLoader } from "../../../components/common/AppLoader";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { ErrorState } from "../../../components/common/ErrorState";
 import { SurfaceCard } from "../../../components/common/SurfaceCard";
+import { useAuth } from "../../../hooks/useAuth";
 import {
+  useAutoSelectSite,
   useCreateStructureType,
   useDeleteStructureType,
+  useDistributeStructureType,
+  useProjectSites,
+  useSiteTasks,
   useStructureTypes,
   useUpdateStructureType,
 } from "../../../hooks/useProjectMonitor";
+import {
+  canDistributeStructureTypes,
+  canManageProjectMasters,
+} from "../../../constants/roles";
 import {
   ConfigSchemaBuilder,
   GroupTemplatesBuilder,
@@ -75,6 +85,98 @@ function extractErrorMessages(error) {
   return messages.length
     ? messages
     : [error.message];
+}
+
+/**
+ * Admin/Director-only: give other projects use-access to a
+ * site-owned type - they can then pick it on their Add-a-structure
+ * form, but never edit it, same as the plan confirmed with the user
+ * ("grant use access only").
+ */
+function DistributeForm({
+  definition,
+  sites,
+  onSubmit,
+  onCancel,
+  isPending,
+}) {
+  const [selected, setSelected] = useState(
+    () =>
+      new Set(
+        definition.distributed_site_ids || [],
+      ),
+  );
+  const candidateSites = sites.filter(
+    (site) => site.id !== definition.owner_site,
+  );
+
+  const toggle = (id) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit([...selected]);
+      }}
+    >
+      <p className="sub">
+        Other projects that may pick "
+        {definition.name}" when adding a
+        structure - only{" "}
+        {definition.owner_site_name} itself,
+        or an Admin/Director, can edit it.
+      </p>
+      {candidateSites.length === 0 ? (
+        <p className="pm-timeline-empty">
+          No other projects to share this
+          with yet.
+        </p>
+      ) : (
+        <div className="form-grid">
+          {candidateSites.map((site) => (
+            <label
+              key={site.id}
+              className="pm-inline-row"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(site.id)}
+                onChange={() =>
+                  toggle(site.id)
+                }
+              />
+              {site.code} - {site.label}
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="management-panel__actions">
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={isPending}
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          className="button button--tertiary"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function StructureTypeForm({
@@ -349,18 +451,51 @@ function StructureTypeForm({
 }
 
 export function StructureTypeManagementPage() {
+  const { user } = useAuth();
+  const isAdminTier = canManageProjectMasters(
+    user?.role,
+  );
+  const canDistribute = canDistributeStructureTypes(
+    user?.role,
+  );
+
   const [isFormOpen, setIsFormOpen] =
     useState(false);
   const [editing, setEditing] = useState(null);
   const [formError, setFormError] =
     useState(null);
+  const [distributing, setDistributing] =
+    useState(null);
+  const [selectedSite, setSelectedSite] =
+    useState("");
 
-  const typesQuery = useStructureTypes(true);
+  const sitesQuery = useProjectSites();
+  const siteTasks = useSiteTasks(selectedSite);
+  useAutoSelectSite(
+    isAdminTier ? null : sitesQuery.data,
+    selectedSite,
+    setSelectedSite,
+  );
+
+  const typesQuery = useStructureTypes(
+    true,
+    isAdminTier ? undefined : selectedSite,
+  );
   const createType = useCreateStructureType();
   const updateType = useUpdateStructureType();
   const deleteType = useDeleteStructureType();
+  const distributeType =
+    useDistributeStructureType();
 
   const types = typesQuery.data || [];
+  const canCreateHere =
+    isAdminTier ||
+    (Boolean(selectedSite) &&
+      siteTasks.canEnter("STRUCTURES"));
+
+  const ownsDefinition = (definition) =>
+    isAdminTier ||
+    definition.owner_site === selectedSite;
 
   const openCreate = () => {
     setEditing(null);
@@ -382,7 +517,12 @@ export function StructureTypeManagementPage() {
           structureTypeId: editing.id,
           payload,
         })
-      : createType.mutateAsync(payload);
+      : createType.mutateAsync({
+          payload,
+          siteId: isAdminTier
+            ? undefined
+            : selectedSite,
+        });
 
     mutation
       .then(() => {
@@ -425,6 +565,16 @@ export function StructureTypeManagementPage() {
     });
   };
 
+  const handleDistribute = (siteIds) => {
+    distributeType.mutate(
+      {
+        structureTypeId: distributing.id,
+        siteIds,
+      },
+      { onSuccess: () => setDistributing(null) },
+    );
+  };
+
   return (
     <div className="organization-page">
       <div className="page-heading">
@@ -434,24 +584,50 @@ export function StructureTypeManagementPage() {
           </span>
           <h1>Structure Types</h1>
           <p>
-            The master of structure types
-            (Minor Bridge, Major Bridge, RUB,
-            ROB and any new ones you define)
-            the "Add a structure" form
-            offers - each declares its own
-            input fields and how they
-            generate activity groups/rows.
+            {isAdminTier
+              ? "The master of structure types (Minor Bridge, Major Bridge, RUB, ROB and any new ones you define) the \"Add a structure\" form offers - each declares its own input fields and how they generate activity groups/rows."
+              : "Structure types your own project can add (every global type, plus any you've defined for this project) - each declares its own input fields and how they generate activity groups/rows."}
           </p>
         </div>
         <div className="page-actions">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={openCreate}
-          >
-            <Plus size={16} /> Add structure
-            type
-          </button>
+          {isAdminTier ? null : (
+            <label className="filter-control">
+              <span>Project</span>
+              <select
+                value={selectedSite}
+                onChange={(event) =>
+                  setSelectedSite(
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="">
+                  Select project
+                </option>
+                {(sitesQuery.data ?? []).map(
+                  (site) => (
+                    <option
+                      key={site.id}
+                      value={site.id}
+                    >
+                      {site.code} -{" "}
+                      {site.label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          )}
+          {canCreateHere ? (
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={openCreate}
+            >
+              <Plus size={16} /> Add structure
+              type
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -489,7 +665,30 @@ export function StructureTypeManagementPage() {
         </SlideDownForm>
       ) : null}
 
-      {typesQuery.isLoading ? (
+      {distributing ? (
+        <SlideDownForm
+          eyebrow="Structure Types"
+          title={`Share "${distributing.name}"`}
+          onClose={() => setDistributing(null)}
+        >
+          <DistributeForm
+            definition={distributing}
+            sites={sitesQuery.data ?? []}
+            onSubmit={handleDistribute}
+            onCancel={() =>
+              setDistributing(null)
+            }
+            isPending={distributeType.isPending}
+          />
+        </SlideDownForm>
+      ) : null}
+
+      {!isAdminTier && !selectedSite ? (
+        <EmptyState
+          title="Pick a project to get started"
+          message="Choose a project above to see and manage its structure types."
+        />
+      ) : typesQuery.isLoading ? (
         <AppLoader label="Loading structure types..." />
       ) : typesQuery.isError ? (
         <ErrorState
@@ -510,6 +709,7 @@ export function StructureTypeManagementPage() {
                 <tr>
                   <th>Name</th>
                   <th>Code</th>
+                  <th>Owner</th>
                   <th>Input fields</th>
                   <th>Activity groups</th>
                   <th>Status</th>
@@ -521,6 +721,23 @@ export function StructureTypeManagementPage() {
                   <tr key={definition.id}>
                     <td>{definition.name}</td>
                     <td>{definition.code}</td>
+                    <td>
+                      {definition.owner_site
+                        ? definition.owner_site_name
+                        : "Global"}
+                      {definition.owner_site &&
+                      definition
+                        .distributed_site_names
+                        ?.length ? (
+                        <span className="sub">
+                          {" "}
+                          · shared with{" "}
+                          {definition.distributed_site_names.join(
+                            ", ",
+                          )}
+                        </span>
+                      ) : null}
+                    </td>
                     <td>
                       {
                         definition
@@ -544,52 +761,78 @@ export function StructureTypeManagementPage() {
                     </td>
                     <td>
                       <div className="table-actions">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() =>
-                            openEdit(
-                              definition,
-                            )
-                          }
-                          aria-label="Edit structure type"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() =>
-                            handleToggleActive(
-                              definition,
-                            )
-                          }
-                          aria-label={
-                            definition.is_active
-                              ? "Deactivate"
-                              : "Activate"
-                          }
-                          title={
-                            definition.is_active
-                              ? "Deactivate"
-                              : "Activate"
-                          }
-                        >
-                          <Power size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button icon-button--danger"
-                          onClick={() =>
-                            handleDelete(
-                              definition,
-                            )
-                          }
-                          aria-label="Delete structure type"
-                          title="Delete permanently"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {ownsDefinition(
+                          definition,
+                        ) ? (
+                          <>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              onClick={() =>
+                                openEdit(
+                                  definition,
+                                )
+                              }
+                              aria-label="Edit structure type"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              onClick={() =>
+                                handleToggleActive(
+                                  definition,
+                                )
+                              }
+                              aria-label={
+                                definition.is_active
+                                  ? "Deactivate"
+                                  : "Activate"
+                              }
+                              title={
+                                definition.is_active
+                                  ? "Deactivate"
+                                  : "Activate"
+                              }
+                            >
+                              <Power size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button icon-button--danger"
+                              onClick={() =>
+                                handleDelete(
+                                  definition,
+                                )
+                              }
+                              aria-label="Delete structure type"
+                              title="Delete permanently"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="sub">
+                            View only
+                          </span>
+                        )}
+                        {canDistribute &&
+                        definition.owner_site ? (
+                          <button
+                            type="button"
+                            className="icon-button"
+                            onClick={() =>
+                              setDistributing(
+                                definition,
+                              )
+                            }
+                            aria-label="Share with other projects"
+                            title="Share with other projects"
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

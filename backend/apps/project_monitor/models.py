@@ -368,6 +368,35 @@ class StructureTypeDefinition(
     display_order = models.PositiveIntegerField(
         default=0,
     )
+    owner_site = models.ForeignKey(
+        Site,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_structure_types",
+        help_text=(
+            "Blank = a global type, usable on every site (the "
+            "built-ins, and anything an Admin/Director/HO adds "
+            "directly). Set = a type a Project Manager/Incharge "
+            "made for their own site - visible and usable only "
+            "there, plus wherever an Admin/Director has "
+            "distributed it. Only an Admin/Director (or the "
+            "owning site's own Project Manager/Incharge) may "
+            "edit it."
+        ),
+    )
+    distributed_sites = models.ManyToManyField(
+        Site,
+        blank=True,
+        related_name="distributed_structure_types",
+        help_text=(
+            "Other sites an Admin/Director has given use-access "
+            "to - they can pick this type on the Add-a-structure "
+            "form, but cannot edit it. Only meaningful when "
+            "owner_site is set; a global type is already usable "
+            "everywhere."
+        ),
+    )
 
     class Meta:
         db_table = (
@@ -1301,6 +1330,7 @@ class LinearUnit(models.TextChoices):
     M = "M", "Running metre (m)"
     CUM = "CUM", "Cubic metre (cum)"
     NOS = "NOS", "Numbers (nos)"
+    AREA = "AREA", "Area (sqm)"
 
 
 class LinearSide(models.TextChoices):

@@ -318,7 +318,7 @@ describe("ActivityMatrix popup", () => {
       within(dialog).getByRole("heading", { name: "Bottom slab" }),
     ).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Meeting date")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Target date")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Approval date")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Status")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("% done")).toBeInTheDocument();
     expect(

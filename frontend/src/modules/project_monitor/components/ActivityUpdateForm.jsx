@@ -106,11 +106,7 @@ export function ActivityUpdateForm({
         />
       </label>
       <label className="form-field">
-        <span>
-          {activity.is_doc
-            ? "Approval date (or expected)"
-            : "Target date"}
-        </span>
+        <span>Approval date</span>
         <input
           type="date"
           value={targetDate}

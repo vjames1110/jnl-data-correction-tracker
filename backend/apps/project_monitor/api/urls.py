@@ -81,6 +81,7 @@ from apps.project_monitor.api.site_access_views import (
 from apps.project_monitor.api.views import (
     ActionItemDetailAPIView,
     ActionItemListCreateAPIView,
+    ActivityCommentUpdateAPIView,
     ActivityReviewAPIView,
     ActivityUnhideAPIView,
     ActivityUpdateAPIView,
@@ -118,6 +119,7 @@ from apps.project_monitor.api.views import (
     StructureLocationListCreateAPIView,
     StructureReviewAPIView,
     StructureTypeDetailAPIView,
+    StructureTypeDistributeAPIView,
     StructureTypeListCreateAPIView,
 )
 
@@ -481,6 +483,11 @@ urlpatterns = [
         name="structure-type-detail",
     ),
     path(
+        "structure-types/<uuid:pk>/distribute/",
+        StructureTypeDistributeAPIView.as_view(),
+        name="structure-type-distribute",
+    ),
+    path(
         "structures/",
         StructureListCreateAPIView.as_view(),
         name="structure-list",
@@ -629,6 +636,11 @@ urlpatterns = [
         "activities/<uuid:pk>/edit-access-requests/",
         EditAccessRequestCreateAPIView.as_view(),
         name="edit-access-request-create",
+    ),
+    path(
+        "activity-comments/<int:pk>/",
+        ActivityCommentUpdateAPIView.as_view(),
+        name="activity-comment-update",
     ),
     path(
         "edit-access-requests/",

@@ -85,6 +85,7 @@ describe("module access by role", () => {
     );
     expect(incharge.map((entry) => entry.label)).toEqual([
       "Project Monitor",
+      "Structure Types",
     ]);
     expect(
       getModuleHome(
@@ -200,7 +201,7 @@ describe("module navigation", () => {
         USER_ROLES.PROJECT_MANAGER,
         MODULE_KEYS.PROJECT,
       ),
-    ).toEqual(["Project Monitor"]);
+    ).toEqual(["Project Monitor", "Structure Types"]);
   });
 
   it("puts User and Organization Management in Administration Master", () => {
@@ -436,12 +437,14 @@ describe("Project Management HO, departments and the Director's masters", () => 
     );
   });
 
-  it("does not give a Project Manager or Incharge the masters", () => {
+  it("gives a Project Manager or Incharge the Structure Type master (site-scoped) but not RDSO or Site Access", () => {
     expect(labels(USER_ROLES.PROJECT_MANAGER)).toEqual([
       "Project Monitor",
+      "Structure Types",
     ]);
     expect(labels(USER_ROLES.PROJECT_INCHARGE)).toEqual([
       "Project Monitor",
+      "Structure Types",
     ]);
   });
 

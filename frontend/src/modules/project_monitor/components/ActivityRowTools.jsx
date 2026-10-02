@@ -182,6 +182,11 @@ export function ActivityToolPopup({
   onClose,
   onReview,
   reviewStatus,
+  canEdit,
+  onEditMeetingDate,
+  editMeetingDateStatus,
+  onRequestEditAccess,
+  requestEditAccessStatus,
 }) {
   const isHistory = tool === "history";
 
@@ -199,7 +204,14 @@ export function ActivityToolPopup({
         onClose={onClose}
       />
       {isHistory ? (
-        <ActivityTimeline activity={activity} />
+        <ActivityTimeline
+          activity={activity}
+          canEdit={canEdit}
+          onEditMeetingDate={onEditMeetingDate}
+          editMeetingDateStatus={editMeetingDateStatus}
+          onRequestEditAccess={onRequestEditAccess}
+          requestEditAccessStatus={requestEditAccessStatus}
+        />
       ) : (
         <ReviewBody
           activity={activity}

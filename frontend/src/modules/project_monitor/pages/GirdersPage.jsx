@@ -26,6 +26,7 @@ import {
   useStructures,
   useUnhideActivity,
   useUpdateActivity,
+  useUpdateActivityCommentMeetingDate,
   useUpdateGirderSpan,
 } from "../../../hooks/useProjectMonitor";
 import { AddGirderJobForm } from "../components/AddGirderJobForm";
@@ -102,6 +103,9 @@ export function GirdersPage() {
     selectedSite,
   );
   const requestEditAccess = useCreateEditAccessRequest();
+  const editMeetingDate = useUpdateActivityCommentMeetingDate(
+    selectedSite,
+  );
 
   const handleSiteChange = (value) => {
     setSelectedSite(value);
@@ -427,6 +431,17 @@ export function GirdersPage() {
                   requestEditAccessStatus={
                     requestEditAccess
                   }
+                  onEditMeetingDate={(
+                    commentId,
+                    meetingDate,
+                    options,
+                  ) =>
+                    editMeetingDate.mutate(
+                      { commentId, meetingDate },
+                      options,
+                    )
+                  }
+                  editMeetingDateStatus={editMeetingDate}
                 />
               )}
               onDelete={handleDelete}

@@ -30,6 +30,7 @@ const GROUP_KIND_LABELS = {
   repeat: "Repeat",
   sides: "Sides",
   chain: "Chain",
+  nested_repeat: "Nested repeat",
 };
 
 const ITEM_FIELD_TYPE_OPTIONS = [
@@ -67,6 +68,11 @@ const GROUP_KIND_OPTIONS = [
     value: "chain",
     label:
       "Chain - a repeating step sequence (e.g. per Span)",
+  },
+  {
+    value: "nested_repeat",
+    label:
+      "Nested repeat - a group of groups (e.g. ESP A/B/C, each with PC-01/02/03)",
   },
 ];
 
@@ -1043,6 +1049,24 @@ function namingModeOf(group) {
  * keep the plain single box.
  */
 function GroupNamingField({ group, onChange }) {
+  if (group.kind === "nested_repeat") {
+    return (
+      <Field label="Outer unit title (use {alpha} for A/B/C/..., or {n} for a number)">
+        <input
+          type="text"
+          value={group.title_template || ""}
+          onChange={(event) =>
+            onChange({
+              ...group,
+              title_template: event.target.value,
+            })
+          }
+          placeholder="e.g. ESP {alpha}"
+        />
+      </Field>
+    );
+  }
+
   if (group.kind !== "repeat") {
     return (
       <Field label="Group title (use {n} for repeat/chain, {side} for sides)">
@@ -1228,6 +1252,16 @@ function groupOutlineMeta(group) {
   if (kind === "sides") {
     return "one per side (LHS/RHS)";
   }
+  if (kind === "nested_repeat") {
+    return (
+      `one group per "${group.count_field || "?"}", ` +
+      `each with rows per "${
+        group.child_count_field || "?"
+      }" labelled "${
+        group.child_label_template || "?"
+      }"`
+    );
+  }
   return null;
 }
 
@@ -1408,8 +1442,15 @@ function GroupTemplateEditor({
         </Field>
 
         {group.kind === "repeat" ||
-        group.kind === "chain" ? (
-          <Field label="Repeat count comes from field">
+        group.kind === "chain" ||
+        group.kind === "nested_repeat" ? (
+          <Field
+            label={
+              group.kind === "nested_repeat"
+                ? "Outer unit count comes from field (e.g. number of ESPs)"
+                : "Repeat count comes from field"
+            }
+          >
             <select
               value={group.count_field || ""}
               onChange={(event) =>
@@ -1433,6 +1474,54 @@ function GroupTemplateEditor({
               ))}
             </select>
           </Field>
+        ) : null}
+
+        {group.kind === "nested_repeat" ? (
+          <>
+            <Field label="Inner unit count comes from field (e.g. number of PCs per ESP)">
+              <select
+                value={
+                  group.child_count_field || ""
+                }
+                onChange={(event) =>
+                  onChange({
+                    ...group,
+                    child_count_field:
+                      event.target.value,
+                  })
+                }
+              >
+                <option value="">
+                  - select a field -
+                </option>
+                {numericFields.map((field) => (
+                  <option
+                    key={field.key}
+                    value={field.key}
+                  >
+                    {field.label || field.key}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Inner unit label (use {nn} for 01/02/..., or {n} for a plain number)">
+              <input
+                type="text"
+                value={
+                  group.child_label_template ||
+                  ""
+                }
+                onChange={(event) =>
+                  onChange({
+                    ...group,
+                    child_label_template:
+                      event.target.value,
+                  })
+                }
+                placeholder="e.g. PC-{nn}"
+              />
+            </Field>
+          </>
         ) : null}
 
         {group.kind === "chain" ? (

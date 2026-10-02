@@ -3328,6 +3328,29 @@ table.pm-report__table td.pm-num {
   font-size: 11px;
 }
 
+.pm-thread__meeting {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pm-thread__meeting--editing {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pm-thread__meeting--editing input[type="date"] {
+  min-height: var(--control-height-compact);
+  font-size: 12px;
+}
+
+.pm-thread__meeting--editing > .pm-edit-access-request,
+.pm-thread__meeting--editing > .inline-alert {
+  flex-basis: 100%;
+}
+
 .pm-thread__text {
   margin: 4px 0 0;
   padding: 7px 10px;

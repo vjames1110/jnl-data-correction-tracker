@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   assignableRoleOptions,
   canManageAccountOf,
+  canAccessStructureTypeMaster,
+  canDistributeStructureTypes,
   canManageProjectMasters,
   canManageSetup,
   isDepartmentRole,
@@ -257,6 +259,43 @@ describe("Project Management HO and the departments", () => {
       USER_ROLES.USER,
     ].forEach((role) =>
       expect(canManageProjectMasters(role)).toBe(false),
+    );
+  });
+
+  it("also lets a Project Manager/Incharge open the Structure Type master (site-scoped), but not RDSO", () => {
+    [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SUPER_ADMIN,
+      USER_ROLES.DIRECTOR,
+      USER_ROLES.PROJECT_HO,
+      USER_ROLES.PROJECT_MANAGER,
+      USER_ROLES.PROJECT_INCHARGE,
+    ].forEach((role) =>
+      expect(canAccessStructureTypeMaster(role)).toBe(true),
+    );
+    [
+      USER_ROLES.HR_DEPARTMENT,
+      USER_ROLES.STORE_HO,
+      USER_ROLES.USER,
+    ].forEach((role) =>
+      expect(canAccessStructureTypeMaster(role)).toBe(false),
+    );
+  });
+
+  it("reserves distributing a structure type for Admin/Super Admin/Director, not the HO", () => {
+    [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SUPER_ADMIN,
+      USER_ROLES.DIRECTOR,
+    ].forEach((role) =>
+      expect(canDistributeStructureTypes(role)).toBe(true),
+    );
+    [
+      USER_ROLES.PROJECT_HO,
+      USER_ROLES.PROJECT_MANAGER,
+      USER_ROLES.PROJECT_INCHARGE,
+    ].forEach((role) =>
+      expect(canDistributeStructureTypes(role)).toBe(false),
     );
   });
 

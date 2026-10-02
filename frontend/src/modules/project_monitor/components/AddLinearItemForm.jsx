@@ -54,6 +54,9 @@ export function AddLinearItemForm({
             <option value="NOS">
               Numbers (nos)
             </option>
+            <option value="AREA">
+              Area (sqm)
+            </option>
           </select>
         </label>
       </div>

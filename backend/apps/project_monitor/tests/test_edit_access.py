@@ -21,6 +21,7 @@ from apps.notifications.models import Notification
 from apps.organization.models import Company, Site
 from apps.project_monitor.models import (
     Activity,
+    ActivityComment,
     ActivityEditAccessRequest,
     EditAccessRequestStatus,
     StructureTypeDefinition,
@@ -423,3 +424,119 @@ class TestEditAccessAPI:
         response = api.get(url("edit-access-request-list"))
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["data"]) == 1
+
+
+@pytest.mark.django_db
+class TestActivityCommentMeetingDateCorrection:
+    """
+    A meeting date entered by mistake on a past update can be
+    corrected - standardized on the exact same 48-hour window that
+    gates every other change to the activity, not a separate one.
+    """
+
+    @pytest.fixture
+    def comment(self, activity, pm):
+        return ActivityComment.objects.create(
+            activity=activity,
+            meeting_date="2026-09-20",
+            text="Shuttering in progress",
+            created_by=pm,
+            updated_by=pm,
+        )
+
+    def test_pm_can_correct_a_mistaken_meeting_date_within_the_window(
+        self, api, site, activity, comment
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        response = api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        comment.refresh_from_db()
+        assert comment.meeting_date.isoformat() == "2026-09-19"
+
+    def test_the_corrected_date_reaches_the_activity_payload(
+        self, api, site, activity, comment
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        response = api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        returned = next(
+            c
+            for c in response.data["data"]["comments"]
+            if c["id"] == comment.id
+        )
+        assert returned["meeting_date"] == "2026-09-19"
+
+    def test_pm_is_refused_past_the_window(
+        self, api, site, activity, comment
+    ):
+        make_stale(activity)
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        response = api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "48 hours" in str(response.data)
+        comment.refresh_from_db()
+        assert comment.meeting_date.isoformat() == "2026-09-20"
+
+    def test_director_is_never_refused(
+        self, api, site, activity, comment, director
+    ):
+        make_stale(activity)
+        api.force_authenticate(user=director)
+        response = api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_a_missing_meeting_date_is_rejected(
+        self, api, site, comment
+    ):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        response = api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_correcting_the_meeting_date_refreshes_the_activitys_own_window(
+        self, api, site, activity, comment
+    ):
+        make_stale(activity, hours=10)
+        before = activity.updated_at
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        api.patch(
+            f"{url('activity-comment-update', comment.id)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        activity.refresh_from_db()
+        assert activity.updated_at > before
+
+    def test_an_unknown_comment_is_a_404(self, api, site):
+        api.force_authenticate(user=ProjectManagerUserFactory())
+        response = api.patch(
+            f"{url('activity-comment-update', 999999)}?site={site.id}",
+            {"meeting_date": "2026-09-19"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -21,12 +21,15 @@ edge. The frontend paints each range at its own exact position, so
 the coloured line matches the real chainage precisely.
 
 Deliberately unit-agnostic: every ScopePatch/ProgressEntry carries a
-chainage range regardless of ``unit`` (M/CUM/NOS) - only the *qty*
-figures ``linear_stats.compute_item_stats`` reports differ by unit.
-This module never touches ``qty`` at all, so it produces the same
-kind of "where is work happening" picture for every unit alike; the
-Scope/Done/Ongoing/Pending *numbers* shown elsewhere keep coming from
-``compute_item_stats``, unit-correct, completely unchanged.
+chainage range regardless of ``unit`` (M/CUM/NOS) - this module never
+touches ``qty`` at all, so it produces the same kind of "where is work
+happening" picture for every unit alike. The Scope/Done/Ongoing/Pending
+*numbers* shown elsewhere keep coming from
+``linear_stats.compute_item_stats``, which is a flat sum of each
+record's own ``qty`` - the chainage segments drawn here are never
+re-derived into those numbers, by design (a segment is only for
+viewing where the work is, not for calculating how much of it there
+is).
 """
 
 from decimal import Decimal

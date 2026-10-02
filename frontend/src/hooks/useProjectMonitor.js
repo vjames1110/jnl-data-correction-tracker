@@ -222,20 +222,41 @@ export function useUpdateActivity(siteId) {
   });
 }
 
+export function useUpdateActivityCommentMeetingDate(
+  siteId,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ commentId, meetingDate }) =>
+      projectMonitorService.updateActivityCommentMeetingDate(
+        commentId,
+        meetingDate,
+      ),
+    onSuccess: () => {
+      invalidateStructures(queryClient, siteId);
+      invalidateBuildings(queryClient, siteId);
+      invalidateGirderJobs(queryClient, siteId);
+      invalidateActionItems(queryClient, siteId);
+    },
+  });
+}
+
 export function useStructureTypes(
   includeInactive,
+  siteId,
 ) {
   return useQuery({
     queryKey:
       queryKeys.projectMonitorStructureTypes({
         all: includeInactive ? "1" : "",
+        site: siteId || "",
       }),
     queryFn: () =>
-      projectMonitorService.listStructureTypes(
-        includeInactive
-          ? { all: "1" }
-          : {},
-      ),
+      projectMonitorService.listStructureTypes({
+        ...(includeInactive ? { all: "1" } : {}),
+        ...(siteId ? { site: siteId } : {}),
+      }),
   });
 }
 
@@ -252,9 +273,27 @@ export function useCreateStructureType() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload) =>
+    mutationFn: ({ payload, siteId }) =>
       projectMonitorService.createStructureType(
         payload,
+        siteId,
+      ),
+    onSuccess: () =>
+      invalidateStructureTypes(queryClient),
+  });
+}
+
+export function useDistributeStructureType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      structureTypeId,
+      siteIds,
+    }) =>
+      projectMonitorService.distributeStructureType(
+        structureTypeId,
+        siteIds,
       ),
     onSuccess: () =>
       invalidateStructureTypes(queryClient),

@@ -105,7 +105,7 @@ export function DueTracker({
             <table className="pm-report__table pm-due-tracker__table">
               <thead>
                 <tr>
-                  <th>Target date</th>
+                  <th>Approval date</th>
                   {showSite ? <th>Project</th> : null}
                   <th>Module</th>
                   <th>Where</th>
