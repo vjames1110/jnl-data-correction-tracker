@@ -9,6 +9,8 @@ docs every structure type gets, and bulk-creating the resulting
 ``Activity`` rows against a ``Structure`` instance.
 """
 
+from collections import defaultdict
+
 from django.contrib.contenttypes.models import ContentType
 
 from apps.project_monitor.models import (
@@ -192,20 +194,22 @@ def update_structure(
     content_type = ContentType.objects.get_for_model(
         Structure
     )
-    existing = {
-        (
-            activity.group_title,
-            activity.group_subtitle,
-            activity.name,
-        ): activity
-        for activity in Activity.objects.filter(
-            content_type=content_type,
-            object_id=structure.id,
-        )
-        if activity.group_order != 0
-        and not activity.is_custom
-    }
-    matched_keys = set()
+    # Matched on (group title, row name) only. The subtitle is NOT part
+    # of the key: it is built from the very inputs being edited (a
+    # foundation's "8 piles" vs "Open foundation", a span count's "3
+    # span(s)"), so keying on it made an edited structure never match its
+    # own rows and every one of them got recreated beside the old copy.
+    # Each key maps to its existing rows in sheet order, so a name used
+    # twice in one group is still matched one-for-one.
+    existing = defaultdict(list)
+    for activity in Activity.objects.filter(
+        content_type=content_type,
+        object_id=structure.id,
+    ).order_by("row_order", "id"):
+        if activity.group_order != 0 and not activity.is_custom:
+            existing[
+                (activity.group_title, activity.name)
+            ].append(activity)
     to_create = []
 
     for group_index, group in enumerate(
@@ -215,13 +219,9 @@ def update_structure(
         for row_index, row in enumerate(
             group["rows"]
         ):
-            key = (
-                group["title"],
-                subtitle,
-                row["name"],
-            )
-            found = existing.get(key)
-            if found is None:
+            key = (group["title"], row["name"])
+            candidates = existing.get(key)
+            if not candidates:
                 to_create.append(
                     Activity(
                         content_type=content_type,
@@ -250,7 +250,7 @@ def update_structure(
                 )
                 continue
 
-            matched_keys.add(key)
+            found = candidates.pop(0)
             new_is_na = (
                 row["status"]
                 == ActivityStatus.NOT_APPLICABLE
@@ -297,9 +297,11 @@ def update_structure(
             found.save()
 
     orphaned_group_order = len(new_groups) + 1
-    for key, activity in existing.items():
-        if key in matched_keys:
-            continue
+    for activity in (
+        leftover
+        for leftovers in existing.values()
+        for leftover in leftovers
+    ):
         if (
             activity.status
             != ActivityStatus.NOT_APPLICABLE
