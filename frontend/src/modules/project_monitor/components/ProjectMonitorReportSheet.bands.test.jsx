@@ -85,4 +85,28 @@ describe("ProjectMonitorReportSheet span banding", () => {
       /band/,
     );
   });
+
+  it("says so instead of printing an empty table for a sheet with no tasks", () => {
+    render(
+      <ProjectMonitorReportSheet
+        site={{ site_code: "CHK", site_name: "Chunar" }}
+        structures={[
+          {
+            ...STRUCTURE,
+            id: "s2",
+            name: "Box 214",
+            overall_progress: { done: 0, total: 0 },
+            groups: [],
+          },
+        ]}
+        buildings={[]}
+        sections={NONE}
+      />,
+    );
+
+    expect(
+      screen.getByText("No activities on this sheet."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
 });

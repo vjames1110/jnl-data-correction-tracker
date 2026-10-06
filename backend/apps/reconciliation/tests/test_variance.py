@@ -922,3 +922,39 @@ def test_one_output_entry_drives_theoretical_for_multiple_materials(
         aggregate_entry.theoretical_or_book_quantity
         == Decimal("110.000")
     )
+
+
+@pytest.mark.django_db
+def test_consumption_is_shown_even_when_no_standard_is_configured(
+    norm_based_item,
+    category,
+    period,
+):
+    # No standard at all: what was consumed is a stock fact and shows;
+    # there is nothing to compare it with, so theoretical, variance and
+    # value stay blank and the entry keeps its NOT_CALCULATED flag.
+    ReconciliationOutputEntry.objects.create(
+        period=period,
+        category=category,
+        output_quantity=Decimal("100.000"),
+    )
+
+    entry = ReconciliationEntry.objects.create(
+        period=period,
+        item=norm_based_item,
+        opening_stock=Decimal("10.000"),
+        receipts=Decimal("30.000"),
+        closing_stock=Decimal("5.000"),
+    )
+
+    assert entry.actual_quantity == Decimal("35.000")
+    assert entry.theoretical_or_book_quantity is None
+    assert entry.variance_quantity is None
+    assert entry.variance_value is None
+    assert (
+        entry.status
+        == ReconciliationEntryStatus.NOT_CALCULATED
+    )
+    assert set(
+        entry.flags.values_list("flag_type", flat=True)
+    ) == {ReconciliationFlagType.MISSING_MIX_OR_RATE}

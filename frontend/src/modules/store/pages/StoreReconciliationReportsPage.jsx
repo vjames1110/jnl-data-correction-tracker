@@ -467,10 +467,7 @@ export function StoreReconciliationReportsPage() {
             />
           ) : null}
 
-          <SurfaceCard
-            title="6-Month Trend"
-            className="print-hidden"
-          >
+          <SurfaceCard title="6-Month Trend">
             <TrendChart data={data.trend} />
           </SurfaceCard>
 

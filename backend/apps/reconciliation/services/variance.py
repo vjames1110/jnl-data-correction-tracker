@@ -91,7 +91,7 @@ def compute_entry_variance(entry) -> None:
             entry.book_stock,
         )
 
-    if rate is None or is_incomplete:
+    if is_incomplete:
         entry.actual_quantity = None
         entry.theoretical_or_book_quantity = None
         entry.variance_quantity = None
@@ -139,17 +139,30 @@ def compute_entry_variance(entry) -> None:
     variance = (
         -deviation if is_norm_based else deviation
     )
-    variance_value = _quantize(
-        variance * rate, VALUE_QUANTUM
-    )
-
+    entry.resolved_rate = rate
     entry.actual_quantity = actual
+
+    # No standard configured (a standard always carries a rate): what
+    # was consumed is still a plain stock fact and is shown, but there
+    # is nothing to compare it with, so theoretical, variance and the
+    # rupee value stay blank and the entry keeps its "no rate or mix
+    # ratio" flag.
+    if rate is None:
+        entry.theoretical_or_book_quantity = None
+        entry.variance_quantity = None
+        entry.variance_value = None
+        entry.status = (
+            ReconciliationEntryStatus.NOT_CALCULATED
+        )
+        return
+
     entry.theoretical_or_book_quantity = (
         theoretical
     )
     entry.variance_quantity = variance
-    entry.variance_value = variance_value
-    entry.resolved_rate = rate
+    entry.variance_value = _quantize(
+        variance * rate, VALUE_QUANTUM
+    )
     entry.status = _resolve_status(
         variance=deviation,
         base=theoretical,

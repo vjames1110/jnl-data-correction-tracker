@@ -1393,10 +1393,12 @@ export function useSiteAccess(siteId) {
     "site-access",
     { site: siteId },
     () =>
-      projectMonitorService.listSiteAccess(
-        siteId ? { site: siteId } : {},
-      ),
-    true,
+      projectMonitorService.listSiteAccess({
+        site: siteId,
+      }),
+    // The list is per site; with none chosen yet there is nothing to
+    // ask for (the server refuses a site-less request).
+    Boolean(siteId),
   );
 }
 

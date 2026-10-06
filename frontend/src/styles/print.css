@@ -1,0 +1,222 @@
+/*
+  Printing and "Save as PDF", for every report in every module.
+
+  The goal is that paper shows what the portal shows: the same layout,
+  colours and order, at the full width of the page. Loaded last so it
+  wins over the screen rules it adjusts.
+*/
+
+/* No page size, so the print dialog's Portrait/Landscape choice still
+   works; only the margins are fixed. */
+@page {
+  margin: 10mm;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background: #fff !important;
+  }
+
+  /* Keep status colours, banded rows and table header shading - the
+     browser drops all backgrounds on paper by default. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ---- App frame ----
+     The shell is a "sidebar | content" grid. Hiding the sidebar alone
+     leaves the content in the sidebar's narrow first column, which is
+     what squeezed every report into a strip down the left of the page. */
+  .admin-shell,
+  .admin-shell--collapsed,
+  .user-shell,
+  .user-shell--collapsed {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  .admin-shell__content,
+  .user-shell__content {
+    width: auto !important;
+  }
+
+  .admin-page-container,
+  .user-page-container {
+    padding: 0 !important;
+  }
+
+  .admin-sidebar,
+  .user-sidebar,
+  .admin-header,
+  .user-header,
+  .print-hidden,
+  .pm-popup,
+  .management-panel,
+  .details-drawer,
+  .notification-panel,
+  .tsqd-parent-container,
+  .tsqd-open-btn-container {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* ---- Nothing scrolls or clips on paper ----
+     A table that scrolls sideways on screen would otherwise print only
+     the columns that happened to be in view. */
+  .data-table-wrapper,
+  .recon-sheet__table-wrap,
+  .pm-table-wrap,
+  .pm-matrix-wrap,
+  .pm-rolling-diagram__table-wrap,
+  .pm-tabs,
+  .pm-workspace {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* ---- Cards ----
+     Flat on paper, and allowed to flow across pages: a long card set to
+     "never split" jumps whole to the next page and leaves a blank one
+     behind. */
+  .surface-card,
+  .recon-sheet,
+  .pm-report,
+  .pm-pack {
+    box-shadow: none !important;
+    break-inside: auto !important;
+  }
+
+  /* Small blocks stay in one piece. */
+  .kpi-card,
+  .pm-finance-tiles,
+  .recon-sheet__details,
+  .pm-report__details {
+    break-inside: avoid;
+  }
+
+  /* ---- Tables ---- */
+  table {
+    break-inside: auto;
+  }
+
+  /* The column headings repeat at the top of every printed page. */
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr,
+  img,
+  svg {
+    break-inside: avoid;
+  }
+
+  /* Task tables: on screen every short cell (status, progress, dates,
+     reviewed) sits on one line; keep that on the narrower page, and let
+     only the free-text task and remark columns wrap. Wider tables (nine
+     columns or more) still wrap freely, or they would not fit the page. */
+  table.pm-report__table:has(.pm-report__col-task):not(:has(th:nth-child(9)))
+    td:not(.pm-report__col-task):not(.pm-report__col-remark),
+  table.pm-report__table:has(.pm-report__col-task):not(:has(th:nth-child(9)))
+    th {
+    white-space: nowrap;
+  }
+
+  /* Wide summary tables (nine columns or more): one step smaller so
+     every value still fits on its line - a date or "End date not set"
+     broken over two or three lines reads worse than slightly smaller
+     type. Only the free-text first column wraps. */
+  table.pm-report__table:has(th:nth-child(9)) {
+    font-size: 9px;
+  }
+
+  table.pm-report__table:has(th:nth-child(9)) th {
+    font-size: 8px;
+  }
+
+  table.pm-report__table:has(th:nth-child(9)) th,
+  table.pm-report__table:has(th:nth-child(9))
+    td:not(.pm-report__col-task):not(.pm-report__col-remark) {
+    padding: 3px 4px;
+    white-space: nowrap;
+  }
+
+  .pm-report__col-remark {
+    min-width: 0;
+  }
+
+  /* Sticky headers/columns are a scrolling aid; on paper they would
+     float over the rows. */
+  th,
+  td {
+    position: static !important;
+  }
+
+  /* ---- Headings stay with what follows them ---- */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  .print-title,
+  .pm-report__block-progress,
+  .recon-sheet__note {
+    break-after: avoid;
+  }
+
+  /* ---- Same arrangement as the portal ----
+     A portrait page is about 720px wide, which trips the tablet/phone
+     breakpoints and would restack KPI tiles and charts into one or two
+     columns. Put back the desktop layout the report has on screen. */
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .kpi-grid--compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .kpi-grid--compact.pm-dashboard-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .kpi-grid--compact.pm-finance-tiles__grid,
+  .kpi-grid.pm-finance-tiles__payments {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .pm-dashboard-charts {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) !important;
+  }
+
+  .pm-hr-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .pm-costing-periods {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* List tables never wrap on a wide screen; on paper they must, or the
+     last columns run off the page. */
+  .data-table th,
+  .data-table td {
+    padding: 0 8px;
+    white-space: normal;
+  }
+
+  /* ---- Screen-only controls inside reports ---- */
+  .page-actions,
+  .pm-report-customize {
+    display: none !important;
+  }
+}

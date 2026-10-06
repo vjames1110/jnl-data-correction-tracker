@@ -649,14 +649,34 @@
     repeat(6, minmax(0, 1fr));
 }
 
+/* Wraps onto a second line instead of running past the card: eight
+   fixed-minimum columns needed ~1180px, wider than the card on a
+   1440px screen, which pushed the Reset button off the edge. */
 .director-inbox-toolbar {
   display: grid;
-  grid-template-columns:
-    minmax(220px, 1.2fr)
-    repeat(6, minmax(135px, 1fr))
-    minmax(82px, auto);
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(150px, 1fr)
+  );
   align-items: end;
   gap: 10px;
+}
+
+.director-inbox-toolbar__search {
+  grid-column: span 2;
+}
+
+.director-inbox-toolbar .input-control {
+  min-height: 34px;
+}
+
+/* The search input sits inside the bordered .input-control box; the
+   toolbar's own input rule must not give it a second border. */
+.director-inbox-toolbar .input-control input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .director-inbox-toolbar .form-field span,
@@ -677,12 +697,22 @@
 }
 
 .director-approval-table {
-  min-width: 1180px;
+  min-width: 980px;
 }
 
 .director-approval-table th,
 .director-approval-table td {
   font-size: 12px;
+}
+
+/* The free-text columns (requester, site, voucher) wrap, so the table
+   fits its card and the View button at the end is never cut off;
+   request number, SLA, ageing, status and the button stay on one
+   line. */
+.director-approval-table td:nth-child(2),
+.director-approval-table td:nth-child(3),
+.director-approval-table td:nth-child(4) {
+  white-space: normal;
 }
 
 .director-approval-table td small,

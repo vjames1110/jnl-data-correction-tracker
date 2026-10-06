@@ -688,9 +688,7 @@ td.recon-sheet__col-label {
   }
 
   .surface-card {
-    box-shadow: none !important;
     border: 1px solid #d0d5dd;
-    break-inside: avoid;
   }
 
   .statement-pack__site {
@@ -703,15 +701,8 @@ td.recon-sheet__col-label {
 
   .recon-sheet {
     border: 0;
-    box-shadow: none;
     padding: 0;
     border-radius: 0;
-    break-inside: avoid;
-  }
-
-  table.recon-sheet__table,
-  .recon-sheet__details {
-    break-inside: avoid;
   }
 }
 

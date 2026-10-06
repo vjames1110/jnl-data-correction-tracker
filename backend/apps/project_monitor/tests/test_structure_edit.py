@@ -7,6 +7,7 @@ NOT_APPLICABLE rather than deleted; a row that newly starts being
 generated is created fresh; the Approvals docs are never touched.
 """
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -432,3 +433,66 @@ def test_leaving_out_name_and_chainage_keeps_them_as_they_were(
 
     assert updated.name == "Br. 7"
     assert updated.chainage_km == Decimal("7.000")
+
+
+@pytest.mark.django_db
+def test_editing_restores_approvals_docs_when_a_sheet_has_none(
+    site, minor_type
+):
+    # A sheet that ended up with no Approvals docs at all (its type
+    # gained include_approval_docs later, or it was added before the
+    # type had them) gets them back on the next edit.
+    structure = create_structure(
+        site=site,
+        structure_type=minor_type,
+        name="Br. 240",
+        chainage_km=Decimal("24.000"),
+        config={"w": 3, "h": 3, "cells": 1, "barrel": 12, "returns": 2},
+        actor=None,
+    )
+    structure.activities.filter(group_order=0).delete()
+    assert not structure.activities.filter(group_order=0).exists()
+
+    update_structure(
+        structure=structure,
+        config=structure.config,
+        actor=None,
+    )
+
+    assert sorted(
+        structure.activities.filter(group_order=0).values_list(
+            "name", flat=True
+        )
+    ) == ["GAD approval", "Structural drawing approval"]
+
+
+@pytest.mark.django_db
+def test_editing_never_disturbs_approvals_docs_that_already_exist(
+    site, minor_type
+):
+    structure = create_structure(
+        site=site,
+        structure_type=minor_type,
+        name="Br. 241",
+        chainage_km=Decimal("24.100"),
+        config={"w": 3, "h": 3, "cells": 1, "barrel": 12, "returns": 2},
+        actor=None,
+    )
+    gad = structure.activities.get(name="GAD approval")
+    apply_update(
+        gad,
+        meeting_date=date(2026, 5, 1),
+        status=ActivityStatus.COMPLETE,
+        comment="Approved by Railway.",
+    )
+
+    update_structure(
+        structure=structure,
+        config=structure.config,
+        actor=None,
+    )
+
+    assert structure.activities.filter(group_order=0).count() == 2
+    gad.refresh_from_db()
+    assert gad.status == ActivityStatus.COMPLETE
+    assert gad.comments.count() == 1

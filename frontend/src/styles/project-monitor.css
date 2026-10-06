@@ -696,13 +696,6 @@
   width: 180px;
 }
 
-.pm-report__section {
-  break-before: page;
-}
-
-.pm-report__section:first-of-type {
-  break-before: auto;
-}
 
 .pm-report__section h2 {
   margin: var(--space-4) 0 var(--space-3);
@@ -716,7 +709,6 @@
 
 .pm-report__block {
   margin-bottom: var(--space-4);
-  break-inside: avoid;
 }
 
 .pm-report__block h3 {

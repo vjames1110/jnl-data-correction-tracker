@@ -13,6 +13,7 @@ import "./styles/admin.css";
 import "./styles/user.css";
 import "./styles/charts.css";
 import "./styles/project-monitor.css";
+import "./styles/print.css";
 
 preventNumberInputScroll();
 

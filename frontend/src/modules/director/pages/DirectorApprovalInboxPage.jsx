@@ -241,9 +241,9 @@ export function DirectorApprovalInboxPage() {
 
       <SurfaceCard title="Search And Filters">
         <div className="director-inbox-toolbar">
-          <label className="form-field">
+          <label className="form-field director-inbox-toolbar__search">
             <span>Requester</span>
-            <div className="input-with-icon">
+            <div className="input-control">
               <Search size={15} />
               <input
                 value={filters.requester}

@@ -313,6 +313,38 @@ def update_structure(
         activity.updated_by = actor
         activity.save()
 
+    # The Approvals docs are never regenerated or reordered - whatever
+    # progress they carry is left alone. The one exception is a sheet
+    # that has none at all (its type gained include_approval_docs after
+    # the structure was added, or it was created before the type had
+    # any): there is nothing to disturb, and without this an edit can
+    # never put them back.
+    if structure.structure_type.include_approval_docs and not (
+        Activity.objects.filter(
+            content_type=content_type,
+            object_id=structure.id,
+            group_order=0,
+        ).exists()
+    ):
+        for row_index, row in enumerate(doc_rows()):
+            to_create.append(
+                Activity(
+                    content_type=content_type,
+                    object_id=structure.id,
+                    name=row["name"],
+                    group_title="Approvals",
+                    group_order=0,
+                    row_order=row_index,
+                    kind=row["kind"],
+                    unit=row["unit"],
+                    total_qty=row["total_qty"],
+                    status=row["status"],
+                    is_doc=row["is_doc"],
+                    created_by=actor,
+                    updated_by=actor,
+                )
+            )
+
     if to_create:
         Activity.objects.bulk_create(to_create)
 

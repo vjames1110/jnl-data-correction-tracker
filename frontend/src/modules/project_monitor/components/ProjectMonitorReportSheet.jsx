@@ -95,6 +95,12 @@ function ActivityTable({ groups }) {
     }));
   });
 
+  if (!rows.length) {
+    return (
+      <p className="pm-report__empty">No activities on this sheet.</p>
+    );
+  }
+
   return (
     <table className="pm-report__table">
       <thead>
